@@ -65,7 +65,7 @@ namespace clu
         using const_iterator = iterator;
 
     private:
-        Rng range_;
+        Rng range_; // Take ownership if rvalue, take reference if lvalue
 
     public:
         explicit constexpr enumerate_t(Rng&& range): range_(static_cast<Rng&&>(range)) {}
