@@ -5,6 +5,7 @@
 #include <clu/quantifier.h>
 #include <clu/flat_tree.h>
 #include <clu/enumerate.h>
+#include <clu/indices.h>
 
 TEST(Quantifier, AllOf)
 {
@@ -81,4 +82,24 @@ TEST(FlatTree, Actions)
     tree.add_child(fourth, 6);
     tree.set_as_root(fourth);
     EXPECT_THAT(tree, testing::ElementsAre(4, 5, 6));
+}
+
+// TODO: Tests for clu::enumerate
+
+TEST(Indices, OneDimension)
+{
+    EXPECT_THAT(clu::indices(5), testing::ElementsAre(0, 1, 2, 3, 4));
+    EXPECT_THAT(clu::indices(0), testing::ElementsAre());
+}
+
+TEST(Indices, MultiDimension)
+{
+    using index_type = std::array<size_t, 3>;
+    std::array<index_type, 3 * 4 * 2> elements{};
+    size_t index = 0;
+    for (size_t i = 0; i < 3; i++)
+        for (size_t j = 0; j < 4; j++)
+            for (size_t k = 0; k < 2; k++)
+                elements[index++] = index_type{ i, j, k };
+    EXPECT_THAT(clu::indices(3, 4, 2), testing::ElementsAreArray(elements));
 }
