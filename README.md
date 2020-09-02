@@ -20,7 +20,23 @@ All API in this library lies in namespace `clu`. The nested namespace `clu::deta
         // Do things with index "i" and element "elem"
     ```
 
-- `flat_tree.h`: A tree structure implementation based on `std::vector`. Uses a free list under the hood. Currently it doesn't go well with objects with complicated c'tors or d'tors, so only trivial structs can be used here.
+- `flat_forest.h`: An STL-like implementation for the forest data structure. Nodes are saved mostly contiguously inside memory. Provides fast structure modification methods (e.g. detach a branch and attach it elsewhere).
+
+    ```cpp
+    flat_forest<std::string> f;
+    const auto /*forest<std::string>::iterator*/ root = f.emplace_child(f.end(), "Hello!");
+    assert(root.is_root());
+    const auto child = f.emplace_child(root, "Hi!");
+    const auto next_child = f.emplace_sibling_after(child, "Howdy!");
+    assert(child.next_sibling() == next_child);
+    for (const auto& str : f) std::cout << str << ' '; // Hello! Hi! Howdy!
+    std::cout << '\n';
+    const auto new_first = f.emplace_child(root, "Greetings!");
+    assert(new_first.next_sibling() == child);
+    f.reset_parent(child, next_child);
+    assert(next_child.first_child() == child);
+    for (const auto& str : f) std::cout << str << ' '; // Hello! Greetings! Howdy! Hi!
+    ```
 
 - `indices.h`: Provides better syntax for writing normal indexed `for` loops.
 

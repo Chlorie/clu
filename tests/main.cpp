@@ -3,7 +3,7 @@
 #include <string>
 
 #include <clu/quantifier.h>
-#include <clu/flat_tree.h>
+#include <clu/flat_forest.h>
 #include <clu/enumerate.h>
 #include <clu/indices.h>
 
@@ -54,37 +54,35 @@ TEST(Quantifier, NoneOf)
     EXPECT_FALSE(clu::none_of(0, 1) >= 0.0f);
 }
 
-TEST(FlatTree, Construction)
+TEST(FlatForest, Construction)
 {
-    clu::flat_tree<int> tree(42);
-    EXPECT_THAT(tree, testing::ElementsAre(42));
-    const auto root = tree.root();
-    EXPECT_EQ(*root, 42);
-    EXPECT_EQ(&root.tree(), &tree);
-    EXPECT_TRUE(root.is_root());
-    EXPECT_TRUE(root.is_leaf());
-    EXPECT_TRUE(root.is_last_child_of_parent());
+    const clu::flat_forest<int> forest;
+    EXPECT_TRUE(forest.empty());
+    EXPECT_TRUE(forest.begin().is_sentinel());
+    EXPECT_TRUE(forest.end().is_sentinel());
+    EXPECT_EQ(forest.begin(), forest.end());
 }
 
-TEST(FlatTree, Actions)
+TEST(FlatForest, EmplaceChild)
 {
-    clu::flat_tree<int> tree;
-    const auto root = tree.root();
-    const auto first_child = tree.add_child(root, 1);
-    tree.add_child(root, 2);
-    tree.add_child(first_child, 3);
-    EXPECT_THAT(tree, testing::ElementsAre(0, 1, 3, 2));
-    tree.prune(first_child);
-    EXPECT_THAT(tree, testing::ElementsAre(0, 2));
-    const auto fourth = tree.add_child(root.first_child(), 4);
-    EXPECT_THAT(tree, testing::ElementsAre(0, 2, 4));
-    tree.add_child(fourth, 5);
-    tree.add_child(fourth, 6);
-    tree.set_as_root(fourth);
-    EXPECT_THAT(tree, testing::ElementsAre(4, 5, 6));
+    clu::flat_forest<int> forest;
+    const auto first = forest.emplace_child(forest.end(), 1);
+    EXPECT_THAT(forest, testing::ElementsAre(1));
+    EXPECT_EQ(*first, 1);
+    EXPECT_EQ(&first.forest(), &forest);
+    EXPECT_TRUE(first.is_root());
+    EXPECT_TRUE(first.is_leaf());
+    EXPECT_TRUE(first.is_last_child_of_parent());
+    const auto second = forest.emplace_child(first, 2);
+    const auto third = forest.emplace_child(first, 3);
+    EXPECT_EQ(second.parent(), first);
+    EXPECT_EQ(third.parent(), first);
+    EXPECT_FALSE(first.is_leaf());
+    EXPECT_THAT(forest, testing::ElementsAre(1, 3, 2));
 }
 
-// TODO: Tests for clu::enumerate
+// TODO: More flat_forest tests needed
+// TODO: enumerate tests needed
 
 TEST(Indices, OneDimension)
 {
