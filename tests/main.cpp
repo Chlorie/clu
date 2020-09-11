@@ -6,6 +6,7 @@
 #include <clu/flat_forest.h>
 #include <clu/enumerate.h>
 #include <clu/indices.h>
+#include <clu/scope.h>
 
 TEST(Quantifier, AllOf)
 {
@@ -82,6 +83,7 @@ TEST(FlatForest, EmplaceChild)
 }
 
 // TODO: More flat_forest tests needed
+
 // TODO: enumerate tests needed
 
 TEST(Indices, OneDimension)

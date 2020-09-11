@@ -60,3 +60,33 @@ All API in this library lies in namespace `clu`. The nested namespace `clu::deta
     // Equivalent to
     x == any_of(1, 2, 3)
     ~~~~
+
+- `scope.h`: RAII wrappers associated with scope execution and exceptions. Useful when dealing with low level handles. Calls the corresponding callable when the current scope exits:
+
+  - `scope_exit`: regardless of the cause
+  - `scope_fail`: due to exceptions
+  - `scope_success`: successfully without throwing exceptions
+
+  ```cpp
+  void test()
+  {
+      FILE* fp = std::fopen("test.txt", "r");
+      try 
+      {
+          do_things_that_could_potentially_throw(fp);
+          std::fclose(fp);
+      }
+      catch (...)
+      {
+          std::fclose(fp);
+          throw;
+      }
+  }
+  // Equivalent to
+  void test()
+  {
+      FILE* fp = std::fopen("test.txt", "r");
+      scope_exit _ = [=]() { std::fclose(fp); };
+      do_things_that_could_potentially_throw(fp);
+  }
+  ```
