@@ -1,6 +1,6 @@
 # Chlorie's utilities library
 
-Chlorie's small utility classes, functions, and various silly things. Requires C\++17 to compile, and will update to C\++20 when major compilers support it. May contain bugs.
+Chlorie's collection of header-only small utilities. Requires C++20, will modularize as soon as major compilers & cmake supports standard modules.
 
 ## Contents
 

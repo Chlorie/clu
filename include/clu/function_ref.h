@@ -2,6 +2,8 @@
 
 #include <functional>
 
+#include "concepts.h"
+
 namespace clu
 {
     template <typename Func>
@@ -11,15 +13,11 @@ namespace clu
     class function_ref<R(Ts ...)> final
     {
     private:
-        template <typename F>
-        static constexpr bool enable_convert =
-            std::is_invocable_r_v<R, F, Ts...> && !std::is_same_v<std::decay_t<F>, function_ref>;
-
         void* ptr_ = nullptr;
         R (*fptr_)(void*, Ts ...) = nullptr;
 
         template <typename F>
-        static R call_impl(void* ptr, Ts ... args)
+        static constexpr R call_impl(void* ptr, Ts ... args)
         {
             return std::invoke(*static_cast<F*>(ptr), std::forward<Ts>(args)...);
         }
@@ -27,12 +25,12 @@ namespace clu
     public:
         function_ref() = delete;
 
-        template <typename F, std::enable_if_t<enable_convert>* = nullptr>
-        constexpr function_ref(F&& func) noexcept: // NOLINT(bugprone-forwarding-reference-overload)
+        template <typename F> requires invocable_of<F, R, Ts...> && !similar_to<F, function_ref>
+        explicit(false) constexpr function_ref(F&& func) noexcept: // NOLINT(bugprone-forwarding-reference-overload)
             ptr_(const_cast<void*>(static_cast<const void*>(std::addressof(func)))),
             fptr_(&function_ref::template call_impl<F>) {}
 
-        template <typename F, std::enable_if_t<enable_convert>* = nullptr>
+        template <typename F> requires invocable_of<F, R, Ts...> && !similar_to<F, function_ref>
         constexpr function_ref& operator=(F&& func) noexcept
         {
             ptr_ = const_cast<void*>(static_cast<const void*>(std::addressof(func)));
@@ -40,7 +38,7 @@ namespace clu
             return *this;
         }
 
-        R operator()(Ts ... args) const { return fptr_(ptr_, std::forward<Ts>(args)...); }
+        constexpr R operator()(Ts ... args) const { return fptr_(ptr_, std::forward<Ts>(args)...); }
 
         constexpr void swap(function_ref& other) noexcept
         {

@@ -23,7 +23,7 @@ namespace clu
 
         struct node final
         {
-            union storage
+            union storage // NOLINT(cppcoreguidelines-special-member-functions)
             {
                 size_t next_free;
                 T value;
