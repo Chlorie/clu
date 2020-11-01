@@ -142,6 +142,7 @@ namespace clu
         };
     }
 
-    template <typename... Ints>
+    // TODO: terse syntax
+    template <std::convertible_to<size_t>... Ints>
     constexpr auto indices(const Ints ... extents) { return detail::indices_t<sizeof...(Ints)>({ static_cast<size_t>(extents)... }); }
 }

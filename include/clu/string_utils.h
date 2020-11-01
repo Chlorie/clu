@@ -16,7 +16,7 @@ namespace clu
     // @formatter:on
 
     template <typename T>
-    concept char_pointer = std::is_pointer_v<T> && char_type<std::remove_pointer_t<T>>;
+    concept char_pointer = std::is_pointer_v<T> && char_type<std::remove_cv_t<std::remove_pointer_t<T>>>;
 
     template <typename T>
     concept string_view_like = requires(const T& str)
@@ -26,7 +26,7 @@ namespace clu
     };
 
     template <char_type T, size_t N>
-    constexpr size_t strlen(const T (&)[N]) { return N - 1; }
+    constexpr size_t strlen(const T [N]) { return N - 1; }
 
     template <char_type T>
     constexpr size_t strlen(const T* str)

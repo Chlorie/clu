@@ -4,6 +4,8 @@
 #include <exception>
 #include <ranges>
 
+#include "unique_coroutine_handle.h"
+
 namespace clu
 {
     template <typename T> class generator;
@@ -104,8 +106,6 @@ namespace clu
         };
     }
 
-    template <typename T> constexpr bool f = false;
-
     template <typename T>
     class generator final
     {
@@ -115,42 +115,30 @@ namespace clu
         using sentinel = detail::generator_sentinel;
 
     private:
-        using handle_t = std::coroutine_handle<promise_type>;
-        handle_t handle_{};
+        unique_coroutine_handle<promise_type> handle_{};
 
     public:
-        explicit generator(promise_type& promise): handle_(handle_t::from_promise(promise))
+        explicit generator(promise_type& promise):
+            handle_(std::coroutine_handle<promise_type>::from_promise(promise))
         {
             static_assert(std::input_iterator<iterator>);
             static_assert(std::ranges::input_range<generator>);
         }
 
-        ~generator() noexcept { if (handle_) handle_.destroy(); }
-        generator(const generator&) = delete;
-        generator(generator&& other) noexcept: handle_(std::exchange(other.handle_, {})) {}
-        generator& operator=(const generator&) = delete;
-        generator& operator=(generator&& other) noexcept
-        {
-            if (this == &other) return *this;
-            if (handle_) handle_.destroy();
-            handle_ = std::exchange(other.handle_, {});
-            return *this;
-        }
-
         iterator begin() noexcept
         {
-            handle_.resume();
-            return iterator(handle_);
+            handle_.get().resume();
+            return iterator(handle_.get());
         }
         sentinel end() const noexcept { return {}; }
 
         decltype(auto) next() const
         {
-            handle_.resume();
-            return handle_.promise().get();
+            handle_.get().resume();
+            return handle_.get().promise().get();
         }
         decltype(auto) operator()() const { return next(); }
-        bool done() const { return handle_.done(); }
+        bool done() const { return handle_.get().done(); }
     };
 
     namespace detail

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iterator>
+#include <ranges>
 
 namespace clu
 {
@@ -81,6 +82,6 @@ namespace clu
         };
     }
 
-    template <typename Rng>
+    template <std::ranges::range Rng>
     constexpr auto enumerate(Rng&& range) { return detail::enumerate_t<Rng>(std::forward<Rng>(range)); }
 }

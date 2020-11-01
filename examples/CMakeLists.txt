@@ -1,10 +1,16 @@
 # Examples
 
-function (add_example TARGET_NAME FILE)
-    add_executable(${TARGET_NAME} ${FILE})
+function (add_example TARGET_NAME)
+    add_executable(${TARGET_NAME} "${TARGET_NAME}.cpp")
     target_set_options(${TARGET_NAME})
     target_link_libraries(${TARGET_NAME} PRIVATE clu)
 endfunction ()
 
-add_example(scope scope.cpp)
-add_example(partial partial.cpp)
+add_example(enumerate)
+add_example(flat_forest)
+add_example(function_ref)
+add_example(generator)
+add_example(indices)
+add_example(partial)
+add_example(scope)
+add_example(string_utils)

@@ -4,6 +4,7 @@
 #include <variant>
 #include <concepts>
 
+#include "unique_coroutine_handle.h"
 #include "../detail/value_wrapper.h"
 
 namespace clu
@@ -99,21 +100,10 @@ namespace clu
             }
         };
 
-        handle_t handle_{};
+        unique_coroutine_handle<promise_type> handle_{};
 
     public:
         explicit task(promise_type& promise): handle_(handle_t::from_promise(promise)) {}
-        task(const task&) = delete;
-        task(task&& other) noexcept: handle_(std::exchange(other.handle_, {})) {}
-        task& operator=(const task&) = delete;
-        task& operator=(task&& other) noexcept
-        {
-            if (this == &other) return *this;
-            if (handle_) handle_.destroy();
-            handle_ = std::exchange(other.handle_, {});
-            return *this;
-        }
-        ~task() noexcept { if (handle_) handle_.destroy(); }
 
         auto operator co_await() const &
         {
@@ -123,7 +113,7 @@ namespace clu
                 using awaiter_base::awaiter_base;
                 decltype(auto) await_resume() { return awaiter_base::handle_.promise().get(); }
             };
-            return task_awaiter(handle_);
+            return task_awaiter(handle_.get());
         }
 
         auto operator co_await() const &&
@@ -134,7 +124,7 @@ namespace clu
                 using awaiter_base::awaiter_base;
                 decltype(auto) await_resume() { return std::move(awaiter_base::handle_.promise()).get(); }
             };
-            return task_awaiter(handle_);
+            return task_awaiter(handle_.get());
         }
     };
 

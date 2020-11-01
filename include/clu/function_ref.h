@@ -19,7 +19,7 @@ namespace clu
         template <typename F>
         static constexpr R call_impl(void* ptr, Ts ... args)
         {
-            return std::invoke(*static_cast<F*>(ptr), std::forward<Ts>(args)...);
+            return std::invoke(*static_cast<std::remove_cvref_t<F>*>(ptr), std::forward<Ts>(args)...);
         }
 
     public:
@@ -27,7 +27,7 @@ namespace clu
 
         template <typename F> requires invocable_of<F, R, Ts...> && !similar_to<F, function_ref>
         explicit(false) constexpr function_ref(F&& func) noexcept: // NOLINT(bugprone-forwarding-reference-overload)
-            ptr_(const_cast<void*>(static_cast<const void*>(std::addressof(func)))),
+            ptr_(const_cast<void*>(static_cast<const void*>(std::addressof(func)))), // TODO: no non-standard conversions
             fptr_(&function_ref::template call_impl<F>) {}
 
         template <typename F> requires invocable_of<F, R, Ts...> && !similar_to<F, function_ref>
