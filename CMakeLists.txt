@@ -2,9 +2,12 @@
 
 cmake_minimum_required(VERSION 3.14)
 
-project(clu)
+project(clu LANGUAGES CXX VERSION 0.1.0)
+
+set(LIB_NAME clu)
 
 option(CLU_BUILD_EXAMPLES "Build examples" OFF)
+option(CLU_INSTALL "Install the library" OFF)
 
 add_subdirectory(include)
 
@@ -46,4 +49,35 @@ endfunction ()
 
 if (CLU_BUILD_EXAMPLES)
     add_subdirectory(examples)
+endif ()
+
+if (CLU_INSTALL)
+    include(CMakePackageConfigHelpers)
+    write_basic_package_version_file(
+        "${PROJECT_BINARY_DIR}/${LIB_NAME}ConfigVersion.cmake"
+        VERSION ${PACKAGE_VERSION}
+        COMPATIBILITY SameMajorVersion
+    )
+
+    install(TARGETS ${LIB_NAME}
+        EXPORT ${LIB_NAME}Targets
+        LIBRARY DESTINATION lib COMPONENT Runtime
+        ARCHIVE DESTINATION lib COMPONENT Development
+        RUNTIME DESTINATION bin COMPONENT Runtime
+        PUBLIC_HEADER DESTINATION include COMPONENT Development
+        BUNDLE DESTINATION bin COMPONENT Runtime
+    )
+
+    include(CMakePackageConfigHelpers)
+    configure_package_config_file(
+        "${PROJECT_SOURCE_DIR}/cmake/${LIB_NAME}Config.cmake.in"
+        "${PROJECT_BINARY_DIR}/${LIB_NAME}Config.cmake"
+        INSTALL_DESTINATION lib/cmake/${LIB_NAME}
+    )
+
+    install(EXPORT ${LIB_NAME}Targets DESTINATION lib/cmake/${LIB_NAME})
+    install(FILES "${PROJECT_BINARY_DIR}/${LIB_NAME}ConfigVersion.cmake"
+                  "${PROJECT_BINARY_DIR}/${LIB_NAME}Config.cmake"
+            DESTINATION lib/cmake/${LIB_NAME})
+    install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/ DESTINATION include)
 endif ()

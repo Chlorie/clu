@@ -1,6 +1,6 @@
 # Library (currently header only)
 
-set(LIB_NAME clu)
-
-add_library(${LIB_NAME} INTERFACE)
-target_include_directories(${LIB_NAME} INTERFACE "./")
+add_library(clu INTERFACE)
+target_include_directories(clu INTERFACE 
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:.>)
