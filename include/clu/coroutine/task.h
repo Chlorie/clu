@@ -5,7 +5,7 @@
 #include <concepts>
 
 #include "unique_coroutine_handle.h"
-#include "../detail/value_wrapper.h"
+#include "../outcome.h"
 
 namespace clu
 {
@@ -40,19 +40,19 @@ namespace clu
         class task_promise final : public task_promise_base
         {
         private:
-            value_wrapper<T> result_;
+            outcome<T> result_;
 
         public:
             task<T> get_return_object();
 
             template <typename U> requires std::convertible_to<U&&, T>
-            void return_value(U&& value) { result_.emplace(std::forward<U>(value)); }
-            void unhandled_exception() noexcept { result_.capture_exception(); }
+            void return_value(U&& value) { result_ = std::forward<U>(value); }
+            void unhandled_exception() noexcept { result_ = std::current_exception(); }
 
-            decltype(auto) get() & { return result_.get(); }
-            decltype(auto) get() const & { return result_.get(); }
-            decltype(auto) get() && { return std::move(result_).get(); }
-            decltype(auto) get() const && { return std::move(result_).get(); }
+            decltype(auto) get() & { return *result_; }
+            decltype(auto) get() const & { return *result_; }
+            decltype(auto) get() && { return *std::move(result_); }
+            decltype(auto) get() const && { return *std::move(result_); }
         };
 
         template <>

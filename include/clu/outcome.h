@@ -21,21 +21,46 @@ namespace clu
 
     namespace detail
     {
-        template <typename T>
+        template <typename T, typename Derived>
         class outcome_base
         {
         protected:
             std::variant<std::monostate, T, std::exception_ptr> value_;
 
+            Derived& self() & { return static_cast<Derived&>(*this); }
+            const Derived& self() const & { return static_cast<const Derived&>(*this); }
+            Derived&& self() && { return std::move(static_cast<Derived&>(*this)); }
+            const Derived&& self() const && { return std::move(static_cast<const Derived&>(*this)); }
+
         public:
             outcome_base() = default;
             explicit(false) outcome_base(const T& value): value_(value) {}
             explicit(false) outcome_base(T&& value): value_(std::move(value)) {}
-            outcome_base(exceptional_outcome_t): value_(std::current_exception()) {}
-            outcome_base(exceptional_outcome_t, const std::exception_ptr& eptr): value_(eptr) {}
+            explicit(false) outcome_base(const std::exception_ptr& eptr): value_(eptr) {}
+            template <typename E> outcome_base(exceptional_outcome_t, const E& exception): value_(std::make_exception_ptr(exception)) {}
 
             template <typename... Ts> requires std::constructible_from<T, Ts...>
             explicit outcome_base(std::in_place_t, Ts&&... args): value_(std::in_place_index<1>, std::forward<Ts>(args)...) {}
+
+            Derived& operator=(const T& value) // NOLINT(misc-unconventional-assign-operator)
+            {
+                value_ = value;
+                return self();
+            }
+
+            Derived& operator=(T&& value) // NOLINT(misc-unconventional-assign-operator)
+            {
+                value_ = std::move(value);
+                return self();
+            }
+
+            Derived& operator=(const std::exception_ptr& eptr) // NOLINT(misc-unconventional-assign-operator)
+            {
+                value_ = eptr;
+                return self();
+            }
+
+            template <typename E> void set_exception(const E& exception) { value_ = std::make_exception_ptr(exception); }
 
             bool empty() const noexcept { return value_.index() == 0; }
             bool has_value() const noexcept { return value_.index() == 1; }
@@ -54,16 +79,18 @@ namespace clu
                 if (const auto* eptrptr = std::get_if<2>(&value_))
                     std::rethrow_exception(*eptrptr);
             }
+
         };
     }
 
     // TODO: functional interface
-    // TODO: use outcome to refactor coroutine utils
 
     template <typename T>
-    class outcome final : public detail::outcome_base<T>
+    class outcome final : public detail::outcome_base<T, outcome<T>>
     {
     private:
+        using base = detail::outcome_base<T, outcome<T>>;
+
         template <typename U>
         static decltype(auto) get_impl(U&& value)
         {
@@ -77,7 +104,12 @@ namespace clu
         }
 
     public:
-        using detail::outcome_base<T>::outcome_base;
+        using value_type = T;
+        using base::base;
+        using base::operator=;
+
+        template <typename... Ts> requires std::constructible_from<T, Ts...>
+        void emplace(Ts&&... args) { this->value_.template emplace<1>(std::forward<Ts>(args)...); }
 
         template <typename U> friend decltype(auto) get(U&& value) { return get_impl(std::forward<U>(value)); }
 
@@ -92,15 +124,25 @@ namespace clu
     };
 
     template <>
-    class outcome<void> final : public detail::outcome_base<void_tag_t>
+    class outcome<void> final : public detail::outcome_base<void_tag_t, outcome<void>>
     {
+    private:
+        using base = outcome_base<void_tag_t, outcome<void>>;
+
     public:
+        using value_type = void;
+
         outcome() = default;
         explicit(false) outcome(void_tag_t): outcome_base(void_tag) {}
-        outcome(exceptional_outcome_t): outcome_base(exceptional_outcome) {}
-        outcome(exceptional_outcome_t, const std::exception_ptr& eptr): outcome_base(exceptional_outcome, eptr) {}
+        explicit(false) outcome(const std::exception_ptr& eptr): outcome_base(eptr) {}
+        template <typename E> outcome(exceptional_outcome_t, const E& exception): outcome_base(exceptional_outcome, exception) {}
         explicit outcome(std::in_place_t): outcome(void_tag) {}
         explicit outcome(std::in_place_t, void_tag_t): outcome(void_tag) {}
+
+        using base::operator=;
+
+        void emplace() { this->value_.emplace<1>(); }
+        void emplace(void_tag_t) { this->value_.emplace<1>(); }
 
         friend void get(const outcome& value) { return value.get(); }
 
@@ -118,19 +160,26 @@ namespace clu
     };
 
     template <typename T>
-    class outcome<T&> final : public detail::outcome_base<T*>
+    class outcome<T&> final : public detail::outcome_base<T*, outcome<T&>>
     {
     private:
-        using base = detail::outcome_base<T*>;
+        using base = detail::outcome_base<T*, outcome<T&>>;
 
     public:
+        using value_type = T&;
+
         outcome() = default;
         explicit(false) outcome(T& value): base(std::addressof(value)) {}
         explicit(false) outcome(const T&& value) = delete;
-        outcome(exceptional_outcome_t): base(exceptional_outcome) {}
-        outcome(exceptional_outcome_t, const std::exception_ptr& eptr): base(exceptional_outcome, eptr) {}
+        explicit(false) outcome(const std::exception_ptr& eptr): base(eptr) {}
+        template <typename E> outcome(exceptional_outcome_t, const E& exception): base(exceptional_outcome, exception) {}
         explicit outcome(std::in_place_t, T& value): outcome(value) {}
         explicit outcome(std::in_place_t, const T&& value) = delete;
+
+        using base::operator=;
+
+        void emplace(T& value) { this->value_.template emplace<1>(std::addressof(value)); }
+        void emplace(const T&& value) = delete;
 
         friend T& get(const outcome& value) { return value.get(); }
 
@@ -148,18 +197,24 @@ namespace clu
     };
 
     template <typename T>
-    class outcome<T&&> final : public detail::outcome_base<T*>
+    class outcome<T&&> final : public detail::outcome_base<T*, outcome<T&&>>
     {
     private:
-        using base = detail::outcome_base<T*>;
+        using base = detail::outcome_base<T*, outcome<T&&>>;
         static T* addressof(T& ref) { return std::addressof(ref); }
 
     public:
+        using value_type = T&&;
+
         outcome() = default;
         explicit(false) outcome(T&& value): base(addressof(value)) {}
-        outcome(exceptional_outcome_t): base(exceptional_outcome) {}
-        outcome(exceptional_outcome_t, const std::exception_ptr& eptr): base(exceptional_outcome, eptr) {}
+        explicit(false) outcome(const std::exception_ptr& eptr): base(eptr) {}
+        template <typename E> outcome(exceptional_outcome_t, const E& exception): base(exceptional_outcome, exception) {}
         explicit outcome(std::in_place_t, T&& value): outcome(value) {}
+
+        using base::operator=;
+
+        void emplace(T&& value) { this->value_.template emplace<1>(addressof(value)); }
 
         friend T&& get(const outcome& value) { return value.get(); }
 
@@ -168,7 +223,7 @@ namespace clu
             return std::visit(overload
                 {
                     [](std::monostate) -> T&& { throw bad_outcome_access(); },
-                    [](const std::exception_ptr& eptr) -> T& { std::rethrow_exception(eptr); },
+                    [](const std::exception_ptr& eptr) -> T&& { std::rethrow_exception(eptr); },
                     [](T* ptr) -> T&& { return std::move(*ptr); }
                 }, this->value_);
         }
@@ -180,14 +235,4 @@ namespace clu
     outcome(T) -> outcome<T>;
 
     outcome(void_tag_t) -> outcome<void>;
-
-    template <typename T, typename E>
-    outcome<T> make_exceptional_outcome(E&& exception)
-    {
-        return
-        {
-            exceptional_outcome,
-            std::make_exception_ptr(std::forward<E>(exception))
-        };
-    }
 }

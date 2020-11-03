@@ -3,7 +3,7 @@
 #include <mutex>
 
 #include "concepts.h"
-#include "../detail/value_wrapper.h"
+#include "../outcome.h"
 
 namespace clu
 {
@@ -17,7 +17,7 @@ namespace clu
         private:
             std::mutex mutex_;
             std::condition_variable cv_;
-            value_wrapper<T> result_;
+            outcome<T> result_;
 
         public:
             sync_wait_task<T> get_return_object();
@@ -29,7 +29,7 @@ namespace clu
             {
                 {
                     std::scoped_lock lock(mutex_);
-                    result_.emplace(std::forward<U>(value));
+                    result_ = std::forward<U>(value);
                 }
                 cv_.notify_one();
             }
@@ -38,7 +38,7 @@ namespace clu
             {
                 {
                     std::scoped_lock lock(mutex_);
-                    result_.capture_exception();
+                    result_ = std::current_exception();
                 }
                 cv_.notify_one();
             }
@@ -46,8 +46,8 @@ namespace clu
             decltype(auto) get() &&
             {
                 std::unique_lock lock(mutex_);
-                cv_.wait(lock, [this]() { return result_.completed(); });
-                return std::move(result_).get();
+                cv_.wait(lock, [this]() { return !result_.empty(); });
+                return *std::move(result_);
             }
         };
 

@@ -4,7 +4,7 @@
 clu::outcome<float> my_sqrt(const float value)
 {
     if (value >= 0.0f) return std::sqrt(value);
-    return clu::make_exceptional_outcome<float>(std::runtime_error("invalid input"));
+    return { clu::exceptional_outcome, std::runtime_error("invalid input") };
 }
 
 int main()

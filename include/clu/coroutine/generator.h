@@ -5,6 +5,7 @@
 #include <ranges>
 
 #include "unique_coroutine_handle.h"
+#include "../outcome.h"
 
 namespace clu
 {
@@ -12,57 +13,24 @@ namespace clu
 
     namespace detail
     {
-        class generator_promise_base
-        {
-        private:
-            std::exception_ptr eptr_;
-
-        protected:
-            void throw_if_needed() const
-            {
-                if (eptr_)
-                    std::rethrow_exception(eptr_);
-            }
-
-        public:
-            std::suspend_always initial_suspend() const noexcept { return {}; }
-            std::suspend_always final_suspend() const noexcept { return {}; }
-            void unhandled_exception() noexcept { eptr_ = std::current_exception(); }
-            void return_void() const noexcept {}
-        };
-
         template <typename T>
-        class generator_promise final : public generator_promise_base
+        class generator_promise final
         {
         private:
-            T value_{};
+            outcome<T> value_;
 
         public:
             generator<T> get_return_object();
+            std::suspend_always initial_suspend() const noexcept { return {}; }
+            std::suspend_always final_suspend() const noexcept { return {}; }
+            void return_void() const noexcept {}
+            void unhandled_exception() noexcept { value_ = std::current_exception(); }
 
             template <typename U> requires std::assignable_from<T&, U&&>
             std::suspend_always yield_value(U&& value)
             {
-                throw_if_needed();
+                value_.throw_if_exceptional();
                 value_ = std::forward<U>(value);
-                return {};
-            }
-
-            T& get() { return value_; }
-        };
-
-        template <typename T>
-        class generator_promise<T&> final : public generator_promise_base
-        {
-        private:
-            T* value_ = nullptr;
-
-        public:
-            generator<T&> get_return_object();
-            std::suspend_always yield_value(T& value)
-            {
-                throw_if_needed();
-                value_ = std::addressof(value);
                 return {};
             }
 
@@ -144,6 +112,5 @@ namespace clu
     namespace detail
     {
         template <typename T> generator<T> generator_promise<T>::get_return_object() { return generator<T>(*this); }
-        template <typename T> generator<T&> generator_promise<T&>::get_return_object() { return generator<T&>(*this); }
     }
 }
