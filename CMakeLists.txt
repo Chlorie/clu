@@ -61,11 +61,10 @@ if (CLU_INSTALL)
 
     install(TARGETS ${LIB_NAME}
         EXPORT ${LIB_NAME}Targets
-        LIBRARY DESTINATION lib COMPONENT Runtime
-        ARCHIVE DESTINATION lib COMPONENT Development
-        RUNTIME DESTINATION bin COMPONENT Runtime
-        PUBLIC_HEADER DESTINATION include COMPONENT Development
-        BUNDLE DESTINATION bin COMPONENT Runtime
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        RUNTIME DESTINATION bin
+        PUBLIC_HEADER DESTINATION include
     )
 
     include(CMakePackageConfigHelpers)
