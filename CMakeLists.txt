@@ -9,8 +9,6 @@ set(LIB_NAME clu)
 option(CLU_BUILD_EXAMPLES "Build examples" OFF)
 option(CLU_INSTALL "Install the library" OFF)
 
-add_subdirectory(include)
-
 function (target_set_options TGT)
     # Set C++20
     target_compile_features(${TGT} PRIVATE cxx_std_20)
@@ -46,6 +44,15 @@ function (target_set_options TGT)
             -Wall -Wextra -pedantic -Wundef -Wconversion -Wzero-as-null-pointer-constant -Werror)
     endif ()
 endfunction ()
+
+# Library (currently header only)
+
+add_library(clu INTERFACE)
+target_include_directories(clu INTERFACE 
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
+
+# Options
 
 if (CLU_BUILD_EXAMPLES)
     add_subdirectory(examples)
