@@ -19,4 +19,7 @@ namespace clu
 
     template <typename Type, template <typename...> typename Templ>
     concept template_of = is_template_of<Type, Templ>::value;
+
+    template <typename T, typename... Us>
+    concept same_as_any_of = (std::same_as<T, Us> || ...);
 }

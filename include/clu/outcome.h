@@ -231,7 +231,7 @@ namespace clu
         T&& operator*() const { return get(); }
     };
 
-    template <typename T> requires (!std::same_as<T, std::in_place_t> && !std::same_as<T, exceptional_outcome_t>)
+    template <typename T> requires !same_as_any_of<T, std::in_place_t, exceptional_outcome_t>
     outcome(T) -> outcome<T>;
 
     outcome(void_tag_t) -> outcome<void>;

@@ -13,10 +13,11 @@ All API in this library lies in namespace `clu`. The nested namespace `clu::deta
 - `flat_forest.h`: An STL-like implementation for the forest data structure. Nodes are saved mostly contiguously inside memory. Provides fast structure modification methods (e.g. detach a branch and attach it elsewhere).
 - `function_ref.h`: Non-owning type erasure class for invocables with a specific signature.
 - `indices.h`: Provides better syntax for writing normal indexed `for` loops.
+- `optional_ref.h`: Optional reference type. Has rebind assignment semantics.
 - `outcome.h`: Provides a wrapper around a value/null/exception union.
 - `overload.h`: Helper class template for creating overloads of multiple lambdas, useful for visiting variants.
 - `partial.h`: A simple library implementation to simulate the "pizza operator (`operator |>`)". Turns nested function calls to linear pipelines.
 - `scope.h`: RAII wrapper for manual object lifetime management.
 - `string_utils.h`: Some string utility functions.
 
-TODO: coroutine utilities descriptions and examples
+TODO: more descriptions and examples

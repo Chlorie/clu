@@ -2,18 +2,12 @@
 
 #include <concepts>
 
+#include "concepts.h"
+
 namespace clu
 {
-    // @formatter:off
     template <typename T>
-    concept char_type =
-        std::same_as<T, char> ||
-        std::same_as<T, unsigned char> ||
-        std::same_as<T, signed char> ||
-        std::same_as<T, char8_t> ||
-        std::same_as<T, char16_t> ||
-        std::same_as<T, char32_t>;
-    // @formatter:on
+    concept char_type = same_as_any_of<T, char, unsigned char, signed char, char8_t, char16_t, char32_t>;
 
     template <typename T>
     concept char_pointer = std::is_pointer_v<T> && char_type<std::remove_cv_t<std::remove_pointer_t<T>>>;

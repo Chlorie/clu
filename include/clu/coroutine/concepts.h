@@ -11,7 +11,7 @@ namespace clu
     namespace detail
     {
         template <typename T>
-        concept valid_await_suspend_type = std::same_as<T, void> || std::same_as<T, bool> || template_of<T, std::coroutine_handle>;
+        concept valid_await_suspend_type = same_as_any_of<T, void, bool> || template_of<T, std::coroutine_handle>;
 
         template <typename T>
         concept half_awaiter = requires(T&& awt, std::coroutine_handle<> hdl)
