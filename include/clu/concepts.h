@@ -22,4 +22,11 @@ namespace clu
 
     template <typename T, typename... Us>
     concept same_as_any_of = (std::same_as<T, Us> || ...);
+
+    // @formatter:off
+    template <typename T, typename U>
+    concept forwarding = !std::is_rvalue_reference_v<T>
+        && std::same_as<std::remove_cvref_t<U>, U>
+        && std::same_as<std::remove_cvref_t<T>, U>;
+    // @formatter:on
 }
