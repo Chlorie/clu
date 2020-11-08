@@ -11,12 +11,9 @@ namespace clu
         class enumerate_t final
         {
         private:
-            using Iter = decltype(std::begin(std::declval<Rng>()));
-            using Sent = decltype(std::end(std::declval<Rng>()));
-            using Ref = decltype(*std::declval<const Iter>());
-
-            static_assert(std::is_base_of_v<std::input_iterator_tag, typename Iter::iterator_category>,
-                "Iterators of the range should be at least input iterators");
+            using Iter = std::ranges::iterator_t<Rng>;
+            using Sent = std::ranges::sentinel_t<Rng>;
+            using Ref = std::ranges::range_reference_t<Rng>;
 
         public:
             struct sentinel final
@@ -41,7 +38,7 @@ namespace clu
                 constexpr iterator() = default;
                 explicit constexpr iterator(const Iter iter): it_(iter) {}
 
-                constexpr reference operator*() const { return { index_, *it_ }; }
+                constexpr reference operator*() { return { index_, *it_ }; }
 
                 constexpr iterator& operator++()
                 {
@@ -58,11 +55,7 @@ namespace clu
                 }
 
                 friend constexpr bool operator==(const iterator& lhs, const iterator& rhs) { return lhs.it_ == rhs.it_; }
-                friend constexpr bool operator!=(const iterator& lhs, const iterator& rhs) { return lhs.it_ != rhs.it_; }
                 friend constexpr bool operator==(const iterator& it, const sentinel& sent) { return it.it_ == sent.sent; }
-                friend constexpr bool operator==(const sentinel& sent, const iterator& it) { return it.it_ == sent.sent; }
-                friend constexpr bool operator!=(const iterator& it, const sentinel& sent) { return it.it_ != sent.sent; }
-                friend constexpr bool operator!=(const sentinel& sent, const iterator& it) { return it.it_ != sent.sent; }
             };
 
             using const_iterator = iterator;
@@ -82,6 +75,6 @@ namespace clu
         };
     }
 
-    template <std::ranges::range Rng>
+    template <std::ranges::input_range Rng>
     constexpr auto enumerate(Rng&& range) { return detail::enumerate_t<Rng>(std::forward<Rng>(range)); }
 }

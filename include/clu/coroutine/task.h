@@ -76,7 +76,7 @@ namespace clu
     }
 
     template <typename T = void>
-    class task final
+    class [[nodiscard]] task final
     {
     public:
         using promise_type = detail::task_promise<T>;
