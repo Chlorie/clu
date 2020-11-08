@@ -111,8 +111,6 @@ namespace clu
         template <typename... Ts> requires std::constructible_from<T, Ts...>
         void emplace(Ts&&... args) { this->value_.template emplace<1>(std::forward<Ts>(args)...); }
 
-        template <typename U> friend decltype(auto) get(U&& value) { return get_impl(std::forward<U>(value)); }
-
         decltype(auto) get() & { return get_impl(*this); }
         decltype(auto) get() const & { return get_impl(*this); }
         decltype(auto) get() && { return get_impl(std::move(*this)); }
@@ -143,8 +141,6 @@ namespace clu
 
         void emplace() { this->value_.emplace<1>(); }
         void emplace(void_tag_t) { this->value_.emplace<1>(); }
-
-        friend void get(const outcome& value) { return value.get(); }
 
         void get() const
         {
@@ -181,8 +177,6 @@ namespace clu
         void emplace(T& value) { this->value_.template emplace<1>(std::addressof(value)); }
         void emplace(const T&& value) = delete;
 
-        friend T& get(const outcome& value) { return value.get(); }
-
         T& get() const
         {
             return std::visit(overload
@@ -215,8 +209,6 @@ namespace clu
         using base::operator=;
 
         void emplace(T&& value) { this->value_.template emplace<1>(addressof(value)); }
-
-        friend T&& get(const outcome& value) { return value.get(); }
 
         T&& get() const
         {
