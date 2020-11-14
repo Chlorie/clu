@@ -2,9 +2,9 @@
 
 #include <coroutine>
 #include <variant>
-#include <concepts>
 
 #include "unique_coroutine_handle.h"
+#include "concepts.h"
 #include "../outcome.h"
 
 namespace clu
@@ -133,4 +133,7 @@ namespace clu
         template <typename T> task<T> task_promise<T>::get_return_object() { return task<T>(*this); }
         inline task<> task_promise<void>::get_return_object() { return task<>(*this); }
     }
+
+    template <awaitable T>
+    task<await_result_t<T&&>> make_task(T&& awaitable) { co_return co_await std::forward<T>(awaitable); }
 }

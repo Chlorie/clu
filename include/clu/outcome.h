@@ -79,7 +79,6 @@ namespace clu
                 if (const auto* eptrptr = std::get_if<2>(&value_))
                     std::rethrow_exception(*eptrptr);
             }
-
         };
     }
 
@@ -108,7 +107,7 @@ namespace clu
         using base::base;
         using base::operator=;
 
-        template <typename... Ts> requires std::constructible_from<T, Ts...>
+        template <typename... Ts> requires std::constructible_from<T, Ts&&...>
         void emplace(Ts&&... args) { this->value_.template emplace<1>(std::forward<Ts>(args)...); }
 
         decltype(auto) get() & { return get_impl(*this); }
@@ -223,8 +222,6 @@ namespace clu
         T&& operator*() const { return get(); }
     };
 
-    template <typename T> requires !same_as_any_of<T, std::in_place_t, exceptional_outcome_t>
-    outcome(T) -> outcome<T>;
-
     outcome(void_tag_t) -> outcome<void>;
+    template <typename T> requires !same_as_any_of<T, std::in_place_t, exceptional_outcome_t> outcome(T) -> outcome<T>;
 }

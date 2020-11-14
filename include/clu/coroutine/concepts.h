@@ -1,6 +1,5 @@
 #pragma once
 
-#include <concepts>
 #include <coroutine>
 #include <exception>
 
@@ -16,16 +15,13 @@ namespace clu
         template <typename T>
         concept half_awaiter = requires(T&& awt, std::coroutine_handle<> hdl)
         {
-            { awt.await_ready() ? (void)0 : (void)0 }; // NOLINT(bugprone-branch-clone)
+            awt.await_ready() ? (void)0 : (void)0; // NOLINT(bugprone-branch-clone)
             { awt.await_suspend(hdl) } -> valid_await_suspend_type;
         };
     }
 
     template <typename T>
-    concept awaiter = detail::half_awaiter<T> && requires(T&& awt)
-    {
-        { awt.await_resume() };
-    };
+    concept awaiter = detail::half_awaiter<T> && requires(T&& awt) { awt.await_resume(); };
 
     template <typename T, typename Res>
     concept awaiter_of = detail::half_awaiter<T> && requires(T&& awt)
@@ -59,20 +55,16 @@ namespace clu
     CLU_SINGLE_RETURN(detail::get_awaiter_impl(static_cast<T&&>(awt), detail::priority_tag<2>{}));
 #undef CLU_SINGLE_RETURN
 
+    // @formatter:off
     template <typename T> using awaiter_type_t = decltype(get_awaiter(std::declval<T>()));
-    template <typename T> struct awaiter_type
-    {
-        using type = awaiter_type_t<T>;
-    };
+    template <typename T> struct awaiter_type { using type = awaiter_type_t<T>; };
+
+    template <typename T> using await_result_t = decltype(std::declval<awaiter_type_t<T>>().await_resume());
+    template <typename T> struct await_result { using type = await_result_t<T>; };
+    // @formatter:on
 
     template <typename T> concept awaitable = awaiter<awaiter_type_t<T>>;
     template <typename T, typename Res> concept awaitable_of = awaiter_of<awaiter_type_t<T>, Res>;
-
-    template <typename T> using await_result_t = decltype(std::declval<awaiter_type_t<T>>().await_resume());
-    template <typename T> struct await_result
-    {
-        using type = await_result_t<T>;
-    };
 
     template <typename T, typename E = std::exception_ptr>
     concept receiver = std::move_constructible<T> && requires(T recv, E error)
