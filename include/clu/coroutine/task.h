@@ -49,10 +49,7 @@ namespace clu
             void return_value(U&& value) { result_ = std::forward<U>(value); }
             void unhandled_exception() noexcept { result_ = std::current_exception(); }
 
-            decltype(auto) get() & { return *result_; }
-            decltype(auto) get() const & { return *result_; }
-            decltype(auto) get() && { return *std::move(result_); }
-            decltype(auto) get() const && { return *std::move(result_); }
+            T get() { return *std::move(result_); }
         };
 
         template <>
@@ -82,50 +79,20 @@ namespace clu
         using promise_type = detail::task_promise<T>;
 
     private:
-        using handle_t = std::coroutine_handle<promise_type>;
-
-        class awaiter_base
-        {
-        protected:
-            handle_t handle_{};
-
-        public:
-            explicit awaiter_base(const handle_t handle): handle_(handle) {}
-
-            bool await_ready() const noexcept { return false; }
-            std::coroutine_handle<> await_suspend(const std::coroutine_handle<> awaiting)
-            {
-                handle_.promise().set_continuation(awaiting);
-                return handle_;
-            }
-        };
-
         unique_coroutine_handle<promise_type> handle_{};
 
     public:
-        explicit task(promise_type& promise): handle_(handle_t::from_promise(promise)) {}
+        explicit task(promise_type& promise): handle_(std::coroutine_handle<promise_type>::from_promise(promise)) {}
 
-        auto operator co_await() const &
+        bool await_ready() const noexcept { return false; }
+
+        std::coroutine_handle<> await_suspend(const std::coroutine_handle<> awaiting)
         {
-            class task_awaiter final : public awaiter_base
-            {
-            public:
-                using awaiter_base::awaiter_base;
-                decltype(auto) await_resume() { return awaiter_base::handle_.promise().get(); }
-            };
-            return task_awaiter(handle_.get());
+            handle_.get().promise().set_continuation(awaiting);
+            return handle_.get();
         }
 
-        auto operator co_await() const &&
-        {
-            class task_awaiter final : public awaiter_base
-            {
-            public:
-                using awaiter_base::awaiter_base;
-                decltype(auto) await_resume() { return std::move(awaiter_base::handle_.promise()).get(); }
-            };
-            return task_awaiter(handle_.get());
-        }
+        T await_resume() { return handle_.get().promise().get(); }
     };
 
     namespace detail

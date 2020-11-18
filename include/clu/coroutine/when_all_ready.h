@@ -13,16 +13,16 @@ namespace clu
     namespace detail
     {
         template <typename... Ts> class when_all_ready_tuple_awaitable;
-        template <typename... Ts> struct when_all_ready_tuple_awaiter_base;
+        template <typename... Ts> struct when_all_ready_tuple_awaiter;
 
         template <typename T> class when_all_ready_vector_awaitable;
-        template <typename T> struct when_all_ready_vector_awaiter_base;
+        template <typename T> struct when_all_ready_vector_awaiter;
     }
 
     template <typename... Ts>
     class when_all_ready_tuple_result final
     {
-        friend struct detail::when_all_ready_tuple_awaiter_base<Ts...>;
+        friend struct detail::when_all_ready_tuple_awaiter<Ts...>;
     public:
         using result_type = std::tuple<outcome<await_result_t<unwrap_reference_t<Ts>&>>...>;
 
@@ -46,7 +46,7 @@ namespace clu
     template <typename T>
     class when_all_ready_vector_result final
     {
-        friend struct detail::when_all_ready_vector_awaiter_base<T>;
+        friend struct detail::when_all_ready_vector_awaiter<T>;
     public:
         using outcome_type = outcome<await_result_t<unwrap_reference_t<T>&>>;
         using result_type = std::vector<outcome_type>;
@@ -90,6 +90,11 @@ namespace clu
 
         bool empty() const noexcept { return results_.empty(); }
         size_t size() const noexcept { return results_.size(); }
+
+        decltype(auto) get() & { return awaitables_; }
+        decltype(auto) get() const & { return awaitables_; }
+        decltype(auto) get() && { return std::move(awaitables_); }
+        decltype(auto) get() const && { return std::move(awaitables_); }
     };
 
     namespace detail
@@ -97,23 +102,20 @@ namespace clu
         template <typename... Ts>
         class when_all_ready_tuple_awaitable final
         {
-            friend struct when_all_ready_tuple_awaiter_base<Ts...>;
+            friend struct when_all_ready_tuple_awaiter<Ts...>;
         private:
-            using awaiter_base = when_all_ready_tuple_awaiter_base<Ts...>;
-            using result_type = when_all_ready_tuple_result<Ts...>;
-            result_type result_;
+            when_all_ready_tuple_result<Ts...> result_;
 
         public:
             template <typename... Us>
             explicit when_all_ready_tuple_awaitable(Us&&... awaitables):
                 result_(std::forward<Us>(awaitables)...) {}
 
-            auto operator co_await() &;
-            auto operator co_await() &&;
+            auto operator co_await();
         };
 
         template <typename... Ts>
-        struct when_all_ready_tuple_awaiter_base
+        struct when_all_ready_tuple_awaiter
         {
             when_all_ready_tuple_awaitable<Ts...>& parent;
             std::atomic_size_t counter = sizeof...(Ts);
@@ -138,27 +140,13 @@ namespace clu
                 }(std::index_sequence_for<Ts...>{});
             }
 
-            auto& result() const { return parent.result_; }
+            auto await_resume() { return std::move(parent.result_); }
         };
 
         template <typename ... Ts>
-        auto when_all_ready_tuple_awaitable<Ts...>::operator co_await() &
+        auto when_all_ready_tuple_awaitable<Ts...>::operator co_await()
         {
-            struct awaiter : awaiter_base
-            {
-                result_type& await_resume() { return this->result(); }
-            };
-            return awaiter{ { *this } };
-        }
-
-        template <typename ... Ts>
-        auto when_all_ready_tuple_awaitable<Ts...>::operator co_await() &&
-        {
-            struct awaiter : awaiter_base
-            {
-                result_type&& await_resume() { return std::move(this->result()); }
-            };
-            return awaiter{ { *this } };
+            return when_all_ready_tuple_awaiter<Ts...>{ *this };
         }
 
         template <>
@@ -173,9 +161,9 @@ namespace clu
         template <typename T>
         class when_all_ready_vector_awaitable final
         {
-            friend struct when_all_ready_vector_awaiter_base<T>;
+            friend struct when_all_ready_vector_awaiter<T>;
         private:
-            using awaiter_base = when_all_ready_vector_awaiter_base<T>;
+            using awaiter_base = when_all_ready_vector_awaiter<T>;
             using result_type = when_all_ready_vector_result<T>;
             result_type result_;
 
@@ -184,12 +172,11 @@ namespace clu
             explicit when_all_ready_vector_awaitable(Us&&... awaitables):
                 result_(std::forward<Us>(awaitables)...) {}
 
-            auto operator co_await() &;
-            auto operator co_await() &&;
+            auto operator co_await();
         };
 
         template <typename T>
-        struct when_all_ready_vector_awaiter_base
+        struct when_all_ready_vector_awaiter
         {
             when_all_ready_vector_awaitable<T>& parent;
             std::atomic_size_t counter = parent.result_.size();
@@ -211,27 +198,13 @@ namespace clu
                     await_at(i, handle);
             }
 
-            auto& result() const { return parent.result_; }
+            auto await_resume() { return std::move(parent.result_); }
         };
 
         template <typename T>
-        auto when_all_ready_vector_awaitable<T>::operator co_await() &
+        auto when_all_ready_vector_awaitable<T>::operator co_await()
         {
-            struct awaiter : awaiter_base
-            {
-                result_type& await_resume() { return this->result(); }
-            };
-            return awaiter{ { *this } };
-        }
-
-        template <typename T>
-        auto when_all_ready_vector_awaitable<T>::operator co_await() &&
-        {
-            struct awaiter : awaiter_base
-            {
-                result_type&& await_resume() { return std::move(this->result()); }
-            };
-            return awaiter{ { *this } };
+            return when_all_ready_vector_awaiter<T>{ *this };
         }
     }
 
