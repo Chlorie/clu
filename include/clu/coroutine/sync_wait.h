@@ -55,15 +55,17 @@ namespace clu
         template <>
         class sync_wait_task_promise<void> final
         {
-        private:
-            std::atomic_bool done_{ false };
-            std::exception_ptr eptr_;
-
         public:
             sync_wait_task<void> get_return_object();
             std::suspend_never initial_suspend() const noexcept { return {}; }
             std::suspend_always final_suspend() const noexcept { return {}; }
 
+#ifdef __cpp_lib_atomic_wait
+        private:
+            std::atomic_bool done_{ false };
+            std::exception_ptr eptr_;
+
+        public:
             void return_void()
             {
                 done_.store(true, std::memory_order_release);
@@ -82,6 +84,38 @@ namespace clu
                 done_.wait(false, std::memory_order_acquire);
                 if (eptr_) std::rethrow_exception(eptr_);
             }
+#else // gcc trunk atomic wait workaround 
+        private:
+            std::mutex mutex_;
+            std::condition_variable cv_;
+            outcome<void> result_;
+
+        public:
+            void return_void()
+            {
+                {
+                    std::scoped_lock lock(mutex_);
+                    result_ = void_tag;
+                }
+                cv_.notify_one();
+            }
+
+            void unhandled_exception()
+            {
+                {
+                    std::scoped_lock lock(mutex_);
+                    result_ = std::current_exception();
+                }
+                cv_.notify_one();
+            }
+
+            void get() &&
+            {
+                std::unique_lock lock(mutex_);
+                cv_.wait(lock, [this]() { return !result_.empty(); });
+                return *result_;
+            }
+#endif
         };
 
         template <typename T>
