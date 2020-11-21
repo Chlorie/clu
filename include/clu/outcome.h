@@ -1,6 +1,7 @@
 #pragma once
 
 #include <variant>
+#include <exception>
 
 #include "concepts.h"
 #include "overload.h"
@@ -16,7 +17,7 @@ namespace clu
     class bad_outcome_access final : public std::exception
     {
     public:
-        const char* what() const override { return "bad outcome access"; }
+        const char* what() const noexcept override { return "bad outcome access"; }
     };
 
     namespace detail
@@ -223,5 +224,5 @@ namespace clu
     };
 
     outcome(void_tag_t) -> outcome<void>;
-    template <typename T> requires !same_as_any_of<T, std::in_place_t, exceptional_outcome_t> outcome(T) -> outcome<T>;
+    template <typename T> requires (!same_as_any_of<T, std::in_place_t, exceptional_outcome_t>) outcome(T) -> outcome<T>;
 }

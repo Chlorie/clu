@@ -20,6 +20,4 @@ namespace clu
     };
 
     template <typename From, typename To> using copy_cvref_t = typename copy_cvref<From, To>::type;
-
-    template <typename... Ts> struct type_list {};
 }
