@@ -47,7 +47,7 @@ clu::task<std::pair<int, int>> sequenced()
 
 clu::task<std::pair<int, int>> concurrent()
 {
-    auto [first, second] = co_await when_all_ready(get_answer(), get_answer());
+    const auto [first, second] = co_await when_all_ready(get_answer(), get_answer());
     co_return std::pair{ *first, *second };
 }
 

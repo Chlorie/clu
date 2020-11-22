@@ -36,5 +36,20 @@ namespace clu::meta
     template <typename... Ts, typename... Us>
     struct concatenate<type_list<Ts...>, type_list<Us...>> { using type = type_list<Ts..., Us...>; };
     template <typename L, typename M> using concatenate_t = typename concatenate<L, M>::type;
+
+    template <typename L, typename T> struct find {};
+    template <typename T> struct find<type_list<>, T> : std::integral_constant<size_t, npos> {};
+    template <typename First, typename... Rest, typename T>
+    struct find<type_list<First, Rest...>, T> : std::integral_constant<size_t,
+        std::is_same_v<First, T> ? 0 :
+            find<type_list<Rest...>, T>::value == npos ? npos : find<type_list<Rest...>, T>::value + 1
+    > {};
+    template <typename L, typename T> inline constexpr size_t find_v = find<L, T>::value;
+
+    template <typename L, size_t N> struct at {};
+    template <typename T, typename... Rest> struct at<type_list<T, Rest...>, 0> { using type = T; };
+    template <typename T, typename... Rest, size_t N>
+    struct at<type_list<T, Rest...>, N> { using type = typename at<type_list<Rest...>, N - 1>::type; };
+    template <typename L, size_t N> using at_t = typename at<L, N>::type;
     // @formatter:on
 }
