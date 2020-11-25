@@ -66,6 +66,10 @@ namespace clu
     template <typename T> concept awaitable = awaiter<awaiter_type_t<T>>;
     template <typename T, typename Res> concept awaitable_of = awaiter_of<awaiter_type_t<T>, Res>;
 
+    template <typename T> concept cancellable = requires (T value) { value.cancel(); };
+    template <typename T> concept cancellable_awaitable = cancellable<T> && awaitable<T>;
+    template <typename T, typename Res> concept cancellable_awaitable_of = cancellable<T> && awaitable_of<T, Res>;
+
     template <typename T, typename E = std::exception_ptr>
     concept receiver = std::move_constructible<T> && requires(T recv, E error)
     {

@@ -2,7 +2,7 @@
 
 cmake_minimum_required(VERSION 3.14)
 
-project(clu LANGUAGES CXX VERSION 0.9.0)
+project(clu LANGUAGES CXX VERSION 0.10.0)
 
 set(LIB_NAME clu)
 

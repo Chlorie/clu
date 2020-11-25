@@ -2,7 +2,7 @@
 #include <numeric>
 #include <clu/coroutine/task.h>
 #include <clu/coroutine/sync_wait.h>
-#include <clu/coroutine/when_all_ready.h>
+#include <clu/coroutine/when_all.h>
 
 using namespace std::literals;
 
@@ -47,8 +47,8 @@ clu::task<std::pair<int, int>> sequenced()
 
 clu::task<std::pair<int, int>> concurrent()
 {
-    const auto [first, second] = co_await when_all_ready(get_answer(), get_answer());
-    co_return std::pair{ *first, *second };
+    const auto [first, second] = co_await when_all(get_answer(), get_answer());
+    co_return std::pair(first, second);
 }
 
 clu::task<std::vector<int>> dynamic(const size_t size)
@@ -56,11 +56,7 @@ clu::task<std::vector<int>> dynamic(const size_t size)
     std::vector<clu::task<int>> tasks;
     tasks.reserve(size);
     for (size_t i = 0; i < size; i++) tasks.push_back(get_answer());
-    auto results = co_await when_all_ready(std::move(tasks));
-    std::vector<int> vec_results;
-    vec_results.reserve(size);
-    for (auto& result : results) vec_results.push_back(*std::move(result));
-    co_return vec_results;
+    co_return co_await when_all(std::move(tasks));
 }
 
 int main() // NOLINT
