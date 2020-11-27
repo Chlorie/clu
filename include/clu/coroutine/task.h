@@ -1,8 +1,5 @@
 #pragma once
 
-#include <coroutine>
-#include <variant>
-
 #include "unique_coroutine_handle.h"
 #include "concepts.h"
 #include "../outcome.h"

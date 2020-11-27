@@ -13,12 +13,12 @@ namespace clu
             return std::tuple<Ts...>{ *std::move(std::get<Is>(outcomes))... };
         }
 
-        inline const auto extract_tuple_outcomes = []<typename... Ts>(std::tuple<outcome<Ts>...>&& outcomes)
+        inline constexpr auto extract_tuple_outcomes = []<typename... Ts>(std::tuple<outcome<Ts>...>&& outcomes)
         {
             return extract_tuple_outcomes_impl(std::move(outcomes), std::index_sequence_for<Ts...>{});
         };
 
-        inline const auto extract_vector_outcomes = []<typename T>(std::vector<outcome<T>>&& outcomes)
+        inline constexpr auto extract_vector_outcomes = []<typename T>(std::vector<outcome<T>>&& outcomes)
         {
             std::vector<T> result;
             result.reserve(outcomes.size());

@@ -14,8 +14,12 @@ namespace clu
         class fmap_awaitable
         {
         private:
+            using unwrapped_t = unwrap_reference_keeping_t<A&>;
+
             A awaitable_;
             F func_;
+
+            auto& unwrap_awaitable() { return static_cast<unwrapped_t>(awaitable_); }
 
             template <typename QualifiedAwaitable>
             class awaiter
@@ -32,7 +36,7 @@ namespace clu
             public:
                 explicit awaiter(parent_t parent):
                     parent_(static_cast<parent_t>(parent)),
-                    child_(get_awaiter(static_cast<awaitable_t>(parent.awaitable_))) {}
+                    child_(get_awaiter(static_cast<awaitable_t>(parent.unwrap_awaitable()))) {}
 
                 bool await_ready() { return child_.await_ready(); }
                 decltype(auto) await_suspend(const std::coroutine_handle<> handle) { return child_.await_suspend(handle); }
@@ -56,6 +60,8 @@ namespace clu
             auto operator co_await() const & { return awaiter<const A&>(*this); }
             auto operator co_await() && { return awaiter<A&&>(std::move(*this)); }
             auto operator co_await() const && { return awaiter<const A&&>(std::move(*this)); }
+
+            void cancel() requires cancellable<unwrapped_t> { unwrap_awaitable().cancel(); }
         };
 
         template <typename A, typename F>
@@ -64,7 +70,7 @@ namespace clu
 
     // @formatter:off
     template <typename A, typename F>
-        requires awaitable<std::remove_cvref_t<A>>
+        requires awaitable<std::unwrap_reference_t<A>>
     // @formatter:on
     auto fmap(A&& awaitable, F&& func)
     {
