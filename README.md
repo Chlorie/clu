@@ -37,11 +37,13 @@ All API in this library lies in namespace `clu`. The nested namespace `clu::deta
 
 APIs in this category lies under the `clu/coroutine` directory.
 
+- `async_mutex.h`: An async mutex implementation. When a coroutine holding the mutex releases the lock, if there're more waiters on the mutex, the lock holder will resume the first waiter coroutine in the `unlock` function.
 - `concepts.h`: Concepts for `awaiter`s, `awaitable`s, awaitable type traits, and more.
 - `coroutine_scope.h`: A scope for launching coroutines in normal non-coroutine context.
 - `fmap.h`: Create an awaitable that awaits an awaitable and transforms its result.
 - `generator.h`: A coroutine generator type which supports `co_yield`ing values in the coroutine body. `generator`s are also `std::input_range`s.
 - `oneway_task.h`: An coroutine type supporting `co_await`ing in its body, `std::terminate`s if an uncaught exception escapes the coroutine body. The oneway-ness of this type means that this type is not an `awaitable`. This kind of coroutine also starts eagerly without suspending on calling them. This type is helpful for implementing other coroutine types, but not suitable for normal uses. For normal structural concurrent `co_await` uses, please use `task`.
+- `race.h`: Concurrently wait multiple cancellable awaitables. Once any awaitable finishes waiting (by returning or throwing exceptions) the other awaitables will be cancelled, and the result (or exception) of the winner awaitable will be returned.
 - `schedule.h`: Specifies a `scheduler` concept and a corresponding `schedule` function template for scheduling tasks on a scheduler. Currently not used in other parts of this library.
 - `sync_wait.h`: Synchronously waits for an `awaitable` to finish running. Can be used to start coroutines in normal functions with a blocking manner.
 - `task.h`: A coroutine type for `co_await`ing `awaitable`s in the coroutine body. This task type is lazy, meaning that the coroutine body will not start just by constructing a `task`, instead you should `co_await` a `task` for that. This is an important building block of post-C++20 structural concurrency.

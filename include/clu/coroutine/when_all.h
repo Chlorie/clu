@@ -7,10 +7,20 @@ namespace clu
 {
     namespace detail
     {
+        template <typename T>
+        decltype(auto) unwrap_outcome(outcome<T>& value)
+        {
+            if constexpr (std::is_void_v<T>)
+                return void_tag;
+            else
+                return *std::move(value);
+        }
+
         template <typename... Ts, size_t... Is>
         auto extract_tuple_outcomes_impl(std::tuple<outcome<Ts>...>&& outcomes, std::index_sequence<Is...>)
         {
-            return std::tuple<Ts...>{ *std::move(std::get<Is>(outcomes))... };
+            using tuple_t = std::tuple<std::conditional_t<std::is_void_v<Ts>, void_tag_t, Ts>...>;
+            return tuple_t{ unwrap_outcome(std::get<Is>(outcomes))... };
         }
 
         inline constexpr auto extract_tuple_outcomes = []<typename... Ts>(std::tuple<outcome<Ts>...>&& outcomes)
@@ -20,11 +30,17 @@ namespace clu
 
         inline constexpr auto extract_vector_outcomes = []<typename T>(std::vector<outcome<T>>&& outcomes)
         {
-            std::vector<T> result;
-            result.reserve(outcomes.size());
-            for (auto&& elem : outcomes)
-                result.push_back(*std::move(elem));
-            return result;
+            if constexpr (std::is_void_v<T>)
+                for (auto&& elem : outcomes)
+                    *std::move(elem);
+            else
+            {
+                std::vector<T> result;
+                result.reserve(outcomes.size());
+                for (auto&& elem : outcomes)
+                    result.push_back(*std::move(elem));
+                return result;
+            }
         };
     }
 

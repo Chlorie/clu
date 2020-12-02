@@ -41,8 +41,13 @@ namespace clu
                     auto& result = std::get<I>(results);
                     try
                     {
-                        result.emplace(co_await
-                            static_cast<awaitable_t<I>>(std::get<I>(parent.awaitables_)));
+                        if constexpr (std::is_void_v<await_result_t<awaitable_t<I>>>)
+                        {
+                            co_await static_cast<awaitable_t<I>>(std::get<I>(parent.awaitables_));
+                            result.emplace();
+                        }
+                        else
+                            result.emplace(co_await static_cast<awaitable_t<I>>(std::get<I>(parent.awaitables_)));
                     }
                     catch (...) { result = std::current_exception(); }
                     if (counter.fetch_sub(1, std::memory_order_acq_rel) == 1) handle.resume();
@@ -106,8 +111,13 @@ namespace clu
                     auto& result = results[i];
                     try
                     {
-                        result.emplace(co_await
-                            static_cast<awaitable_t>(parent.awaitables_[i]));
+                        if constexpr (std::is_void_v<await_result_t<awaitable_t>>)
+                        {
+                            co_await static_cast<awaitable_t>(parent.awaitables_[i]);
+                            result.emplace();
+                        }
+                        else
+                            result.emplace(co_await static_cast<awaitable_t>(parent.awaitables_[i]));
                     }
                     catch (...) { result = std::current_exception(); }
                     if (counter.fetch_sub(1, std::memory_order_acq_rel) == 1) handle.resume();
