@@ -62,7 +62,8 @@ namespace clu
 
     // @formatter:off
     template <size_t I, typename T>
-        requires (template_of<std::remove_cvref_t<T>, race_tuple_result> && I < T::variant_size)
+        requires (template_of<std::remove_cvref_t<T>, race_tuple_result> 
+            && I < std::remove_cvref_t<T>::variant_size)
     // @formatter:on
     decltype(auto) get(T&& value)
     {
@@ -109,9 +110,8 @@ namespace clu
                 decltype(auto) get_awaitable() const { return static_cast<awaitable_t<I>>(std::get<I>(parent.awaitables_)); }
 
                 template <size_t I, size_t... Is>
-                void cancel_rest(std::index_sequence<Is...> seq) const
+                void cancel_rest(std::index_sequence<Is...>) const
                 {
-                    size_t i = I;
                     (((I != Is) ? (void)get_awaitable<Is>().cancel() : (void)0), ...);
                 }
 
@@ -130,11 +130,11 @@ namespace clu
                             result.emplace(co_await get_awaitable<I>());
                     }
                     catch (...) { result = std::current_exception(); }
-                    const size_t old_counter = counter.fetch_add(1, std::memory_order_release);
+                    const size_t old_counter = counter.fetch_add(1, std::memory_order_acquire);
                     if (old_counter == 0) // First one
                     {
-                        cancel_rest<I>(std::index_sequence_for<Ts...>{});
                         inter_res.template emplace<I>(std::move(result));
+                        cancel_rest<I>(std::index_sequence_for<Ts...>{});
                     }
                     else if (old_counter == sizeof...(Ts) - 1) // Last one
                         handle.resume();
