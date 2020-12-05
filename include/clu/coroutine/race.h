@@ -146,7 +146,7 @@ namespace clu
                     if constexpr (std::is_void_v<await_result_t<awaitable_t<I>>>)
                         return { std::in_place_index<I>, void_tag };
                     else
-                        return { std::in_place_index<I>, std::get<I>(std::move(inter_res)) };
+                        return { std::in_place_index<I>, *std::get<I>(std::move(inter_res)) };
                 }
 
                 template <size_t I = sizeof...(Ts) - 1>
