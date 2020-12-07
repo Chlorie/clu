@@ -26,7 +26,7 @@ namespace clu
             void return_void() const noexcept {}
             void unhandled_exception() noexcept { value_ = std::current_exception(); }
 
-            template <typename U> requires std::assignable_from<T&, U&&>
+            template <typename U = T> requires std::assignable_from<T&, U&&>
             std::suspend_always yield_value(U&& value)
             {
                 value_.throw_if_exceptional();
