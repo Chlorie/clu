@@ -1,7 +1,6 @@
 #pragma once
 
 #include <coroutine>
-#include <exception>
 
 #include "clu/concepts.h"
 
@@ -69,18 +68,4 @@ namespace clu
     template <typename T> concept cancellable = requires (T value) { value.cancel(); };
     template <typename T> concept cancellable_awaitable = cancellable<T> && awaitable<T>;
     template <typename T, typename Res> concept cancellable_awaitable_of = cancellable<T> && awaitable_of<T, Res>;
-
-    template <typename T, typename E = std::exception_ptr>
-    concept receiver = std::move_constructible<T> && requires(T recv, E error)
-    {
-        &T::operator();
-        { recv.set_error(error) } -> std::same_as<void>;
-        { recv.set_done() } -> std::same_as<void>;
-    };
-
-    template <typename T, typename... V>
-    concept receiver_of = receiver<T> && requires(T recv, V ... args)
-    {
-        { recv(args...) } -> std::same_as<void>;
-    };
 }

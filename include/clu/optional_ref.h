@@ -15,6 +15,11 @@ namespace clu
         constexpr optional_ref(std::nullopt_t) noexcept {}
         constexpr optional_ref(std::nullptr_t) noexcept {}
         constexpr optional_ref(T& reference) noexcept: ptr_(std::addressof(reference)) {}
+        
+        constexpr optional_ref(const std::optional<std::remove_const_t<T>>& opt) noexcept requires std::is_const_v<T>:
+            ptr_(opt ? std::addressof(*opt) : nullptr) {}
+        constexpr optional_ref(std::optional<T>& opt) noexcept requires (!std::is_const_v<T>):
+            ptr_(opt ? std::addressof(*opt) : nullptr) {}
 
         constexpr optional_ref& operator=(std::nullopt_t) noexcept
         {

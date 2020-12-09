@@ -136,7 +136,7 @@ namespace clu
                         inter_res.template emplace<I>(std::move(result));
                         cancel_rest<I>(std::index_sequence_for<Ts...>{});
                     }
-                    else if (old_counter == sizeof...(Ts) - 1) // Last one
+                    if (old_counter == sizeof...(Ts) - 1) // Last one
                         handle.resume();
                 }
 
