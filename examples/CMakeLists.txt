@@ -6,6 +6,7 @@ function (add_example TARGET_NAME)
     target_link_libraries(${TARGET_NAME} PRIVATE clu)
 endfunction ()
 
+add_example(buffer)
 add_example(coroutine)
 add_example(enumerate)
 add_example(flat_forest)

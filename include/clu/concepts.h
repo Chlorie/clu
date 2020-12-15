@@ -29,4 +29,8 @@ namespace clu
         && std::same_as<std::remove_cvref_t<U>, U>
         && std::same_as<std::remove_cvref_t<T>, U>;
     // @formatter:on
+
+    template <typename T> concept enumeration = std::is_enum_v<T>;
+
+    template <typename T> concept trivially_copyable = std::copyable<T> && std::is_trivially_copyable_v<T>;
 }

@@ -125,7 +125,7 @@ namespace clu
         public:
             cancellable_task<T> get_return_object();
 
-            template <typename U> requires std::convertible_to<U&&, T>
+            template <typename U = T> requires std::convertible_to<U&&, T>
             void return_value(U&& value) { result_ = std::forward<U>(value); }
             void unhandled_exception() noexcept { result_ = std::current_exception(); }
 

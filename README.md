@@ -10,6 +10,7 @@ All API in this library lies in namespace `clu`. The nested namespace `clu::deta
 
 ### Miscellaneous Utilities
 
+- `buffer.h`: Buffer types for converting trivially copyable arrays into sized buffers.
 - `c_str_view.h`: A view type for a null-terminated C-style string.
 - `concepts.h`: Common concepts like `similar_to` (`same_as` with `remove_cvref`) and so on.
 - `debug.h`: Provides utilities for debugging purpose. Currently contains a `verbose` class that logs all of its special member function call into `stdout`.
