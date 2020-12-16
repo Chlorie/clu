@@ -26,12 +26,12 @@ namespace clu
     public:
         function_ref() = delete;
 
-        template <typename F> requires invocable_of<F, R, Ts...> && !similar_to<F, function_ref>
+        template <typename F> requires (invocable_of<F, R, Ts...> && !similar_to<F, function_ref>)
         explicit(false) constexpr function_ref(F&& func) noexcept: // NOLINT(bugprone-forwarding-reference-overload)
             ptr_(const_cast<void*>(static_cast<const void*>(std::addressof(func)))), // NOLINT(clang-diagnostic-microsoft-cast)
             fptr_(&function_ref::template call_impl<F>) {}
 
-        template <typename F> requires invocable_of<F, R, Ts...> && !similar_to<F, function_ref>
+        template <typename F> requires (invocable_of<F, R, Ts...> && !similar_to<F, function_ref>)
         constexpr function_ref& operator=(F&& func) noexcept
         {
             ptr_ = const_cast<void*>(static_cast<const void*>(std::addressof(func))); // NOLINT(clang-diagnostic-microsoft-cast)

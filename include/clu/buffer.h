@@ -1,7 +1,6 @@
 #pragma once
 
 #include <span>
-#include <ranges>
 
 #include "concepts.h"
 
@@ -26,7 +25,7 @@ namespace clu
     concept mutable_trivial_range = trivial_range<T> && !std::is_const_v<std::ranges::range_value_t<T>>;
 
     template <typename T>
-    [[nodiscard]] class basic_buffer final
+    class [[nodiscard]] basic_buffer final
     {
         static_assert(alias_safe<std::remove_const_t<T>>);
 
@@ -45,8 +44,8 @@ namespace clu
         explicit(false) basic_buffer(R&& range) noexcept:
             ptr_(reinterpret_cast<T*>(std::ranges::data(range))),
             size_(std::ranges::size(range) * sizeof(std::ranges::range_value_t<R>)) {}
-
-        constexpr explicit(false) basic_buffer(const basic_buffer<std::remove_const_t<T>> buffer) noexcept
+        
+        constexpr explicit(false) basic_buffer(const basic_buffer<std::remove_const_t<T>>& buffer) noexcept
             requires std::is_const_v<T>: ptr_(buffer.ptr()), size_(buffer.size()) {}
         // @formatter:on
 

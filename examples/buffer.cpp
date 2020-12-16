@@ -3,7 +3,7 @@
 #include <vector>
 #include <clu/buffer.h>
 
-void print_buffer(const clu::mutable_buffer buf)
+void print_buffer(const clu::mutable_buffer& buf)
 {
     std::cout << "Buffer size: " << buf.size() << "\nBuffer content:\n";
     std::cout << std::hex << std::setfill('0');

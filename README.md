@@ -19,6 +19,7 @@ All API in this library lies in namespace `clu`. The nested namespace `clu::deta
 - `fixed_string.h`: A fixed-size string suitable for NTTP usage.
 - `flat_forest.h`: An STL-like implementation for the forest data structure. Nodes are saved mostly contiguously inside memory. Provides fast structure modification methods (e.g. detach a branch and attach it elsewhere).
 - `function_ref.h`: Non-owning type erasure class for invocables with a specific signature.
+- `function_traits.h`: Type traits for (abominable) function types and member function pointer types.
 - `hash.h`: Simple constexpr string hashing function. Currently contains the fnv1a algorithm (`constexpr` enabled) and a hash combiner.
 - `indices.h`: Provides better syntax for writing normal indexed `for` loops.
 - `optional_ref.h`: Optional reference type. Has rebind assignment semantics.
@@ -30,6 +31,7 @@ All API in this library lies in namespace `clu`. The nested namespace `clu::deta
 - `scope.h`: RAII wrapper for manual object lifetime management.
 - `string_utils.h`: Some string utility functions.
 - `take.h`: Provides utility function template for moving an object and reset it to the default constructed state.
+- `type_erasure.h`: Dynamic polymorphism with value semantics. Inspired by Folly.Poly and Dyno.
 - `type_traits.h`: Useful type traits.
     - `copy_cvref<From, To>`: Copies cv-qualifiers and references from the first type to the second. E.g. `copy_cvref<const int&, float>::type` gets `const float&`.
     - `all_same<Ts...>`: Checks whether a list of types are all the same.
