@@ -36,7 +36,8 @@ struct CatGirl
 
 int main()
 {
-    using Meowable = clu::type_erased<MeowableModel>;
+    namespace tep = clu::type_erasure_policy;
+    using Meowable = clu::type_erased<MeowableModel, tep::copyable>;
     std::vector<Meowable> meowables;
     meowables.emplace_back(BlurringShadow{});
     meowables.emplace_back(BlurringShadow{});

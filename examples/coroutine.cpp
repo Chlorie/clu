@@ -1,8 +1,9 @@
 #include <iostream>
-#include <numeric>
-#include <clu/coroutine/task.h>
+#include <semaphore>
 #include <clu/coroutine/sync_wait.h>
-#include <clu/coroutine/when_all.h>
+#include <clu/coroutine/async_mutex.h>
+#include <clu/coroutine/race.h>
+#include <clu/coroutine/cancellable_task.h>
 
 using namespace std::literals;
 
@@ -31,50 +32,65 @@ struct to_detached_thread
     void await_resume() const noexcept {}
 };
 
-clu::task<int> get_answer()
+using steady_duration = std::chrono::steady_clock::duration;
+
+struct wait_on_detached_thread
 {
-    co_await to_detached_thread();
-    std::this_thread::sleep_for(1s);
-    co_return 42;
+    steady_duration duration;
+    bool cancelled = false;
+    std::binary_semaphore semaphore{ 0 };
+
+    bool await_ready() const noexcept { return false; }
+
+    void await_suspend(const std::coroutine_handle<> handle)
+    {
+        std::thread([handle, this]
+        {
+            (void)semaphore.try_acquire_for(duration);
+            handle.resume();
+        }).detach();
+    }
+
+    bool await_resume() const noexcept { return cancelled; }
+
+    void cancel()
+    {
+        if (!std::exchange(cancelled, true))
+            semaphore.release();
+    }
+};
+
+clu::async_mutex cout_mutex;
+
+clu::cancellable_task<> trash_timer()
+{
+    size_t counter = 0;
+    while (true)
+    {
+        const bool cancelled = co_await wait_on_detached_thread(1s);
+        if (cancelled)
+        {
+            std::cout << "Cancelled\n";
+            co_return;
+        }
+        auto _ = co_await cout_mutex.async_lock_scoped();
+        std::cout << "Counting " << ++counter << "s\n";
+    }
 }
 
-clu::task<std::pair<int, int>> sequenced()
+clu::cancellable_task<> waiter()
 {
-    const int first = co_await get_answer();
-    const int second = co_await get_answer();
-    co_return std::pair{ first, second };
-}
-
-clu::task<std::pair<int, int>> concurrent()
-{
-    const auto [first, second] = co_await when_all(get_answer(), get_answer());
-    co_return std::pair(first, second);
-}
-
-clu::task<std::vector<int>> dynamic(const size_t size)
-{
-    std::vector<clu::task<int>> tasks;
-    tasks.reserve(size);
-    for (size_t i = 0; i < size; i++) tasks.push_back(get_answer());
-    co_return co_await when_all(std::move(tasks));
+    {
+        auto _ = co_await cout_mutex.async_lock_scoped();
+        std::cout << "Wait for 3.14s\n";
+    }
+    co_await wait_on_detached_thread(3140ms);
 }
 
 int main() // NOLINT
 {
-    time_call([]
-    {
-        const auto [first, second] = sync_wait(sequenced());
-        std::cout << "The answers are " << first << " and " << second << '\n';
-    });
-    time_call([]
-    {
-        const auto [first, second] = sync_wait(concurrent());
-        std::cout << "The answers are " << first << " and " << second << '\n';
-    });
-    time_call([]
-    {
-        const auto result = sync_wait(dynamic(100));
-        const auto sum = std::accumulate(result.begin(), result.end(), 0);
-        std::cout << "The sum is " << sum << '\n';
-    });
+    sync_wait(race(
+        trash_timer(),
+        waiter()
+    ));
 }

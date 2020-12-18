@@ -1,6 +1,5 @@
 #pragma once
 
-#include <memory>
 #include <tuple>
 #include <clu/take.h>
 #include <clu/concepts.h>
@@ -14,6 +13,15 @@ namespace clu
         using signature = Signature;
         static constexpr Signature member_ptr = MemPtr;
     };
+
+    namespace type_erasure_policy
+    {
+        struct policy_base {};
+        template <typename T> concept policy = std::derived_from<T, policy_base>;
+
+        struct nullable : policy_base {};
+        struct copyable : policy_base {};
+    }
 
     namespace detail
     {
@@ -37,8 +45,13 @@ namespace clu
         template <typename Model>
         using prototype = typename Model::template interface<meta::empty_type_list>;
 
-        template <typename Model>
-        struct vtable
+        // @formatter:off
+        template <bool Copyable> struct copy_vfptr_provider {};
+        template <> struct copy_vfptr_provider<true> { void* (*copy_ctor)(void*) = nullptr; };
+        // @formatter:on
+
+        template <typename Model, bool Copyable>
+        struct vtable : copy_vfptr_provider<Copyable>
         {
         private:
             template <typename T, typename Sig>
@@ -77,37 +90,68 @@ namespace clu
             using vfptrs_t = decltype(gen_vfptrs<prototype<Model>>());
 
         public:
-            void (*dtor)(void*);
+            void (*dtor)(void*) noexcept = nullptr;
             vfptrs_t vfptrs;
 
             template <typename T>
             static constexpr vtable generate_for()
             {
-                return {
-                    [](void* this_) { delete static_cast<T*>(this_); },
-                    gen_vfptrs<T>()
-                };
+                vtable result;
+                if constexpr (Copyable)
+                    result.copy_ctor = [](void* this_) -> void* { return new T(*static_cast<T*>(this_)); };
+                result.dtor = [](void* this_) noexcept { delete static_cast<T*>(this_); };
+                result.vfptrs = gen_vfptrs<T>();
+                return result;
             }
         };
 
-        template <typename Model, typename T>
-        inline constexpr vtable<Model> vtable_for = vtable<Model>::template generate_for<T>();
+        template <typename Vtable, typename T>
+        inline constexpr Vtable vtable_for = Vtable::template generate_for<T>();
 
-        template <typename Model, bool Nullable>
+        template <typename Model, type_erasure_policy::policy... Policies>
         class dispatch_base
         {
+        protected:
+            static constexpr bool copyable =
+                (std::is_same_v<Policies, type_erasure_policy::copyable> || ...);
+            using vtable_t = vtable<Model, copyable>;
+
+            void reset() noexcept
+            {
+                clean_up();
+                ptr_ = nullptr;
+                vtable_ = nullptr;
+            }
+
         private:
             void* ptr_ = nullptr;
-            const vtable<Model>* vtable_ = nullptr;
+            const vtable_t* vtable_ = nullptr;
+
+            void clean_up() noexcept { if (ptr_) vtable_->dtor(ptr_); }
 
         public:
             dispatch_base() noexcept = default;
-            dispatch_base(void* ptr, const vtable<Model>* vtable): ptr_(ptr), vtable_(vtable) {}
+            dispatch_base(void* ptr, const vtable_t* vtable): ptr_(ptr), vtable_(vtable) {}
 
             dispatch_base(const dispatch_base&) = delete;
             dispatch_base& operator=(const dispatch_base&) = delete;
 
-            ~dispatch_base() noexcept { if (ptr_) vtable_->dtor(ptr_); }
+            dispatch_base(const dispatch_base& other) requires copyable:
+                ptr_(other.vtable_->copy_ctor(other.ptr_)),
+                vtable_(other.vtable_) {}
+
+            dispatch_base& operator=(const dispatch_base& other) requires copyable
+            {
+                if (&other != this)
+                {
+                    clean_up();
+                    ptr_ = other.vtable_->copy_ctor(other.ptr_);
+                    vtable_ = other.vtable_;
+                }
+                return *this;
+            }
+
+            ~dispatch_base() noexcept { clean_up(); }
 
             dispatch_base(dispatch_base&& other) noexcept:
                 ptr_(take(other.ptr_)), vtable_(take(other.vtable_)) {}
@@ -116,11 +160,16 @@ namespace clu
             {
                 if (&other != this)
                 {
+                    clean_up();
                     ptr_ = take(other.ptr_);
                     vtable_ = take(other.vtable_);
                 }
                 return *this;
             }
+
+            [[nodiscard]] bool empty() const noexcept { return ptr_ != nullptr; }
+            [[nodiscard]] explicit operator bool() const noexcept { return ptr_ != nullptr; }
+            [[nodiscard]] bool operator==(std::nullptr_t) const noexcept { return ptr_ == nullptr; }
 
             template <size_t I, typename This, typename... Ts>
             friend decltype(auto) vdispatch_impl(This&& this_, Ts&&... args); // NOLINT
@@ -144,25 +193,37 @@ namespace clu
             return detail::omnipotype{};
     }
 
-    template <typename Model, bool Nullable = false>
-    class type_erased : public Model::template interface<detail::dispatch_base<Model, Nullable>>
+    template <typename Model, type_erasure_policy::policy... Policies>
+    class type_erased : public Model::template interface<detail::dispatch_base<Model, Policies...>>
     {
         static_assert(detail::has_members_v<detail::prototype<Model>, Model::template members>,
             "Interface of the model type should implement the specified members");
 
     private:
-        using indirect_base = detail::dispatch_base<Model, Nullable>;
+        using indirect_base = detail::dispatch_base<Model, Policies...>;
         using base = typename Model::template interface<indirect_base>;
 
-    public:
-        type_erased() noexcept requires Nullable = default;
+        static constexpr bool nullable =
+            (std::is_same_v<Policies, type_erasure_policy::nullable> || ...);
+        static constexpr bool copyable = indirect_base::copyable;
 
-        template <typename T> requires (detail::has_members_v<T, Model::template members>, !forwarding<T, type_erased>)
+        template <typename T>
+        static constexpr bool implements_interface =
+            detail::has_members_v<std::remove_cvref_t<T>, Model::template members> &&
+            (!copyable || std::is_copy_constructible_v<T>);
+
+    public:
+        type_erased() = delete;
+        type_erased() noexcept requires nullable = default;
+
+        template <typename T> requires (implements_interface<T> && !forwarding<T, type_erased>)
         explicit(false) type_erased(T&& value): base{
             indirect_base(
                 new std::remove_cv_t<T>(std::forward<T>(value)),
-                &detail::vtable_for<Model, T>
+                &detail::vtable_for<typename indirect_base::vtable_t, T>
             )
         } {}
+        
+        void reset() noexcept requires nullable { indirect_base::reset(); }
     };
 }

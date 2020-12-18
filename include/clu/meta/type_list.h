@@ -62,6 +62,10 @@ namespace clu::meta
     > {};
     template <typename L, typename T> inline constexpr size_t find_v = find<L, T>::value;
 
+    template <typename L, typename T> struct contains {};
+    template <typename... Ts, typename T> struct contains<type_list<Ts...>, T> : std::bool_constant<(std::is_same_v<Ts, T> || ...)> {};
+    template <typename L, typename T> inline constexpr bool contains_v = contains<L, T>::value;
+
     template <typename L, size_t N> struct at {};
     template <typename T, typename... Rest> struct at<type_list<T, Rest...>, 0> { using type = T; };
     template <typename T, typename... Rest, size_t N>
