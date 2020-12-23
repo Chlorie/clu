@@ -22,6 +22,7 @@ All API in this library lies in namespace `clu`. The nested namespace `clu::deta
 - `function_traits.h`: Type traits for (abominable) function types and member function pointer types.
 - `hash.h`: Simple constexpr string hashing function. Currently contains the fnv1a algorithm (`constexpr` enabled) and a hash combiner.
 - `indices.h`: Provides better syntax for writing normal indexed `for` loops.
+- `new.h`: Manual memory management helpers.
 - `optional_ref.h`: Optional reference type. Has rebind assignment semantics.
 - `outcome.h`: Provides a wrapper around a value/null/exception union.
 - `overload.h`: Helper class template for creating overloads of multiple lambdas, useful for visiting variants.
@@ -35,6 +36,7 @@ All API in this library lies in namespace `clu`. The nested namespace `clu::deta
 - `type_traits.h`: Useful type traits.
     - `copy_cvref<From, To>`: Copies cv-qualifiers and references from the first type to the second. E.g. `copy_cvref<const int&, float>::type` gets `const float&`.
     - `all_same<Ts...>`: Checks whether a list of types are all the same.
+    - `no_cvref<T>`: Checks whether a type has no cv-qualifiers and is not a reference.
 - `vector_utils.h`: Contains a helper function template for constructing a vector with given list of elements, circumventing the non-movable problem of `std::initializer_list`.
 
 ### Coroutine related

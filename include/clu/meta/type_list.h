@@ -9,6 +9,8 @@ namespace clu::meta
     template <typename... Ts> struct type_list { static constexpr size_t size = sizeof...(Ts); };
     using empty_type_list = type_list<>;
 
+    template <typename T> struct type_tag { using type = T; };
+
     inline constexpr size_t npos = static_cast<size_t>(-1);
 
     template <size_t I, typename T>

@@ -27,4 +27,7 @@ namespace clu
     template <typename T, typename... Rest> struct all_same<T, Rest...> : std::bool_constant<(std::is_same_v<T, Rest> && ...)> {};
 
     template <typename... Ts> inline constexpr bool all_same_v = all_same<Ts...>::value;
+
+    template <typename T> inline constexpr bool no_cvref_v = std::is_same_v<T, std::remove_cvref_t<T>>;
+    template <typename T> struct no_cvref : std::bool_constant<no_cvref_v<T>> {};
 }
