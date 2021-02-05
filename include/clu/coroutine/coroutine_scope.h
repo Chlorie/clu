@@ -3,7 +3,6 @@
 #include <atomic>
 
 #include "oneway_task.h"
-#include "schedule.h"
 #include "sync_wait.h"
 #include "../scope.h"
 
@@ -63,18 +62,6 @@ namespace clu
                 scope_exit exit([scope]() { scope->on_coro_complete(); });
                 co_await std::move(awt);
             }(this, std::forward<T>(awaitable));
-        }
-
-        template <awaitable T, scheduler S>
-        void spawn_on(T&& awaitable, S& scheduler)
-        {
-            [](coroutine_scope* scope, S& sch, std::remove_cvref_t<T> awt) -> oneway_task
-            {
-                scope->on_coro_start();
-                scope_exit exit([scope]() { scope->on_coro_complete(); });
-                co_await sch.schedule();
-                co_await std::move(awt);
-            }(this, scheduler, std::forward<T>(awaitable));
         }
 
         [[nodiscard]] join_awaiter join() noexcept { return join_awaiter(this); }
