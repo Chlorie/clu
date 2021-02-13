@@ -1,7 +1,6 @@
 #pragma once
 
 #include <tuple>
-#include <limits>
 #include <typeinfo>
 
 #include "new.h"
@@ -9,17 +8,11 @@
 #include "concepts.h"
 #include "function_traits.h"
 #include "type_traits.h"
+#include "meta/value_list.h"
 
 namespace clu
 {
-    template <typename Signature, Signature MemPtr>
-    struct member_sig
-    {
-        using signature = Signature;
-        static constexpr Signature member_ptr = MemPtr;
-    };
-
-    namespace type_erasure_policy
+    namespace te
     {
         struct policy_base {};
         template <typename T> concept policy = std::derived_from<T, policy_base>;
@@ -34,15 +27,8 @@ namespace clu
 
     namespace detail
     {
-        namespace tep = type_erasure_policy;
-
-        template <typename Impl, template <typename> typename Members, typename Sfinae = void>
-        struct has_members : std::false_type {};
-        template <typename Impl, template <typename> typename Members>
-        struct has_members<Impl, Members, std::void_t<Members<Impl>>> : std::true_type {};
-
-        template <typename Impl, template <typename> typename Members>
-        inline constexpr bool has_members_v = has_members<Impl, Members>::value;
+        template <typename Impl, typename Members>
+        concept implements_model = requires { typename Members::template members<Impl>; };
 
         struct omnipotype
         {
@@ -94,45 +80,51 @@ namespace clu
                 if constexpr (!stack_storable<T, BufferSize>) aligned_free_for<T>(ptr);
             }
 
-            template <typename T, typename Sig>
-            static constexpr auto gen_one_vfptr()
+            template <auto Member>
+            static constexpr auto vfptr_type_impl()
             {
-                using traits = function_traits<typename Sig::signature>;
-                using added_const = std::conditional_t<traits::is_const,
-                    const typename traits::class_type, typename traits::class_type>;
-                using added_cv = std::conditional_t<traits::is_volatile,
-                    volatile added_const, added_const>;
-                using added_cvref = std::conditional_t<traits::is_rvalue_ref,
-                    added_cv&&, added_cv&>;
-
-                return []<typename... As>(meta::type_list<As...>) -> typename traits::return_type(*)(void*, As...)
+                using traits = function_traits<decltype(Member)>;
+                using ret = typename traits::return_type;
+                return []<typename... As>(meta::type_list<As...>)
                 {
-                    using return_type = typename traits::return_type;
-                    return [](void* ptr, As ... args) -> return_type
-                    {
-                        auto&& ref = static_cast<added_cvref>(
-                            *static_cast<typename traits::class_type*>(ptr));
-                        return static_cast<return_type>(std::invoke(Sig::member_ptr,
-                            std::forward<added_cvref>(ref), static_cast<As>(args)...));
-                    };
+                    return static_cast<ret(*)(void*, As ...)>(nullptr);
                 }(typename traits::argument_types{});
+            }
+
+            template <auto... Vs>
+            static constexpr auto vfptrs_type_impl(meta::value_list<Vs...>)
+            {
+                return std::tuple<
+                    decltype(vfptr_type_impl<Vs>())...>{};
+            }
+
+            using vfptrs_type = decltype(vfptrs_type_impl(typename Model::template members<prototype<Model>>{}));
+
+            template <typename T, auto Member, typename R, typename... As>
+            static constexpr auto gen_vfptr(R (*)(void*, As ...))
+            {
+                using traits = function_traits<decltype(Member)>;
+                return +[](void* ptr, As ... args) -> R
+                {
+                    using ref_type = typename traits::implicit_param_type;
+                    auto&& ref = static_cast<ref_type>(*static_cast<typename traits::class_type*>(ptr));
+                    return std::invoke(Member, std::forward<ref_type>(ref), std::forward<As>(args)...);
+                };
             }
 
             template <typename T>
             static constexpr auto gen_vfptrs()
             {
-                return []<typename... Ts>(meta::type_list<Ts...>)
+                return []<auto... Member, typename... VfptrT>(meta::value_list<Member...>, meta::type_list<VfptrT...>)
                 {
-                    return std::tuple{ gen_one_vfptr<T, Ts>()... };
-                }(typename Model::template members<T>{});
+                    return std::tuple{ gen_vfptr<T, Member>(static_cast<VfptrT>(nullptr))... };
+                }(typename Model::template members<T>{}, meta::extract_list_t<vfptrs_type>{});
             }
-
-            using vfptrs_t = decltype(gen_vfptrs<prototype<Model>>());
 
         public:
             move_ctor_t move_ctor = nullptr;
             dtor_t dtor = nullptr;
-            vfptrs_t vfptrs;
+            vfptrs_type vfptrs{};
 
             template <typename T, size_t BufferSize>
             static constexpr vtable generate_for()
@@ -252,16 +244,16 @@ namespace clu
         struct sized_template<T<S>, T> : std::true_type { static constexpr size_t size = S; };
         // @formatter:on
 
-        template <template <size_t> typename Templ, tep::policy... Ps>
+        template <template <size_t> typename Templ, te::policy... Ps>
         constexpr size_t get_policy_size() noexcept { return (sized_template<Ps, Templ>::size + ... + 0); }
 
-        template <tep::policy... Ps>
+        template <te::policy... Ps>
         constexpr auto get_storage_type() noexcept
         {
             constexpr size_t small_buffer_count =
-                (static_cast<size_t>(sized_template<Ps, tep::small_buffer>::value) + ... + 0);
+                (static_cast<size_t>(sized_template<Ps, te::small_buffer>::value) + ... + 0);
             constexpr size_t stack_only_count =
-                (static_cast<size_t>(sized_template<Ps, tep::stack_only>::value) + ... + 0);
+                (static_cast<size_t>(sized_template<Ps, te::stack_only>::value) + ... + 0);
             if constexpr (small_buffer_count + stack_only_count == 0)
                 return meta::type_tag<heap_storage>{};
             else
@@ -269,21 +261,21 @@ namespace clu
                 static_assert(small_buffer_count + stack_only_count == 1,
                     "At most one of small_buffer or stack_only policy can be specified");
                 if constexpr (small_buffer_count > 0)
-                    return meta::type_tag<small_buffer_storage<get_policy_size<tep::small_buffer, Ps...>()>>{};
+                    return meta::type_tag<small_buffer_storage<get_policy_size<te::small_buffer, Ps...>()>>{};
                 else // small_buffer_count > 0
-                    return meta::type_tag<stack_only_storage<get_policy_size<tep::stack_only, Ps...>()>>{};
+                    return meta::type_tag<stack_only_storage<get_policy_size<te::stack_only, Ps...>()>>{};
             }
         }
 
-        template <tep::policy... Ps>
+        template <te::policy... Ps>
         using storage_type = typename decltype(get_storage_type<Ps...>())::type;
 
-        template <typename Model, tep::policy... Policies>
+        template <typename Model, te::policy... Policies>
         class dispatch_base
         {
         protected:
             static constexpr bool copyable =
-                (std::is_same_v<Policies, tep::copyable> || ...);
+                (std::is_same_v<Policies, te::copyable> || ...);
             using storage_t = storage_type<Policies...>;
             static constexpr size_t buffer_size = storage_t::buffer_size;
             using vtable_t = vtable<Model, copyable>;
@@ -372,10 +364,10 @@ namespace clu
             return detail::omnipotype{};
     }
 
-    template <typename Model, type_erasure_policy::policy... Policies>
+    template <typename Model, te::policy... Policies>
     class type_erased : public Model::template interface<detail::dispatch_base<Model, Policies...>>
     {
-        static_assert(detail::has_members_v<detail::prototype<Model>, Model::template members>,
+        static_assert(detail::implements_model<detail::prototype<Model>, Model>,
             "Interface of the model type should implement the specified members");
 
     private:
@@ -384,14 +376,14 @@ namespace clu
         using vtable_t = typename indirect_base::vtable_t;
 
         static constexpr bool nullable =
-            (std::is_same_v<Policies, type_erasure_policy::nullable> || ...);
+            (std::is_same_v<Policies, te::nullable> || ...);
         static constexpr bool copyable = indirect_base::copyable;
         static constexpr bool stack_only = detail::sized_template<
             typename indirect_base::storage_t, detail::stack_only_storage>::value;
 
         template <typename T>
         static constexpr bool is_impl_type =
-            detail::has_members_v<T, Model::template members> &&
+            detail::implements_model<T, Model> &&
             (!copyable || std::is_copy_constructible_v<T>) &&
             !forwarding<T, type_erased> &&
             (!stack_only || detail::stack_storable<T, indirect_base::buffer_size>);

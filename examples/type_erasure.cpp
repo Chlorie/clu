@@ -15,18 +15,19 @@ struct MeowableModel
         void meow(const int x) const { clu::vdispatch<2>(*this, x); }
     };
 
-    // `members` should be a member type alias template of a type list
+    // `members` should be a member type alias template of a value list
     // holding all of the interface functions and their respective
     // member function pointer signatures
+    // Non-overload functions do not need static_cast
     template <typename T>
-    using members = clu::meta::type_list<
-        clu::member_sig<void (T::*)(), &T::meow>,
-        clu::member_sig<void (T::*)() const, &T::meow>,
-        clu::member_sig<void (T::*)(int) const, &T::meow>
+    using members = clu::meta::value_list<
+        static_cast<void (T::*)()>(&T::meow),
+        static_cast<void (T::*)() const>(&T::meow),
+        static_cast<void (T::*)(int) const>(&T::meow)
     >;
 };
 
-namespace tep = clu::type_erasure_policy;
+namespace te = clu::te;
 
 struct CatGirl
 {
@@ -124,7 +125,7 @@ void nullable_and_copyable()
 {
     std::cout << "Nullable & copyable:\n";
     {
-        using NullableCat = clu::type_erased<MeowableModel, tep::nullable>;
+        using NullableCat = clu::type_erased<MeowableModel, te::nullable>;
         NullableCat cat; // Now it can be default constructed, holding the null state
         std::cout << "cat is empty: " << cat.empty() << '\n';
         // cat.meow(); // No.
@@ -135,7 +136,7 @@ void nullable_and_copyable()
     }
     std::cout << '\n';
     {
-        using CopyCat = clu::type_erased<MeowableModel, tep::copyable>;
+        using CopyCat = clu::type_erased<MeowableModel, te::copyable>;
         CopyCat cat = CatGirl{};
         CopyCat copy_cat = cat; // Copyable cat
         cat.meow();
@@ -153,7 +154,7 @@ void stack_buffer()
         // type should be nothrow move constructible, of a size smaller than the
         // buffer, and not overaligned (its alignment should be less than that of
         // std::max_align_t).
-        using SmallCatOpt = clu::type_erased<MeowableModel, tep::small_buffer<8>>;
+        using SmallCatOpt = clu::type_erased<MeowableModel, te::small_buffer<8>>;
         SmallCatOpt cat = CatGirl{}; // No allocation
         cat.meow();
         cat.emplace<ImmovableCat>(); // Size ok, but not move c'tible, so this allocates
@@ -165,7 +166,7 @@ void stack_buffer()
     {
         // `stack_only` is like `small_buffer`, except when the type cannot be stored
         // in the stack buffer it just refuses to compile.
-        using RealSmallCats = clu::type_erased<MeowableModel, tep::stack_only<8>>;
+        using RealSmallCats = clu::type_erased<MeowableModel, te::stack_only<8>>;
         RealSmallCats cat = CatGirl{}; // No allocation
         cat.meow();
         // Following types are not suitable for the stack buffer

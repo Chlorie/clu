@@ -18,5 +18,5 @@ namespace clu
     };
 
     template <typename T, size_t N>
-    fixed_string(const T (&)[N]) -> fixed_string<T, N>;
+    fixed_string(const T (&)[N]) -> fixed_string<T, N - 1>;
 }
