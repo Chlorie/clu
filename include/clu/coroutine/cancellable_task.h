@@ -22,7 +22,7 @@ namespace clu
             {
                 bool await_ready() const noexcept { return false; }
                 template <typename P>
-                std::coroutine_handle<> await_suspend(const std::coroutine_handle<P> handle) const
+                std::coroutine_handle<> await_suspend(const std::coroutine_handle<P> handle) const noexcept
                 {
                     return handle.promise().cont_;
                 }
