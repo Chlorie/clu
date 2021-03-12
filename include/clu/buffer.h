@@ -41,7 +41,7 @@ namespace clu
         template <typename R> requires (
             (std::is_const_v<T> && trivial_range<R>) || 
             (!std::is_const_v<T> && mutable_trivial_range<R>))
-        explicit(false) basic_buffer(R&& range) noexcept:
+        constexpr explicit(false) basic_buffer(R&& range) noexcept:
             ptr_(reinterpret_cast<T*>(std::ranges::data(range))),
             size_(std::ranges::size(range) * sizeof(std::ranges::range_value_t<R>)) {}
         
@@ -54,7 +54,7 @@ namespace clu
         [[nodiscard]] constexpr bool empty() const noexcept { return size_ == 0; }
         constexpr void remove_prefix(const size_t size) noexcept { ptr_ += size; }
         constexpr void remove_suffix(const size_t size) noexcept { size_ -= size; }
-        [[nodiscard]] constexpr T& operator[](const size_t index) noexcept { return ptr_[index]; }
+        [[nodiscard]] constexpr T& operator[](const size_t index) const noexcept { return ptr_[index]; }
         [[nodiscard]] constexpr basic_buffer first(const size_t size) const noexcept { return { ptr_, size }; }
         [[nodiscard]] constexpr basic_buffer last(const size_t size) const noexcept { return { ptr_ + (size_ - size), size }; }
 
