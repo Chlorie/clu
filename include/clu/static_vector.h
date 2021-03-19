@@ -55,7 +55,10 @@ namespace clu
             {
                 const auto dist = std::ranges::distance(first, last);
                 if (dist > N) size_exceed_capacity();
-                std::ranges::uninitialized_copy(first, last, data(), data() + dist);
+                // TODO: remove this MSVC STL issue workaround
+                const auto common = std::views::common(std::ranges::subrange(first, last));
+                std::uninitialized_copy(common.begin(), common.end(), data());
+                // std::ranges::uninitialized_copy(first, last, data(), data() + dist);
                 size_ = dist;
             }
             else
@@ -210,7 +213,7 @@ namespace clu
         T& back() noexcept { return data()[size_ - 1]; }
         const T& back() const noexcept { return data()[size_ - 1]; }
         T* data() noexcept { return std::launder(reinterpret_cast<T*>(storage_)); }
-        const T* data() const noexcept { return std::launder(reinterpret_cast<T*>(storage_)); }
+        const T* data() const noexcept { return std::launder(reinterpret_cast<const T*>(storage_)); }
 
         iterator begin() noexcept { return data(); }
         const_iterator begin() const noexcept { return data(); }
@@ -362,9 +365,9 @@ namespace clu
                 other.swap(*this);
             else
             {
-                std::ranges::swap_ranges(begin(), end(), other.begin(), other.begin() + size_);
-                std::ranges::uninitialized_move(other.begin() + size_, other.end(), end(), begin() + other.size_);
-                std::ranges::destroy(other.begin() + size_, other.end());
+                std::swap_ranges(begin(), end(), other.begin());
+                std::uninitialized_move(other.begin() + size_, other.end(), end());
+                std::destroy(other.begin() + size_, other.end());
                 std::swap(size_, other.size_);
             }
         }

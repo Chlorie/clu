@@ -2,12 +2,13 @@
 
 cmake_minimum_required(VERSION 3.14)
 
-project(clu LANGUAGES CXX VERSION 0.17.0)
+project(clu LANGUAGES CXX VERSION 0.17.1)
 
 set(LIB_NAME clu)
 
 option(CLU_BUILD_EXAMPLES "Build examples" OFF)
 option(CLU_INSTALL "Install the library" OFF)
+option(CLU_UNIT_TEST "Enable unit test" OFF)
 
 function (target_set_options TGT)
     # Set C++20
@@ -86,4 +87,9 @@ if (CLU_INSTALL)
                   "${PROJECT_BINARY_DIR}/${LIB_NAME}Config.cmake"
             DESTINATION lib/cmake/${LIB_NAME})
     install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/ DESTINATION include)
+endif ()
+
+if (CLU_UNIT_TEST)
+    list(APPEND VCPKG_MANIFEST_FEATURES "unit-test")
+    add_subdirectory(tests)
 endif ()

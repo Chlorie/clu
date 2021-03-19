@@ -13,6 +13,6 @@ void print_buffer(const clu::mutable_buffer& buf)
 
 int main()
 {
-    std::vector<int> vec{ 1, 2, 3, 42, 2147483647 };
+    std::vector vec{ 1, 2, 3, 42, 2147483647 };
     print_buffer(vec);
 }
