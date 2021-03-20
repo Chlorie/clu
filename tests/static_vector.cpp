@@ -87,3 +87,5 @@ TEST(StaticVectorCtor, Range)
     const vector_t uncommon(view);
     EXPECT_THAT(uncommon, tst::ElementsAre(1, 3));
 }
+
+// TODO: more tests

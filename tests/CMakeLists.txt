@@ -14,5 +14,6 @@ function (add_test_exe TARGET_NAME)
     add_test(AllTestsInMain ${TARGET_NAME})
 endfunction ()
 
+add_test_exe(polymorphic_value)
 add_test_exe(static_vector)
 add_test_exe(take)
