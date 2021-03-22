@@ -1,5 +1,5 @@
 {
     "name": "clu",
-    "version-string": "0.18.0",
+    "version-string": "0.18.1",
     "description": "Chlorie's collection of header-only small utilities"
 }

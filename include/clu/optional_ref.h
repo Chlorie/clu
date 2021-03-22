@@ -12,13 +12,16 @@ namespace clu
 
     public:
         constexpr optional_ref() noexcept = default;
-        constexpr optional_ref(std::nullopt_t) noexcept {}
-        constexpr optional_ref(std::nullptr_t) noexcept {}
-        constexpr optional_ref(T& reference) noexcept: ptr_(std::addressof(reference)) {}
-        
-        constexpr optional_ref(const std::optional<std::remove_const_t<T>>& opt) noexcept requires std::is_const_v<T>:
+        constexpr explicit(false) optional_ref(std::nullopt_t) noexcept {}
+        constexpr explicit(false) optional_ref(std::nullptr_t) noexcept {}
+        constexpr explicit(false) optional_ref(T& reference) noexcept: ptr_(std::addressof(reference)) {}
+
+        constexpr explicit(false) optional_ref(const std::optional<std::remove_const_t<T>>& opt) noexcept
+            requires std::is_const_v<T>:
             ptr_(opt ? std::addressof(*opt) : nullptr) {}
-        constexpr optional_ref(std::optional<T>& opt) noexcept requires (!std::is_const_v<T>):
+
+        constexpr explicit(false) optional_ref(std::optional<T>& opt) noexcept
+            requires (!std::is_const_v<T>):
             ptr_(opt ? std::addressof(*opt) : nullptr) {}
 
         constexpr optional_ref& operator=(std::nullopt_t) noexcept
@@ -42,10 +45,10 @@ namespace clu
         constexpr T* operator->() const noexcept { return ptr_; }
         constexpr T& operator*() const noexcept { return *ptr_; }
 
-        explicit constexpr operator bool() const noexcept { return ptr_ != nullptr; }
+        constexpr explicit operator bool() const noexcept { return ptr_ != nullptr; }
         constexpr bool has_value() const noexcept { return ptr_ != nullptr; }
 
-        T& value() const // TODO: throwable constexpr function
+        constexpr T& value() const
         {
             if (ptr_) return *ptr_;
             throw std::bad_optional_access();

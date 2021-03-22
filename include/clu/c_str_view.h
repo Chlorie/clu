@@ -29,17 +29,17 @@ namespace clu
 
     public:
         constexpr c_str_view() noexcept = default;
-        constexpr explicit(false) c_str_view(const char* ptr): ptr_(ptr) {}
-        explicit(false) c_str_view(const std::string& str): ptr_(str.c_str()) {} // TODO: add constexpr back
+        constexpr explicit(false) c_str_view(const char* ptr) noexcept: ptr_(ptr) {}
+        explicit(false) c_str_view(const std::string& str) noexcept: ptr_(str.c_str()) {} // TODO: add constexpr back
         explicit(false) c_str_view(const std::string&&) = delete;
 
-        constexpr c_str_view& operator=(const char* ptr)
+        constexpr c_str_view& operator=(const char* ptr) noexcept
         {
             ptr_ = ptr;
             return *this;
         }
 
-        c_str_view& operator=(const std::string& str) // TODO: add constexpr back
+        c_str_view& operator=(const std::string& str) noexcept // TODO: add constexpr back
         {
             ptr_ = str.c_str();
             return *this;
