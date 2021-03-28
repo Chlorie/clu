@@ -63,7 +63,7 @@ namespace clu
             }
             else
             {
-                scope_fail guard = [this] { clear(); };
+                scope_fail guard([this] { clear(); });
                 for (; first != last; ++first, ++size_)
                 {
                     if (size_ == N) size_exceed_capacity();
@@ -148,7 +148,7 @@ namespace clu
         explicit static_vector(list_init_t, Ts&&... init)
         {
             if (sizeof...(init) > N) size_exceed_capacity();
-            scope_fail guard = [this] { clear(); };
+            scope_fail guard([this] { clear(); });
             const auto construct_one = [this]<typename U>(U&& value)
             {
                 new(data() + size_) T(std::forward<U>(value));

@@ -11,7 +11,7 @@ namespace clu
     private:
         F func_;
     public:
-        constexpr explicit(false) scope_exit(F&& func): func_(std::move(func)) {}
+        constexpr explicit scope_exit(F&& func): func_(std::move(func)) {}
         scope_exit(const scope_exit&) = delete;
         scope_exit(scope_exit&&) = delete;
         scope_exit& operator=(const scope_exit&) = delete;
@@ -27,7 +27,7 @@ namespace clu
         int exception_count_ = std::uncaught_exceptions();
         F func_;
     public:
-        constexpr explicit(false) scope_fail(F&& func): func_(std::move(func)) {}
+        constexpr explicit scope_fail(F&& func): func_(std::move(func)) {}
         scope_fail(const scope_fail&) = delete;
         scope_fail(scope_fail&&) = delete;
         scope_fail& operator=(const scope_fail&) = delete;
@@ -48,7 +48,7 @@ namespace clu
         int exception_count_ = std::uncaught_exceptions();
         F func_;
     public:
-        constexpr explicit(false) scope_success(F&& func): func_(std::move(func)) {}
+        constexpr explicit scope_success(F&& func): func_(std::move(func)) {}
         scope_success(const scope_success&) = delete;
         scope_success(scope_success&&) = delete;
         scope_success& operator=(const scope_success&) = delete;
