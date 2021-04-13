@@ -4,11 +4,9 @@
 
 namespace clu
 {
-    // @formatter:off
     template <typename T, typename... Ts>
         requires (std::constructible_from<T, Ts&&> && ...)
-    // @formatter:on
-    std::vector<T> make_vector(Ts&&... list)
+    [[nodiscard]] std::vector<T> make_vector(Ts&&... list)
     {
         std::vector<T> vec;
         vec.reserve(sizeof...(list));

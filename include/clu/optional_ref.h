@@ -42,19 +42,19 @@ namespace clu
             return *this;
         }
 
-        constexpr T* operator->() const noexcept { return ptr_; }
-        constexpr T& operator*() const noexcept { return *ptr_; }
+        [[nodiscard]] constexpr T* operator->() const noexcept { return ptr_; }
+        [[nodiscard]] constexpr T& operator*() const noexcept { return *ptr_; }
 
-        constexpr explicit operator bool() const noexcept { return ptr_ != nullptr; }
-        constexpr bool has_value() const noexcept { return ptr_ != nullptr; }
+        [[nodiscard]] constexpr explicit operator bool() const noexcept { return ptr_ != nullptr; }
+        [[nodiscard]] constexpr bool has_value() const noexcept { return ptr_ != nullptr; }
 
-        constexpr T& value() const
+        [[nodiscard]] constexpr T& value() const
         {
             if (ptr_) return *ptr_;
             throw std::bad_optional_access();
         }
 
-        constexpr T& value_or(T& default_value) const noexcept { return ptr_ ? *ptr_ : default_value; }
+        [[nodiscard]] constexpr T& value_or(T& default_value) const noexcept { return ptr_ ? *ptr_ : default_value; }
 
         constexpr void swap(optional_ref& other) noexcept { std::swap(ptr_, other.ptr_); }
         friend constexpr void swap(optional_ref& lhs, optional_ref& rhs) noexcept { lhs.swap(rhs); }

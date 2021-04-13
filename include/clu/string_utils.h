@@ -20,10 +20,10 @@ namespace clu
     };
 
     template <char_type T, size_t N>
-    constexpr size_t strlen(const T [N]) noexcept { return N - 1; }
+    [[nodiscard]] constexpr size_t strlen(const T [N]) noexcept { return N - 1; }
 
     template <char_type T>
-    constexpr size_t strlen(const T* str) noexcept
+    [[nodiscard]] constexpr size_t strlen(const T* str) noexcept
     {
         const T* ptr = str;
         while (*ptr != T(0)) ++ptr;
@@ -31,5 +31,5 @@ namespace clu
     }
 
     template <string_view_like T>
-    constexpr size_t strlen(const T& str) noexcept { return str.length(); }
+    [[nodiscard]] constexpr size_t strlen(const T& str) noexcept { return str.length(); }
 }

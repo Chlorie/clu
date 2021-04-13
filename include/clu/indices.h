@@ -52,8 +52,8 @@ namespace clu
                 constexpr iterator() = default;
                 explicit constexpr iterator(const value_type& extents): extents_(extents) {}
 
-                constexpr reference operator*() const { return data_; }
-                constexpr pointer operator->() const { return &data_; }
+                [[nodiscard]] constexpr reference operator*() const { return data_; }
+                [[nodiscard]] constexpr pointer operator->() const { return &data_; }
 
                 constexpr iterator& operator++()
                 {
@@ -68,22 +68,22 @@ namespace clu
                     return result;
                 }
 
-                friend constexpr bool operator==(const iterator& lhs, const iterator& rhs) { return lhs.data_ == rhs.data_; }
-                friend constexpr bool operator!=(const iterator& lhs, const iterator& rhs) { return lhs.data_ != rhs.data_; }
-                friend constexpr bool operator==(const iterator& it, sentinel) { return it.data_[0] == it.extents_[0]; }
-                friend constexpr bool operator==(sentinel, const iterator& it) { return it.data_[0] == it.extents_[0]; }
-                friend constexpr bool operator!=(const iterator& it, sentinel) { return it.data_[0] != it.extents_[0]; }
-                friend constexpr bool operator!=(sentinel, const iterator& it) { return it.data_[0] != it.extents_[0]; }
+                [[nodiscard]] friend constexpr bool operator==(const iterator& lhs, const iterator& rhs) { return lhs.data_ == rhs.data_; }
+                [[nodiscard]] friend constexpr bool operator!=(const iterator& lhs, const iterator& rhs) { return lhs.data_ != rhs.data_; }
+                [[nodiscard]] friend constexpr bool operator==(const iterator& it, sentinel) { return it.data_[0] == it.extents_[0]; }
+                [[nodiscard]] friend constexpr bool operator==(sentinel, const iterator& it) { return it.data_[0] == it.extents_[0]; }
+                [[nodiscard]] friend constexpr bool operator!=(const iterator& it, sentinel) { return it.data_[0] != it.extents_[0]; }
+                [[nodiscard]] friend constexpr bool operator!=(sentinel, const iterator& it) { return it.data_[0] != it.extents_[0]; }
             };
 
             using const_iterator = iterator;
 
             explicit constexpr indices_t(const value_type& extents): extents_(extents) {}
 
-            constexpr auto begin() const { return iterator{ extents_ }; }
-            constexpr auto cbegin() const { return iterator{ extents_ }; }
-            constexpr auto end() const { return sentinel{}; }
-            constexpr auto cend() const { return sentinel{}; }
+            [[nodiscard]] constexpr auto begin() const { return iterator{ extents_ }; }
+            [[nodiscard]] constexpr auto cbegin() const { return iterator{ extents_ }; }
+            [[nodiscard]] constexpr auto end() const { return sentinel{}; }
+            [[nodiscard]] constexpr auto cend() const { return sentinel{}; }
         };
 
         template <>
@@ -111,8 +111,8 @@ namespace clu
             public:
                 explicit constexpr iterator(const size_t data = 0): data_(data) {}
 
-                constexpr reference operator*() const { return data_; }
-                constexpr pointer operator->() const { return &data_; }
+                [[nodiscard]] constexpr reference operator*() const { return data_; }
+                [[nodiscard]] constexpr pointer operator->() const { return &data_; }
 
                 constexpr iterator& operator++()
                 {
@@ -127,23 +127,23 @@ namespace clu
                     return result;
                 }
 
-                friend constexpr bool operator==(const iterator lhs, const iterator rhs) { return lhs.data_ == rhs.data_; }
-                friend constexpr bool operator!=(const iterator lhs, const iterator rhs) { return lhs.data_ != rhs.data_; }
+                [[nodiscard]] friend constexpr bool operator==(const iterator lhs, const iterator rhs) { return lhs.data_ == rhs.data_; }
+                [[nodiscard]] friend constexpr bool operator!=(const iterator lhs, const iterator rhs) { return lhs.data_ != rhs.data_; }
             };
 
             using const_iterator = iterator;
 
             explicit constexpr indices_t(const size_t extent): extent_(extent) {}
 
-            constexpr auto begin() const { return iterator{}; }
-            constexpr auto cbegin() const { return iterator{}; }
-            constexpr auto end() const { return iterator{ extent_ }; }
-            constexpr auto cend() const { return iterator{ extent_ }; }
+            [[nodiscard]] constexpr auto begin() const { return iterator{}; }
+            [[nodiscard]] constexpr auto cbegin() const { return iterator{}; }
+            [[nodiscard]] constexpr auto end() const { return iterator{ extent_ }; }
+            [[nodiscard]] constexpr auto cend() const { return iterator{ extent_ }; }
         };
     }
 
     template <std::convertible_to<size_t>... Ts>
-    constexpr auto indices(const Ts... extents)
+    [[nodiscard]] constexpr auto indices(const Ts ... extents)
     {
         return detail::indices_t<sizeof...(Ts)>(
             { static_cast<size_t>(extents)... });

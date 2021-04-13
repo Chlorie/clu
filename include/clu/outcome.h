@@ -17,7 +17,7 @@ namespace clu
     class bad_outcome_access final : public std::exception
     {
     public:
-        const char* what() const noexcept override { return "bad outcome access"; }
+        [[nodiscard]] const char* what() const noexcept override { return "bad outcome access"; }
     };
 
     namespace detail
@@ -63,12 +63,12 @@ namespace clu
 
             template <typename E> void set_exception(const E& exception) { value_ = std::make_exception_ptr(exception); }
 
-            bool empty() const noexcept { return value_.index() == 0; }
-            bool has_value() const noexcept { return value_.index() == 1; }
-            bool has_exception() const noexcept { return value_.index() == 2; }
-            explicit operator bool() const noexcept { return value_.index() == 1; }
+            [[nodiscard]] bool empty() const noexcept { return value_.index() == 0; }
+            [[nodiscard]] bool has_value() const noexcept { return value_.index() == 1; }
+            [[nodiscard]] bool has_exception() const noexcept { return value_.index() == 2; }
+            [[nodiscard]] explicit operator bool() const noexcept { return value_.index() == 1; }
 
-            std::exception_ptr exception() const noexcept
+            [[nodiscard]] std::exception_ptr exception() const noexcept
             {
                 if (const auto* eptrptr = std::get_if<2>(&value_))
                     return *eptrptr;
@@ -111,14 +111,14 @@ namespace clu
         template <typename... Ts> requires std::constructible_from<T, Ts&&...>
         void emplace(Ts&&... args) { this->value_.template emplace<1>(std::forward<Ts>(args)...); }
 
-        decltype(auto) get() & { return get_impl(*this); }
-        decltype(auto) get() const & { return get_impl(*this); }
-        decltype(auto) get() && { return get_impl(std::move(*this)); }
-        decltype(auto) get() const && { return get_impl(std::move(*this)); }
-        decltype(auto) operator*() & { return get_impl(*this); }
-        decltype(auto) operator*() const & { return get_impl(*this); }
-        decltype(auto) operator*() && { return get_impl(std::move(*this)); }
-        decltype(auto) operator*() const && { return get_impl(std::move(*this)); }
+        [[nodiscard]] decltype(auto) get() & { return get_impl(*this); }
+        [[nodiscard]] decltype(auto) get() const & { return get_impl(*this); }
+        [[nodiscard]] decltype(auto) get() && { return get_impl(std::move(*this)); }
+        [[nodiscard]] decltype(auto) get() const && { return get_impl(std::move(*this)); }
+        [[nodiscard]] decltype(auto) operator*() & { return get_impl(*this); }
+        [[nodiscard]] decltype(auto) operator*() const & { return get_impl(*this); }
+        [[nodiscard]] decltype(auto) operator*() && { return get_impl(std::move(*this)); }
+        [[nodiscard]] decltype(auto) operator*() const && { return get_impl(std::move(*this)); }
     };
 
     template <>
@@ -177,7 +177,7 @@ namespace clu
         void emplace(T& value) { this->value_.template emplace<1>(std::addressof(value)); }
         void emplace(const T&& value) = delete;
 
-        T& get() const
+        [[nodiscard]] T& get() const
         {
             return std::visit(overload
                 {
@@ -187,7 +187,7 @@ namespace clu
                 }, this->value_);
         }
 
-        T& operator*() const { return get(); }
+        [[nodiscard]] T& operator*() const { return get(); }
     };
 
     template <typename T>
@@ -210,7 +210,7 @@ namespace clu
 
         void emplace(T&& value) { this->value_.template emplace<1>(addressof(value)); }
 
-        T&& get() const
+        [[nodiscard]] T&& get() const
         {
             return std::visit(overload
                 {
@@ -220,7 +220,7 @@ namespace clu
                 }, this->value_);
         }
 
-        T&& operator*() const { return get(); }
+        [[nodiscard]] T&& operator*() const { return get(); }
     };
 
     outcome(void_tag_t) -> outcome<void>;

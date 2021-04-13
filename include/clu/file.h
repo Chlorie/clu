@@ -7,7 +7,7 @@
 namespace clu
 {
     template <typename T> requires std::is_trivial_v<T>
-    std::vector<T> read_all_bytes(const std::filesystem::path& path)
+    [[nodiscard]] std::vector<T> read_all_bytes(const std::filesystem::path& path)
     {
         std::ifstream fs(path, std::ios::in | std::ios::binary);
         if (fs.fail()) throw std::runtime_error("failed to open binary file");

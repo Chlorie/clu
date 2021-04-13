@@ -6,7 +6,7 @@
 namespace clu
 {
     template <typename F>
-    class scope_exit final
+    [[nodiscard]] class scope_exit final
     {
     private:
         F func_;
@@ -21,7 +21,7 @@ namespace clu
     template <typename F> scope_exit(F) -> scope_exit<F>;
 
     template <typename F>
-    class scope_fail final
+    [[nodiscard]] class scope_fail final
     {
     private:
         int exception_count_ = std::uncaught_exceptions();
@@ -42,7 +42,7 @@ namespace clu
     template <typename F> scope_fail(F) -> scope_fail<F>;
 
     template <typename F>
-    class scope_success final
+    [[nodiscard]] class scope_success final
     {
     private:
         int exception_count_ = std::uncaught_exceptions();

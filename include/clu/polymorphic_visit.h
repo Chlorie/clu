@@ -26,14 +26,10 @@ namespace clu
         }
     }
 
-    // @formatter:off
-    template <typename... Ds, typename B, typename F>
-        requires (
-            (std::derived_from<Ds, std::remove_cvref_t<B>> && ...) &&
-            (std::invocable<F&&, copy_cvref_t<B&&, Ds>> && ...) &&
-            all_same_v<std::invoke_result_t<F&&, copy_cvref_t<B&&, Ds>>...>
-        )
-    // @formatter:on
+    template <typename... Ds, typename B, typename F> requires
+        (std::derived_from<Ds, std::remove_cvref_t<B>> && ...) &&
+        (std::invocable<F&&, copy_cvref_t<B&&, Ds>> && ...) &&
+        all_same_v<std::invoke_result_t<F&&, copy_cvref_t<B&&, Ds>>...>
     decltype(auto) polymorphic_visit(B&& base, F&& func)
     {
         return detail::polymorphic_visit_impl<Ds...>(

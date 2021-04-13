@@ -30,10 +30,10 @@ namespace clu
 
         void destruct() noexcept { value_.~T(); }
 
-        T& get() & noexcept { return value_; }
-        const T& get() const & noexcept { return value_; }
-        T&& get() && noexcept { return std::move(value_); }
-        const T&& get() const && noexcept { return std::move(value_); }
+        [[nodiscard]] T& get() & noexcept { return value_; }
+        [[nodiscard]] const T& get() const & noexcept { return value_; }
+        [[nodiscard]] T&& get() && noexcept { return std::move(value_); }
+        [[nodiscard]] const T&& get() const && noexcept { return std::move(value_); }
     };
 
     template <typename T>
@@ -53,7 +53,7 @@ namespace clu
         T& construct(T& ref) noexcept { return *(ptr_ = std::addressof(ref)); }
         void destruct() noexcept {}
 
-        T& get() const noexcept { return *ptr_; }
+        [[nodiscard]] T& get() const noexcept { return *ptr_; }
     };
 
     template <typename T>
@@ -73,7 +73,7 @@ namespace clu
         T&& construct(T&& ref) noexcept { return std::move(*(ptr_ = std::addressof(ref))); }
         void destruct() noexcept {}
 
-        T&& get() const noexcept { return std::move(*ptr_); }
+        [[nodiscard]] T&& get() const noexcept { return std::move(*ptr_); }
     };
 
     template <>

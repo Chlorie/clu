@@ -204,29 +204,29 @@ namespace clu
 
         void assign(const std::initializer_list<T> init) { *this = init; }
 
-        T& at(const size_t pos) { return data()[checked_pos(pos)]; }
-        const T& at(const size_t pos) const { return data()[checked_pos(pos)]; }
-        T& operator[](const size_t pos) noexcept { return data()[pos]; }
-        const T& operator[](const size_t pos) const noexcept { return data()[pos]; }
-        T& front() noexcept { return *data(); }
-        const T& front() const noexcept { return *data(); }
-        T& back() noexcept { return data()[size_ - 1]; }
-        const T& back() const noexcept { return data()[size_ - 1]; }
-        T* data() noexcept { return std::launder(reinterpret_cast<T*>(storage_)); }
-        const T* data() const noexcept { return std::launder(reinterpret_cast<const T*>(storage_)); }
+        [[nodiscard]] T& at(const size_t pos) { return data()[checked_pos(pos)]; }
+        [[nodiscard]] const T& at(const size_t pos) const { return data()[checked_pos(pos)]; }
+        [[nodiscard]] T& operator[](const size_t pos) noexcept { return data()[pos]; }
+        [[nodiscard]] const T& operator[](const size_t pos) const noexcept { return data()[pos]; }
+        [[nodiscard]] T& front() noexcept { return *data(); }
+        [[nodiscard]] const T& front() const noexcept { return *data(); }
+        [[nodiscard]] T& back() noexcept { return data()[size_ - 1]; }
+        [[nodiscard]] const T& back() const noexcept { return data()[size_ - 1]; }
+        [[nodiscard]] T* data() noexcept { return std::launder(reinterpret_cast<T*>(storage_)); }
+        [[nodiscard]] const T* data() const noexcept { return std::launder(reinterpret_cast<const T*>(storage_)); }
 
-        iterator begin() noexcept { return data(); }
-        const_iterator begin() const noexcept { return data(); }
-        const_iterator cbegin() const noexcept { return data(); }
-        iterator end() noexcept { return data() + size_; }
-        const_iterator end() const noexcept { return data() + size_; }
-        const_iterator cend() const noexcept { return data() + size_; }
-        reverse_iterator rbegin() noexcept { return std::make_reverse_iterator(end()); }
-        const_reverse_iterator rbegin() const noexcept { return std::make_reverse_iterator(end()); }
-        const_reverse_iterator crbegin() const noexcept { return std::make_reverse_iterator(end()); }
-        reverse_iterator rend() noexcept { return std::make_reverse_iterator(begin()); }
-        const_reverse_iterator rend() const noexcept { return std::make_reverse_iterator(begin()); }
-        const_reverse_iterator crend() const noexcept { return std::make_reverse_iterator(begin()); }
+        [[nodiscard]] iterator begin() noexcept { return data(); }
+        [[nodiscard]] const_iterator begin() const noexcept { return data(); }
+        [[nodiscard]] const_iterator cbegin() const noexcept { return data(); }
+        [[nodiscard]] iterator end() noexcept { return data() + size_; }
+        [[nodiscard]] const_iterator end() const noexcept { return data() + size_; }
+        [[nodiscard]] const_iterator cend() const noexcept { return data() + size_; }
+        [[nodiscard]] reverse_iterator rbegin() noexcept { return std::make_reverse_iterator(end()); }
+        [[nodiscard]] const_reverse_iterator rbegin() const noexcept { return std::make_reverse_iterator(end()); }
+        [[nodiscard]] const_reverse_iterator crbegin() const noexcept { return std::make_reverse_iterator(end()); }
+        [[nodiscard]] reverse_iterator rend() noexcept { return std::make_reverse_iterator(begin()); }
+        [[nodiscard]] const_reverse_iterator rend() const noexcept { return std::make_reverse_iterator(begin()); }
+        [[nodiscard]] const_reverse_iterator crend() const noexcept { return std::make_reverse_iterator(begin()); }
 
         [[nodiscard]] constexpr bool empty() const noexcept { return size_ == 0; }
         [[nodiscard]] constexpr size_t size() const noexcept { return size_; }
@@ -372,8 +372,8 @@ namespace clu
             }
         }
 
-        bool operator==(const static_vector& other) const { return std::ranges::equal(*this, other); }
-        auto operator<=>(const static_vector& other) const { return std::ranges::lexicographical_compare(*this, other); }
+        [[nodiscard]] bool operator==(const static_vector& other) const { return std::ranges::equal(*this, other); }
+        [[nodiscard]] auto operator<=>(const static_vector& other) const { return std::ranges::lexicographical_compare(*this, other); }
 
         friend void swap(static_vector& lhs, static_vector& rhs) noexcept(nothrow_swap) { lhs.swap(rhs); }
     };

@@ -11,7 +11,8 @@ namespace clu
 
     // @formatter:off
     template <typename T>
-    concept buffer_safe = trivially_copyable<T> ||
+    concept buffer_safe =
+        trivially_copyable<T> ||
         (std::is_array_v<T> && trivially_copyable<std::remove_all_extents_t<T>>);
 
     template <typename T>
@@ -25,7 +26,7 @@ namespace clu
     concept mutable_trivial_range = trivial_range<T> && !std::is_const_v<std::ranges::range_value_t<T>>;
 
     template <typename T>
-    class [[nodiscard]] basic_buffer final
+    class basic_buffer final
     {
         static_assert(alias_safe<std::remove_const_t<T>>);
 
@@ -37,17 +38,15 @@ namespace clu
         constexpr basic_buffer() noexcept = default;
         constexpr basic_buffer(T* ptr, const size_t size) noexcept: ptr_(ptr), size_(size) {}
 
-        // @formatter:off
-        template <typename R> requires (
-            (std::is_const_v<T> && trivial_range<R>) || 
-            (!std::is_const_v<T> && mutable_trivial_range<R>))
+        template <typename R> requires
+            (std::is_const_v<T> && trivial_range<R>) ||
+            (!std::is_const_v<T> && mutable_trivial_range<R>)
         constexpr explicit(false) basic_buffer(R&& range) noexcept:
             ptr_(reinterpret_cast<T*>(std::ranges::data(range))),
             size_(std::ranges::size(range) * sizeof(std::ranges::range_value_t<R>)) {}
-        
+
         constexpr explicit(false) basic_buffer(const basic_buffer<std::remove_const_t<T>>& buffer) noexcept
             requires std::is_const_v<T>: ptr_(buffer.ptr()), size_(buffer.size()) {}
-        // @formatter:on
 
         [[nodiscard]] constexpr T* data() const noexcept { return ptr_; }
         [[nodiscard]] constexpr size_t size() const noexcept { return size_; }
@@ -72,13 +71,13 @@ namespace clu
     using const_buffer = basic_buffer<const std::byte>;
 
     template <buffer_safe T>
-    mutable_buffer trivial_buffer(T& value) noexcept
+    [[nodiscard]] mutable_buffer trivial_buffer(T& value) noexcept
     {
         return { reinterpret_cast<std::byte*>(std::addressof(value)), sizeof(T) };
     }
 
     template <buffer_safe T>
-    const_buffer trivial_buffer(const T& value) noexcept
+    [[nodiscard]] const_buffer trivial_buffer(const T& value) noexcept
     {
         return { reinterpret_cast<const std::byte*>(std::addressof(value)), sizeof(T) };
     }

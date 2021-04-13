@@ -56,7 +56,7 @@ namespace clu
             return *this;
         }
 
-        constexpr explicit operator bool() const noexcept { return fptr_ != nullptr; }
+        [[nodiscard]] constexpr explicit operator bool() const noexcept { return fptr_ != nullptr; }
 
         R operator()(Ts ... args) const
         {

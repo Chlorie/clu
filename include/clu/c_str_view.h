@@ -47,26 +47,26 @@ namespace clu
 
         constexpr c_str_view& operator=(const std::string&&) = delete;
 
-        constexpr iterator begin() const noexcept { return ptr_; }
-        constexpr sentinel end() const noexcept { return {}; }
-        constexpr const_iterator cbegin() const noexcept { return ptr_; }
-        constexpr sentinel cend() const noexcept { return {}; }
+        [[nodiscard]] constexpr iterator begin() const noexcept { return ptr_; }
+        [[nodiscard]] constexpr sentinel end() const noexcept { return {}; }
+        [[nodiscard]] constexpr const_iterator cbegin() const noexcept { return ptr_; }
+        [[nodiscard]] constexpr sentinel cend() const noexcept { return {}; }
 
-        constexpr const_reference operator[](const size_t pos) const noexcept { return ptr_[pos]; }
-        constexpr const_reference front() const noexcept { return *ptr_; }
-        constexpr const char* data() const noexcept { return ptr_; }
-        constexpr const char* c_str() const noexcept { return ptr_; }
+        [[nodiscard]] constexpr const_reference operator[](const size_t pos) const noexcept { return ptr_[pos]; }
+        [[nodiscard]] constexpr const_reference front() const noexcept { return *ptr_; }
+        [[nodiscard]] constexpr const char* data() const noexcept { return ptr_; }
+        [[nodiscard]] constexpr const char* c_str() const noexcept { return ptr_; }
 
-        constexpr size_t size() const noexcept { return strlen(ptr_); }
-        constexpr size_t length() const noexcept { return size(); }
-        constexpr static size_t max_size() noexcept { return std::numeric_limits<size_t>::max(); }
-        constexpr bool empty() const noexcept { return *ptr_ == '\0'; }
+        [[nodiscard]] constexpr size_t size() const noexcept { return strlen(ptr_); }
+        [[nodiscard]] constexpr size_t length() const noexcept { return size(); }
+        [[nodiscard]] constexpr static size_t max_size() noexcept { return std::numeric_limits<size_t>::max(); }
+        [[nodiscard]] constexpr bool empty() const noexcept { return *ptr_ == '\0'; }
 
         constexpr void remove_prefix(const size_t n) noexcept { ptr_ += n; }
         constexpr void swap(c_str_view& other) noexcept { std::swap(ptr_, other.ptr_); }
         constexpr friend void swap(c_str_view& lhs, c_str_view& rhs) noexcept { lhs.swap(rhs); }
 
-        constexpr explicit operator std::string_view() const noexcept { return { ptr_ }; }
+        [[nodiscard]] constexpr explicit operator std::string_view() const noexcept { return { ptr_ }; }
     };
 }
 

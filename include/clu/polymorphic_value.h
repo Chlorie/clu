@@ -22,7 +22,7 @@ namespace clu
     template <typename T>
     struct default_copy
     {
-        T* operator()(const T& value) const { return new T(value); }
+        [[nodiscard]] T* operator()(const T& value) const { return new T(value); }
     };
 
     class bad_polymorphic_value_construction : std::exception
@@ -183,18 +183,26 @@ namespace clu
 
         void swap(polymorphic_value& other) noexcept { std::swap(cb_, other.cb_); }
 
-        T& operator*() noexcept /* strengthened */ { return *cb_->get(); }
-        const T& operator*() const noexcept /* strengthened */ { return *cb_->get(); }
-        T* operator->() noexcept /* strengthened */ { return cb_->get(); }
-        const T* operator->() const noexcept /* strengthened */ { return cb_->get(); }
-        explicit operator bool() const noexcept { return cb_ != nullptr; }
+        [[nodiscard]] T& operator*() noexcept /* strengthened */ { return *cb_->get(); }
+        [[nodiscard]] const T& operator*() const noexcept /* strengthened */ { return *cb_->get(); }
+        [[nodiscard]] T* operator->() noexcept /* strengthened */ { return cb_->get(); }
+        [[nodiscard]] const T* operator->() const noexcept /* strengthened */ { return cb_->get(); }
+        [[nodiscard]] explicit operator bool() const noexcept { return cb_ != nullptr; }
 
         friend void swap(polymorphic_value& lhs, polymorphic_value& rhs) noexcept { lhs.swap(rhs); }
     };
 
     template <typename T, typename... Ts>
-    auto make_polymorphic_value(Ts&&... args) { return polymorphic_value<T>(std::in_place, std::forward<Ts>(args)...); }
+    [[nodiscard]] auto make_polymorphic_value(Ts&&... args)
+    {
+        return polymorphic_value<T>(
+            std::in_place, std::forward<Ts>(args)...);
+    }
 
     template <typename T, typename U, typename... Ts>
-    auto make_polymorphic_value(Ts&&... args) { return polymorphic_value<T>(std::in_place_type<U>, std::forward<Ts>(args)...); }
+    [[nodiscard]] auto make_polymorphic_value(Ts&&... args)
+    {
+        return polymorphic_value<T>(
+            std::in_place_type<U>, std::forward<Ts>(args)...);
+    }
 }

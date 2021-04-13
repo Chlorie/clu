@@ -109,6 +109,6 @@ namespace clu
     namespace literals
     {
         template <basic_fixed_string str>
-        constexpr auto operator""_fs() { return str; }
+        [[nodiscard]] constexpr auto operator""_fs() { return str; }
     }
 }
