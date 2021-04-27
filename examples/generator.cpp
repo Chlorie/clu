@@ -1,4 +1,4 @@
-#include <clu/coroutine/generator.h>
+#include <clu/generator.h>
 
 clu::generator<int> ints()
 {

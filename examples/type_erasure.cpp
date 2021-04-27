@@ -1,6 +1,6 @@
 #include <iostream>
 #include <string>
-#include <clu/type_erasure.h>
+#include <clu/experimental/type_erasure.h>
 
 struct MeowableModel
 {

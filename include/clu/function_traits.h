@@ -1,6 +1,7 @@
 #pragma once
 
-#include "meta/type_list.h"
+#include "type_traits.h"
+#include "meta_list.h"
 
 namespace clu
 {
@@ -12,7 +13,7 @@ namespace clu
         struct function_traits_base<R(Ts ...)>
         {
             using return_type = R;
-            using argument_types = meta::type_list<Ts...>;
+            using argument_types = type_list<Ts...>;
             static constexpr size_t arity = sizeof...(Ts);
         };
     }
@@ -81,7 +82,7 @@ namespace clu
             using added_const = std::conditional_t<base::is_const, const C, C>;
             using added_cv = std::conditional_t<base::is_volatile, volatile added_const, added_const>;
             using added_cvref = std::conditional_t<base::is_rvalue_ref, added_cv&&, added_cv&>;
-            return meta::type_tag<added_cvref>{};
+            return type_tag<added_cvref>;
         }())::type;
     };
 }

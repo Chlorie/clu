@@ -4,7 +4,7 @@
 
 #include "oneway_task.h"
 #include "sync_wait.h"
-#include "../scope.h"
+#include "clu/scope.h"
 
 namespace clu
 {

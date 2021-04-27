@@ -3,10 +3,10 @@
 #include <vector>
 
 #include "concepts.h"
-#include "oneway_task.h"
-#include "../outcome.h"
-#include "../reference.h"
-#include "../type_traits.h"
+#include "clu/oneway_task.h"
+#include "clu/outcome.h"
+#include "clu/reference.h"
+#include "clu/type_traits.h"
 
 namespace clu
 {

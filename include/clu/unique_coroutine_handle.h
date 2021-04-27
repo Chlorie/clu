@@ -9,9 +9,10 @@ namespace clu
     class unique_coroutine_handle
     {
     private:
-        std::coroutine_handle<Pms> handle_;
+        std::coroutine_handle<Pms> handle_{};
 
     public:
+        unique_coroutine_handle() = default;
         explicit unique_coroutine_handle(const std::coroutine_handle<Pms> hdl): handle_(hdl) {}
         ~unique_coroutine_handle() noexcept { if (handle_) handle_.destroy(); }
         unique_coroutine_handle(const unique_coroutine_handle&) = delete;
@@ -29,4 +30,7 @@ namespace clu
 
         std::coroutine_handle<Pms> get() const { return handle_; }
     };
+
+    template <typename Pms>
+    unique_coroutine_handle(std::coroutine_handle<Pms>) -> unique_coroutine_handle<Pms>;
 }

@@ -4,6 +4,14 @@
 
 namespace clu
 {
+    template <typename T>
+    struct type_tag_t
+    {
+        using type = T;
+    };
+    template <typename T>
+    inline constexpr type_tag_t<T> type_tag{};
+
     template <typename From, typename To>
     struct copy_cvref
     {

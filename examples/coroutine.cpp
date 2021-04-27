@@ -1,9 +1,9 @@
 #include <iostream>
 #include <semaphore>
-#include <clu/coroutine/sync_wait.h>
-#include <clu/coroutine/async_mutex.h>
-#include <clu/coroutine/race.h>
-#include <clu/coroutine/cancellable_task.h>
+#include <clu/experimental/coroutine/sync_wait.h>
+#include <clu/experimental/coroutine/async_mutex.h>
+#include <clu/experimental/coroutine/race.h>
+#include <clu/experimental/coroutine/cancellable_task.h>
 
 using namespace std::literals;
 

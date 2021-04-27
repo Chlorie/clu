@@ -14,7 +14,7 @@ namespace clu
     }
 
     template <typename T>
-    [[nodiscard]] static void aligned_free_for(void* ptr)
+    static void aligned_free_for(void* ptr)
     {
         if constexpr (alignof(T) > alignof(std::max_align_t))
             ::operator delete(ptr, std::align_val_t{ alignof(T) });

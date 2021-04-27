@@ -3,11 +3,11 @@
 #include <tuple>
 #include <typeinfo>
 
-#include "new.h"
-#include "take.h"
-#include "concepts.h"
-#include "function_traits.h"
-#include "type_traits.h"
+#include "clu/new.h"
+#include "clu/take.h"
+#include "clu/concepts.h"
+#include "clu/function_traits.h"
+#include "clu/type_traits.h"
 #include "meta/value_list.h"
 
 namespace clu
@@ -133,7 +133,7 @@ namespace clu
                 if constexpr (Copyable) result.copy_ctor = copy_impl<T, BufferSize>;
                 if constexpr (stack_storable<T, BufferSize>) result.move_ctor = move_impl<T>;
                 result.dtor = dtor_impl<T, BufferSize>;
-                result.vfptrs = gen_vfptrs<T>();
+                result.vfptrs = vtable::template gen_vfptrs<T>();
                 return result;
             }
         };
