@@ -11,8 +11,6 @@ namespace clu
     {
         static constexpr auto size = sizeof...(Types);
 
-        using as_value_list = value_list<Types::value...>;
-
         template <template <typename...> typename Templ>
         using apply = Templ<Types...>;
         template <template <typename...> typename Templ>
@@ -30,6 +28,8 @@ namespace clu
         template <typename Target>
         static constexpr bool contains_v = (std::is_same_v<Types, Target> || ...);
     };
+
+    template <typename... Types> using to_value_list = value_list<Types::value...>;
 
     template <auto... values>
     struct value_list
