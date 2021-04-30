@@ -18,8 +18,8 @@ namespace clu
         using type = decltype(val);
         static constexpr auto value = val;
     };
-    template <typename T>
-    inline constexpr value_tag_t<T> value_tag{};
+    template <auto val>
+    inline constexpr value_tag_t<val> value_tag{};
 
     namespace detail
     {
