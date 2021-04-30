@@ -4,13 +4,45 @@
 
 namespace clu
 {
-    template <typename T>
+    template <typename Type>
     struct type_tag_t
     {
-        using type = T;
+        using type = Type;
+    };
+    template <typename Type>
+    inline constexpr type_tag_t<Type> type_tag{};
+
+    template <auto val>
+    struct value_tag_t
+    {
+        using type = decltype(val);
+        static constexpr auto value = val;
     };
     template <typename T>
-    inline constexpr type_tag_t<T> type_tag{};
+    inline constexpr value_tag_t<T> value_tag{};
+
+    namespace detail
+    {
+        template <bool value>
+        struct conditional_impl
+        {
+            template <typename True, typename>
+            using type = True;
+        };
+
+        template <>
+        struct conditional_impl<false>
+        {
+            template <typename, typename False>
+            using type = False;
+        };
+    }
+
+    template <bool value, typename True, typename False>
+    using conditional_t = typename detail::conditional_impl<value>::template type<True, False>;
+
+    template <typename... Ts>
+    inline constexpr bool dependent_false = false;
 
     template <typename From, typename To>
     struct copy_cvref
