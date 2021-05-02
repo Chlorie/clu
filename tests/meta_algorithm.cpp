@@ -4,6 +4,21 @@
 using namespace clu;
 using namespace meta;
 
+template <typename T> using size_of_four = std::bool_constant<sizeof(T) == 4>;
+
+TEST(MetaAlgorithm, Find)
+{
+    static_assert(type_list<double, int, float, void>::apply_v<find<float>::apply> == 2);
+    static_assert(type_list<double, int, float, void>::apply_v<find<char>::apply> == npos);
+}
+
+TEST(MetaAlgorithm, Filter)
+{
+    static_assert(std::is_same_v<
+        type_list<uint32_t, double, int32_t>::apply_t<filter<size_of_four>::apply>,
+        type_list<uint32_t, int32_t>>);
+}
+
 TEST(MetaAlgorithm, IsUnique)
 {
     static_assert(type_list<>::apply_v<is_unique>);
@@ -27,7 +42,7 @@ TEST(MetaAlgorithm, Unique)
 
 TEST(MetaAlgorithm, SetInclude)
 {
-    static_assert(set_include_v<type_list<int, float, double>, type_list<>>);
+    static_assert(set_include_v<type_list<int, float, double>, type_list<float, double>>);
     static_assert(!set_include_v<type_list<int, float, double>, type_list<float, int, void>>);
 }
 

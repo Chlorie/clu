@@ -15,7 +15,8 @@ namespace clu
     template <auto val>
     struct value_tag_t
     {
-        using type = decltype(val);
+        using type = value_tag_t;
+        using value_type = decltype(val);
         static constexpr auto value = val;
     };
     template <auto val>
