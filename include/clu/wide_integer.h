@@ -329,7 +329,7 @@ namespace clu
 
     inline namespace literals
     {
-        inline namespace wider_integer_literals // TODO: combine this when compiler supports this
+        inline namespace wide_integer_literals // TODO: combine this when compiler supports this
         {
             // TODO: change to consteval once MSVC fixes its issues
 

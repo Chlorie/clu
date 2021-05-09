@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
 #include <clu/wide_integer.h>
 
-using namespace clu::wider_integer_literals;
+using namespace clu::wide_integer_literals;
 
-TEST(WiderInteger, Uint128Udl)
+TEST(WideInteger, Uint128Udl)
 {
     EXPECT_EQ(0_u128, 0); // 0
     EXPECT_EQ(99_u128, 99); // Not 0
@@ -19,7 +19,7 @@ TEST(WiderInteger, Uint128Udl)
     EXPECT_EQ(340'282'366'920'938'463'463'374'607'431'768'211'455_u128, ~clu::uint128_t()); // Max uint128
 }
 
-TEST(WiderInteger, EvenWiderUdl)
+TEST(WideInteger, EvenWiderUdl)
 {
     EXPECT_EQ(0_u256, 0);
     EXPECT_EQ(0xffff'ffff'ffff'ffff_u256, ~uint64_t());
@@ -38,7 +38,7 @@ TEST(WiderInteger, EvenWiderUdl)
 
 // TODO: more tests
 
-TEST(WiderInteger, Division)
+TEST(WideInteger, Division)
 {
     EXPECT_EQ(0_u128 / 1, 0);
     EXPECT_EQ(8_u128 / 2, 4);
