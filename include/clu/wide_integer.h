@@ -265,7 +265,7 @@ namespace clu
                     is_hex = true;
                     continue;
                 }
-                if ((*p == 'p' || *p == 'P') ||
+                if (*p == 'p' || *p == 'P' || *p == '.' ||
                     ((*p == 'e' || *p == 'E') && !is_hex))
                     throw parsing_error("cannot use floating point numbers as wider integer literals");
             }
