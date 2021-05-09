@@ -43,7 +43,7 @@ namespace clu
             return fnv1a64(bytes, hash);
     }
 
-    namespace literals
+    inline namespace literals::inline hash_literals
     {
         [[nodiscard]] constexpr uint32_t operator""_fnv1a32(const char* bytes, const size_t length) noexcept
         {
