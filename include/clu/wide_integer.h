@@ -12,60 +12,61 @@ namespace clu
     using std::uint64_t;
 
     template <typename Uint>
-    struct wider
+    class wider
     {
+    public:
         using narrow_type = Uint;
-        template <typename> friend struct wider;
+        template <typename> friend class wider;
         static_assert(std::is_same_v<Uint, uint64_t> || is_template_of_v<Uint, wider>,
             "The narrow Uint type should be uint64_t or wider<T>");
 
         static constexpr size_t narrow_bit_size = 8 * sizeof(Uint);
         static constexpr size_t bit_size = 16 * sizeof(Uint);
 
-        Uint low{}, high{};
-
     private:
+        Uint low_{}, high_{};
+
         static constexpr bool carry_add(Uint& lhs, const Uint& rhs) noexcept { return (lhs += rhs) < rhs; }
 
         static constexpr wider carry_multiply(const Uint& lhs, const Uint& rhs) noexcept
         {
             if constexpr (std::is_same_v<Uint, uint64_t>)
             {
-                constexpr uint64_t low_bits = 0xffffffffull;
-                const uint64_t lhigh = lhs >> 32, llow = lhs & low_bits;
-                const uint64_t rhigh = rhs >> 32, rlow = rhs & low_bits;
-                const uint64_t cross = lhigh * rlow + rhigh * llow;
+                constexpr uint64_t low__bits = 0xffffffffull;
+                const uint64_t lhigh_ = lhs >> 32, llow_ = lhs & low__bits;
+                const uint64_t rhigh_ = rhs >> 32, rlow_ = rhs & low__bits;
+                const uint64_t cross = lhigh_ * rlow_ + rhigh_ * llow_;
                 return {
-                    llow * rlow + (cross << 32),
-                    lhigh * rhigh + (cross >> 32)
+                    llow_ * rlow_ + (cross << 32),
+                    lhigh_ * rhigh_ + (cross >> 32)
                 };
             }
             else // Uint is wider<T>
             {
-                const Uint lows = Uint::carry_multiply(lhs.low, rhs.low);
-                const Uint cross = Uint::carry_multiply(lhs.low, rhs.high) + Uint::carry_multiply(lhs.high, rhs.low);
-                const Uint highs = Uint::carry_multiply(lhs.high, rhs.high);
+                const Uint low_s = Uint::carry_multiply(lhs.low_, rhs.low_);
+                const Uint cross = Uint::carry_multiply(lhs.low_, rhs.high_) + Uint::carry_multiply(lhs.high_, rhs.low_);
+                const Uint high_s = Uint::carry_multiply(lhs.high_, rhs.high_);
                 return {
-                    { lows.low, lows.high + cross.low },
-                    { highs.low + cross.high, highs.high }
+                    { low_s.low_, low_s.high_ + cross.low_ },
+                    { high_s.low_ + cross.high_, high_s.high_ }
                 };
             }
         }
 
     public:
         constexpr wider() noexcept = default;
-        constexpr wider(const Uint& low, const Uint& high) noexcept: low(low), high(high) {}
-        constexpr explicit(false) wider(const uint64_t u64) noexcept: low{ u64 } {}
+        constexpr wider(const Uint& low, const Uint& high) noexcept: low_(low), high_(high) {}
+        constexpr explicit(false) wider(const uint64_t u64) noexcept: low_{ u64 } {}
 
         template <typename Uint2> requires (sizeof(Uint2) < sizeof(Uint))
-        constexpr explicit(false) wider(const wider<Uint2>& other) noexcept: low{ other } {}
+        constexpr explicit(false) wider(const wider<Uint2>& other) noexcept: low_{ other } {}
 
         template <typename Uint2> requires (sizeof(Uint2) > sizeof(Uint))
-        constexpr explicit wider(const wider<Uint2>& other) noexcept: wider(other.low) {}
+        constexpr explicit wider(const wider<Uint2>& other) noexcept: wider(other.low_) {}
 
         constexpr wider& operator+=(const wider& other) noexcept
         {
-            high += other.high + carry_add(low, other.low);
+            high_ += other.high_ + carry_add(low_, other.low_);
             return *this;
         }
 
@@ -77,8 +78,8 @@ namespace clu
         [[nodiscard]] friend constexpr wider operator*(const wider& lhs, const wider& rhs) noexcept
         {
             if (lhs == 0 || rhs == 0) return {};
-            const auto [llow, lhigh] = carry_multiply(lhs.low, rhs.low);
-            return { llow, lhigh + lhs.low * rhs.high + lhs.high * rhs.low };
+            const auto [llow_, lhigh_] = carry_multiply(lhs.low_, rhs.low_);
+            return { llow_, lhigh_ + lhs.low_ * rhs.high_ + lhs.high_ * rhs.low_ };
         }
 
         constexpr wider& operator*=(const wider& other) noexcept { return *this = *this * other; }
@@ -90,22 +91,22 @@ namespace clu
 
         constexpr wider& operator&=(const wider& other) noexcept
         {
-            low &= other.low;
-            high &= other.high;
+            low_ &= other.low_;
+            high_ &= other.high_;
             return *this;
         }
 
         constexpr wider& operator|=(const wider& other) noexcept
         {
-            low |= other.low;
-            high |= other.high;
+            low_ |= other.low_;
+            high_ |= other.high_;
             return *this;
         }
 
         constexpr wider& operator^=(const wider& other) noexcept
         {
-            low ^= other.low;
-            high ^= other.high;
+            low_ ^= other.low_;
+            high_ ^= other.high_;
             return *this;
         }
 
@@ -113,14 +114,14 @@ namespace clu
         {
             if (shift >= narrow_bit_size)
             {
-                high = low << (shift - narrow_bit_size);
-                low = {};
+                high_ = low_ << (shift - narrow_bit_size);
+                low_ = {};
             }
             else
             {
-                high <<= shift;
-                high |= (low >> (narrow_bit_size - shift));
-                low <<= shift;
+                high_ <<= shift;
+                high_ |= (low_ >> (narrow_bit_size - shift));
+                low_ <<= shift;
             }
             return *this;
         }
@@ -129,14 +130,14 @@ namespace clu
         {
             if (shift >= narrow_bit_size)
             {
-                low = high >> (shift - narrow_bit_size);
-                high = {};
+                low_ = high_ >> (shift - narrow_bit_size);
+                high_ = {};
             }
             else
             {
-                low >>= shift;
-                low |= (high << (narrow_bit_size - shift));
-                high >>= shift;
+                low_ >>= shift;
+                low_ |= (high_ << (narrow_bit_size - shift));
+                high_ >>= shift;
             }
             return *this;
         }
@@ -147,28 +148,28 @@ namespace clu
         [[nodiscard]] friend constexpr wider operator<<(wider lhs, const int shift) noexcept { return lhs <<= shift; }
         [[nodiscard]] friend constexpr wider operator>>(wider lhs, const int shift) noexcept { return lhs >>= shift; }
 
-        [[nodiscard]] constexpr wider operator~() const noexcept { return { ~low, ~high }; }
+        [[nodiscard]] constexpr wider operator~() const noexcept { return { ~low_, ~high_ }; }
         [[nodiscard]] constexpr wider operator+() const noexcept { return *this; }
         [[nodiscard]] constexpr wider operator-() const noexcept { return ++~*this; }
-        [[nodiscard]] constexpr explicit operator bool() const noexcept { return low || high; }
+        [[nodiscard]] constexpr explicit operator bool() const noexcept { return low_ || high_; }
         [[nodiscard]] friend constexpr bool operator==(const wider&, const wider&) noexcept = default;
 
         [[nodiscard]] friend constexpr auto operator<=>(const wider& lhs, const wider& rhs) noexcept
         {
-            return lhs.high == rhs.high
-                       ? lhs.low <=> rhs.low
-                       : lhs.high <=> rhs.high;
+            return lhs.high_ == rhs.high_
+                       ? lhs.low_ <=> rhs.low_
+                       : lhs.high_ <=> rhs.high_;
         }
 
         constexpr wider& operator++() noexcept
         {
-            if (!++low) ++high;
+            if (!++low_) ++high_;
             return *this;
         }
 
         constexpr wider& operator--() noexcept
         {
-            if (!~--low) --high;
+            if (!~--low_) --high_;
             return *this;
         }
 
@@ -197,8 +198,8 @@ namespace clu
     [[nodiscard]] constexpr int countl_zero(const wider<Uint>& value) noexcept
     {
         constexpr int uint_bits = 8 * sizeof(Uint);
-        const int high = countl_zero(value.high);
-        return high == uint_bits ? uint_bits + countl_zero(value.low) : high;
+        const int high_ = countl_zero(value.high_);
+        return high_ == uint_bits ? uint_bits + countl_zero(value.low_) : high_;
     }
 
     // Division related
@@ -298,12 +299,12 @@ namespace clu
         }();
 
         template <typename Wider>
-        constexpr const uint64_t& get_highest_u64(const Wider& value)
+        constexpr const uint64_t& get_high_est_u64(const Wider& value)
         {
             if constexpr (std::is_same_v<uint64_t, typename Wider::narrow_type>)
-                return value.high;
+                return value.high_;
             else
-                return get_highest_u64(value.high);
+                return get_high_est_u64(value.high_);
         }
 
         template <typename Wider>
@@ -314,11 +315,11 @@ namespace clu
             const uint64_t base = get_base(begin, end);
             const uint64_t overflow_thres = ~0ull / base;
             Wider result;
-            const uint64_t& highest = get_highest_u64(result);
+            const uint64_t& high_est = get_high_est_u64(result);
             for (; begin != end; ++begin)
             {
                 if (*begin == '\'') continue;
-                if (highest > overflow_thres) overflow();
+                if (high_est > overflow_thres) overflow();
                 const Wider new_result = result * base + char_index[*begin];
                 if (new_result < result) overflow();
                 result = new_result;

@@ -33,4 +33,10 @@ namespace clu
     template <typename T> concept enumeration = std::is_enum_v<T>;
 
     template <typename T> concept trivially_copyable = std::copyable<T> && std::is_trivially_copyable_v<T>;
+
+    template <typename T, typename... Us>
+    concept implicitly_constructible_from = requires(Us&&... args, void (* fptr)(const T&))
+    {
+        fptr({ static_cast<Us&&>(args)... });
+    } && std::constructible_from<T, Us...>;
 }

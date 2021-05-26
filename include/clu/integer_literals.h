@@ -4,29 +4,33 @@
 
 namespace clu
 {
-    namespace detail
-    {
-        struct narrower
-        {
-            unsigned long long value;
-
-            template <typename T>
-            explicit(false) operator T() const noexcept { return static_cast<T>(value); }
-        };
-    }
+    using i8 = std::int8_t;
+    using u8 = std::uint8_t;
+    using i16 = std::int16_t;
+    using u16 = std::uint16_t;
+    using i32 = std::int32_t;
+    using u32 = std::uint32_t;
+    using i64 = std::int64_t;
+    using u64 = std::uint64_t;
+    using ull = unsigned long long;
 
     inline namespace literals
     {
         inline namespace integer_literals
         {
-            [[nodiscard]] constexpr int8_t operator""_i8(const unsigned long long value) noexcept { return detail::narrower(value); }
-            [[nodiscard]] constexpr uint8_t operator""_u8(const unsigned long long value) noexcept { return detail::narrower(value); }
-            [[nodiscard]] constexpr int16_t operator""_i16(const unsigned long long value) noexcept { return detail::narrower(value); }
-            [[nodiscard]] constexpr uint16_t operator""_u16(const unsigned long long value) noexcept { return detail::narrower(value); }
-            [[nodiscard]] constexpr int32_t operator""_i32(const unsigned long long value) noexcept { return detail::narrower(value); }
-            [[nodiscard]] constexpr uint32_t operator""_u32(const unsigned long long value) noexcept { return detail::narrower(value); }
-            [[nodiscard]] constexpr int64_t operator""_i64(const unsigned long long value) noexcept { return detail::narrower(value); }
-            [[nodiscard]] constexpr uint64_t operator""_u64(const unsigned long long value) noexcept { return detail::narrower(value); }
+#define CLU_INT_LITERAL(type) \
+    [[nodiscard]] constexpr type operator""_##type(const ull value) noexcept { return static_cast<type>(value); }
+
+            CLU_INT_LITERAL(i8);
+            CLU_INT_LITERAL(u8);
+            CLU_INT_LITERAL(i16);
+            CLU_INT_LITERAL(u16);
+            CLU_INT_LITERAL(i32);
+            CLU_INT_LITERAL(u32);
+            CLU_INT_LITERAL(i64);
+            CLU_INT_LITERAL(u64);
+
+#undef CLU_INT_LITERAL
         }
     }
 }

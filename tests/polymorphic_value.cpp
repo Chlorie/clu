@@ -69,6 +69,19 @@ TEST(PolymorphicValueCtor, Inplace)
     EXPECT_FLOAT_EQ(shape->area(), 5.0f);
 }
 
+TEST(PolymorphicValueCtor, ValueConvert)
+{
+    const RectValue rect = Rectangle(2.5f, 4.0f);
+    ASSERT_TRUE(rect);
+    EXPECT_TRUE(typeid(*rect) == typeid(Rectangle));
+    EXPECT_FLOAT_EQ(rect->area(), 10.0f);
+
+    const ShapeValue shape = Rectangle(2.0f, 2.5f);
+    ASSERT_TRUE(shape);
+    EXPECT_TRUE(typeid(*shape) == typeid(Rectangle));
+    EXPECT_FLOAT_EQ(shape->area(), 5.0f);
+}
+
 TEST(PolymorphicValueCtor, Copy)
 {
     const ShapeValue disk(std::in_place_type<Disk>, 3.0f);
