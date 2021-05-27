@@ -2,7 +2,7 @@
 
 cmake_minimum_required(VERSION 3.14)
 
-project(clu LANGUAGES CXX VERSION 0.22.0)
+project(clu LANGUAGES CXX VERSION 0.23.0)
 
 set(LIB_NAME clu)
 
@@ -39,7 +39,7 @@ function (target_set_options TGT)
         target_compile_options(${TGT} PRIVATE /WX) # Treat warnings as errors
         # Treat all header files specified by angle brackets to be system headers, and ignore all those warnings
         target_compile_options(${TGT} PRIVATE 
-            /experimental:external /external:W0 /external:anglebrackets)
+            /experimental:external /external:W0 /external:anglebrackets /external:templates-)
     else () # Not Visual Studio, assuming gcc or clang
         target_compile_options(${TGT} PRIVATE
             -Wall -Wextra -pedantic -Wundef -Wconversion -Wzero-as-null-pointer-constant -Werror)
