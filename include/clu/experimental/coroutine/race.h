@@ -7,7 +7,7 @@
 #include "clu/outcome.h"
 #include "clu/reference.h"
 #include "clu/type_traits.h"
-#include "clu/meta/type_list.h"
+#include "clu/experimental/meta/type_list.h"
 
 namespace clu
 {

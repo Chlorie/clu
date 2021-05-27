@@ -1,6 +1,5 @@
-#include <clu/meta/type_list.h>
-#include <clu/meta/algorithm.h>
-#include <clu/meta/functional.h>
+#include <clu/meta_list.h>
+#include <clu/experimental/meta/algorithm.h>
 
 namespace meta = clu::meta;
 

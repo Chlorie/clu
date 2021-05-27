@@ -102,7 +102,7 @@ namespace clu
 
             [[nodiscard]] constexpr T& operator*() const noexcept { return ptr_->derived()->value; }
             [[nodiscard]] constexpr friend bool operator==(iter_base, iter_base) noexcept = default;
-            [[nodiscard]] constexpr iterator full_order() const noexcept { return iterator(ptr_); }
+            [[nodiscard]] constexpr iterator preorder() const noexcept { return iterator(ptr_); }
 
             [[nodiscard]] constexpr bool is_leaf() const noexcept { return !ptr_->child; }
             [[nodiscard]] constexpr bool is_root() const noexcept { return !ptr_->parent->parent; }
@@ -130,11 +130,11 @@ namespace clu
 
             [[nodiscard]] constexpr const T& operator*() const noexcept { return ptr_->derived()->value; }
             [[nodiscard]] constexpr friend bool operator==(const_iter_base, const_iter_base) noexcept = default;
-            [[nodiscard]] constexpr const_iterator full_order() const noexcept { return const_iterator(ptr_); }
+            [[nodiscard]] constexpr const_iterator preorder() const noexcept { return const_iterator(ptr_); }
 
             [[nodiscard]] constexpr bool is_leaf() const noexcept { return !ptr_->child; }
             [[nodiscard]] constexpr bool is_root() const noexcept { return !ptr_->parent->parent; }
-            [[nodiscard]] constexpr const_iterator parent() const noexcept { return { ptr_->parent, false }; }
+            [[nodiscard]] constexpr const_iterator parent() const noexcept { return const_iterator(ptr_->parent); }
             [[nodiscard]] constexpr const_iterator next_sibling() const noexcept { return const_iterator(ptr_->derived()->next); }
             [[nodiscard]] constexpr const_iterator prev_sibling() const noexcept { return const_iterator(ptr_->derived()->prev); }
 
@@ -767,47 +767,48 @@ namespace clu
 
         constexpr forest detach(const const_iter_base it) noexcept
         {
-            CLU_ASSERT(it->ptr_ != &root_, "cannot detach end()");
-            node* ptr = static_cast<node*>(const_cast<node_base*>(it->ptr_));
+            CLU_ASSERT(it.ptr_ != &root_, "cannot detach end()");
+            node* ptr = static_cast<node*>(const_cast<node_base*>(it.ptr_));
             if (ptr->is_first_sibling())
                 ptr->parent->child = ptr->next == ptr ? nullptr : ptr->next;
             ptr->prev->next = ptr->next;
             ptr->next->prev = ptr->prev;
+            ptr->prev = ptr->next = ptr;
             forest result{ Alloc(alloc_) };
             result.root_.child = ptr;
-            ptr->parent = result.root_;
+            ptr->parent = &result.root_;
             return result;
         }
 
         constexpr forest detach_children(const const_iter_base it) noexcept
         {
             if (it.is_leaf()) return forest(Alloc(alloc_));
-            node* first = std::exchange(it.ptr_->child, nullptr);
+            node* first = std::exchange(const_cast<node_base*>(it.ptr_)->child, nullptr);
             forest result{ Alloc(alloc_) };
             result.root_.child = first;
             result.root_.fix_children_parents();
             return result;
         }
 
-        constexpr forest copy_subtree(const const_iter_base it) { return copy_subtree(it, Alloc(alloc_)); }
-        constexpr forest copy_subtree(const const_iter_base it, const Alloc alloc)
+        constexpr forest copy_subtree(const const_iter_base it) const { return copy_subtree(it, Alloc(alloc_)); }
+        constexpr forest copy_subtree(const const_iter_base it, const Alloc alloc) const
         {
-            CLU_ASSERT(it->ptr_ != &root_, "cannot copy subtree at end()");
+            CLU_ASSERT(it.ptr_ != &root_, "cannot copy subtree at end()");
             forest result(alloc);
-            node* tree_root = new_node(*it);
-            result.root_->child = tree_root;
-            tree_root->parent = result.root_;
+            node* tree_root = result.new_node(*it);
+            result.root_.child = tree_root;
+            tree_root->parent = &result.root_;
             copy_children_impl(*tree_root, *(it.ptr_),
-                [&](const node_base* ptr) { return new_node(ptr->derived()->value); });
+                [&](const node_base* ptr) { return result.new_node(ptr->derived()->value); });
             return result;
         }
 
-        constexpr forest copy_children(const const_iter_base it) { return copy_children(it, Alloc(alloc_)); }
-        constexpr forest copy_children(const const_iter_base it, const Alloc alloc)
+        constexpr forest copy_children(const const_iter_base it) const { return copy_children(it, Alloc(alloc_)); }
+        constexpr forest copy_children(const const_iter_base it, const Alloc alloc) const
         {
             forest result(alloc);
             copy_children_impl(result.root_, *(it.ptr_),
-                [&](const node_base* ptr) { return new_node(ptr->derived()->value); });
+                [&](const node_base* ptr) { return result.new_node(ptr->derived()->value); });
             return result;
         }
 
@@ -908,6 +909,8 @@ namespace clu
         [[nodiscard]] constexpr const_iterator next_sibling_of(const const_iter_base it) const noexcept { return it.next_sibling(); }
         [[nodiscard]] constexpr iterator prev_sibling_of(const const_iter_base it) noexcept { return iter_base(it).prev_sibling(); }
         [[nodiscard]] constexpr const_iterator prev_sibling_of(const const_iter_base it) const noexcept { return it.prev_sibling(); }
+        [[nodiscard]] constexpr child_range roots() noexcept { return end().children(); }
+        [[nodiscard]] constexpr const_child_range roots() const noexcept { return end().children(); }
         [[nodiscard]] constexpr child_range children_of(const const_iter_base it) noexcept { return iter_base(it).children(); }
         [[nodiscard]] constexpr const_child_range children_of(const const_iter_base it) const noexcept { return it.children(); }
     };

@@ -64,6 +64,11 @@ namespace clu
         template <typename Uint2> requires (sizeof(Uint2) > sizeof(Uint))
         constexpr explicit wider(const wider<Uint2>& other) noexcept: wider(other.low_) {}
 
+        [[nodiscard]] constexpr Uint& high() noexcept { return high_; }
+        [[nodiscard]] constexpr const Uint& high() const noexcept { return high_; }
+        [[nodiscard]] constexpr Uint& low() noexcept { return low_; }
+        [[nodiscard]] constexpr const Uint& low() const noexcept { return low_; }
+
         constexpr wider& operator+=(const wider& other) noexcept
         {
             high_ += other.high_ + carry_add(low_, other.low_);
@@ -198,8 +203,8 @@ namespace clu
     [[nodiscard]] constexpr int countl_zero(const wider<Uint>& value) noexcept
     {
         constexpr int uint_bits = 8 * sizeof(Uint);
-        const int high_ = countl_zero(value.high_);
-        return high_ == uint_bits ? uint_bits + countl_zero(value.low_) : high_;
+        const int high = countl_zero(value.high());
+        return high == uint_bits ? uint_bits + countl_zero(value.low()) : high;
     }
 
     // Division related
@@ -299,12 +304,12 @@ namespace clu
         }();
 
         template <typename Wider>
-        constexpr const uint64_t& get_high_est_u64(const Wider& value)
+        constexpr const uint64_t& get_highest_u64(const Wider& value)
         {
             if constexpr (std::is_same_v<uint64_t, typename Wider::narrow_type>)
-                return value.high_;
+                return value.high();
             else
-                return get_high_est_u64(value.high_);
+                return get_highest_u64(value.high());
         }
 
         template <typename Wider>
@@ -315,7 +320,7 @@ namespace clu
             const uint64_t base = get_base(begin, end);
             const uint64_t overflow_thres = ~0ull / base;
             Wider result;
-            const uint64_t& high_est = get_high_est_u64(result);
+            const uint64_t& high_est = get_highest_u64(result);
             for (; begin != end; ++begin)
             {
                 if (*begin == '\'') continue;

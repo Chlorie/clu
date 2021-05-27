@@ -42,7 +42,7 @@ namespace clu
             std::is_nothrow_move_constructible_v<T> &&
             std::is_nothrow_destructible_v<T>;
 
-        alignas(T) unsigned char storage_[N * sizeof(T)];
+        alignas(T) unsigned char storage_[N * sizeof(T)]{};
         size_t size_ = 0;
 
         [[noreturn]] static void size_exceed_capacity() { throw std::out_of_range("specified size exceeds capacity"); }
