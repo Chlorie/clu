@@ -332,28 +332,25 @@ namespace clu
             return result;
         }
     }
+}
 
-    inline namespace literals
-    {
-        inline namespace wide_integer_literals // TODO: combine this when compiler supports this
-        {
-            // TODO: change to consteval once MSVC fixes its issues
+namespace clu::inline literals::inline wide_integer_literals
+{
+    // TODO: change to consteval once MSVC fixes its issues
 
-#define CLU_WIDE_INT_UDL_DEF(bit_size)                                                   \
-            template <char... str>                                                       \
-            constexpr uint##bit_size##_t operator""_u##bit_size()                        \
-            {                                                                            \
-                constexpr char arr[]{ str... };                                          \
-                return detail::parse_udl<uint##bit_size##_t>(arr, arr + sizeof...(str)); \
-            }
+#define CLU_WIDE_INT_UDL_DEF(bit_size)                                           \
+    template <char... str>                                                       \
+    constexpr uint##bit_size##_t operator""_u##bit_size()                        \
+    {                                                                            \
+        constexpr char arr[]{ str... };                                          \
+        return detail::parse_udl<uint##bit_size##_t>(arr, arr + sizeof...(str)); \
+    }
 
-            CLU_WIDE_INT_UDL_DEF(128);
-            CLU_WIDE_INT_UDL_DEF(256);
-            CLU_WIDE_INT_UDL_DEF(512);
-            CLU_WIDE_INT_UDL_DEF(1024);
-            CLU_WIDE_INT_UDL_DEF(2048);
+    CLU_WIDE_INT_UDL_DEF(128);
+    CLU_WIDE_INT_UDL_DEF(256);
+    CLU_WIDE_INT_UDL_DEF(512);
+    CLU_WIDE_INT_UDL_DEF(1024);
+    CLU_WIDE_INT_UDL_DEF(2048);
 
 #undef CLU_WIDE_INT_UDL_DEF
-        }
-    }
 }

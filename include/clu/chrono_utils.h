@@ -10,6 +10,16 @@ namespace clu
           ->to_local(std::chrono::system_clock::now());
     }
 
+    template <typename Func>
+        requires requires(Func f) { static_cast<Func&&>(f)(); }
+    auto timeit(Func&& func)
+    {
+        const auto start = std::chrono::high_resolution_clock::now();
+        static_cast<Func&&>(func)();
+        const auto end = std::chrono::high_resolution_clock::now();
+        return end - start;
+    }
+
     namespace chrono_constants
     {
         using std::chrono::January;
