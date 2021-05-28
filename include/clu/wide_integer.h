@@ -261,10 +261,10 @@ namespace clu
 
     namespace detail
     {
-        constexpr void ensure_not_floating_point(const char* begin, const char* end)
+        constexpr void ensure_not_floating_point(const char* ptr)
         {
             bool is_hex = false;
-            for (const char* p = begin; p < end; ++p)
+            for (const char* p = ptr; *p != 0; ++p)
             {
                 if (*p == 'x' || *p == 'X')
                 {
@@ -277,18 +277,18 @@ namespace clu
             }
         }
 
-        constexpr uint64_t get_base(const char*& begin, const char* end)
+        constexpr uint64_t get_base(const char*& ptr)
         {
-            if (*begin != '0' || ++begin == end) return 10;
-            switch (*begin)
+            if (*ptr != '0' || *++ptr == 0) return 10;
+            switch (*ptr)
             {
                 case 'x':
                 case 'X': // 0x...
-                    ++begin;
+                    ++ptr;
                     return 16;
                 case 'b':
                 case 'B': // 0b...
-                    ++begin;
+                    ++ptr;
                     return 2;
                 default: // 0...
                     return 8;
@@ -313,19 +313,19 @@ namespace clu
         }
 
         template <typename Wider>
-        constexpr Wider parse_udl(const char* begin, const char* end)
+        constexpr Wider parse_udl(const char* ptr)
         {
-            ensure_not_floating_point(begin, end);
+            ensure_not_floating_point(ptr);
             constexpr auto overflow = [] { throw std::overflow_error("the integer literal is too large"); };
-            const uint64_t base = get_base(begin, end);
+            const uint64_t base = get_base(ptr);
             const uint64_t overflow_thres = ~0ull / base;
             Wider result;
             const uint64_t& high_est = get_highest_u64(result);
-            for (; begin != end; ++begin)
+            for (; *ptr != 0; ++ptr)
             {
-                if (*begin == '\'') continue;
+                if (*ptr == '\'') continue;
                 if (high_est > overflow_thres) overflow();
-                const Wider new_result = result * base + char_index[*begin];
+                const Wider new_result = result * base + char_index[*ptr];
                 if (new_result < result) overflow();
                 result = new_result;
             }
@@ -337,20 +337,10 @@ namespace clu
 namespace clu::inline literals::inline wide_integer_literals
 {
     // TODO: change to consteval once MSVC fixes its issues
-
-#define CLU_WIDE_INT_UDL_DEF(bit_size)                                           \
-    template <char... str>                                                       \
-    constexpr uint##bit_size##_t operator""_u##bit_size()                        \
-    {                                                                            \
-        constexpr char arr[]{ str... };                                          \
-        return detail::parse_udl<uint##bit_size##_t>(arr, arr + sizeof...(str)); \
-    }
-
-    CLU_WIDE_INT_UDL_DEF(128);
-    CLU_WIDE_INT_UDL_DEF(256);
-    CLU_WIDE_INT_UDL_DEF(512);
-    CLU_WIDE_INT_UDL_DEF(1024);
-    CLU_WIDE_INT_UDL_DEF(2048);
-
-#undef CLU_WIDE_INT_UDL_DEF
+    
+    constexpr uint128_t operator""_u128(const char* str) { return detail::parse_udl<uint128_t>(str); }
+    constexpr uint256_t operator""_u256(const char* str) { return detail::parse_udl<uint256_t>(str); }
+    constexpr uint512_t operator""_u512(const char* str) { return detail::parse_udl<uint512_t>(str); }
+    constexpr uint1024_t operator""_u1024(const char* str) { return detail::parse_udl<uint1024_t>(str); }
+    constexpr uint2048_t operator""_u2048(const char* str) { return detail::parse_udl<uint2048_t>(str); }
 }
