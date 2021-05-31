@@ -11,17 +11,18 @@ namespace clu
     private:
         struct sentinel
         {
-            bool operator==(const char* ptr) const { return *ptr == '\0'; }
+            [[nodiscard]] constexpr bool operator==(const char* ptr) const { return *ptr == '\0'; }
         };
 
-        using pointer = char*;
+        using pointer = const char*;
         using const_pointer = const char*;
-        using reference = char&;
+        using reference = const char&;
         using const_reference = const char&;
         using iterator = const char*;
         using const_iterator = const char*;
         using size_type = size_t;
         using difference_type = ptrdiff_t;
+        using value_type = char;
 
         const char* ptr_ = "";
 
@@ -30,7 +31,7 @@ namespace clu
     public:
         constexpr c_str_view() noexcept = default;
         constexpr explicit(false) c_str_view(const char* ptr) noexcept: ptr_(ptr) {}
-        explicit(false) c_str_view(const std::string& str) noexcept: ptr_(str.c_str()) {} // TODO: add constexpr back
+        constexpr explicit(false) c_str_view(const std::string& str) noexcept: ptr_(str.c_str()) {}
         explicit(false) c_str_view(const std::string&&) = delete;
 
         constexpr c_str_view& operator=(const char* ptr) noexcept
@@ -39,7 +40,7 @@ namespace clu
             return *this;
         }
 
-        c_str_view& operator=(const std::string& str) noexcept // TODO: add constexpr back
+        constexpr c_str_view& operator=(const std::string& str) noexcept
         {
             ptr_ = str.c_str();
             return *this;

@@ -1,0 +1,8 @@
+INPUT = @PROJECT_SOURCE_DIR@/lib/include/clu
+RECURSIVE = YES
+GENERATE_HTML = NO
+GENERATE_LATEX = NO
+GENERATE_XML = YES
+WARN_IF_UNDOCUMENTED = NO
+ALIASES = "rst=\verbatim embed:rst:leading-asterisk"
+ALIASES += "endrst=\endverbatim"

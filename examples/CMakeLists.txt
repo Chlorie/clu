@@ -1,9 +1,9 @@
 # Examples
 
-function (add_example TARGET_NAME)
-    add_executable(${TARGET_NAME} "${TARGET_NAME}.cpp")
-    target_set_options(${TARGET_NAME})
-    target_link_libraries(${TARGET_NAME} PRIVATE clu)
+function (add_example TGT)
+    add_executable(${TGT} "${TGT}.cpp")
+    target_set_output_dirs(${TGT})
+    target_link_libraries(${TGT} PRIVATE project_options clu::clu)
 endfunction ()
 
 add_example(buffer)
