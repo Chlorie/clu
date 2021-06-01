@@ -2,8 +2,8 @@
 
 #include <atomic>
 
-#include "clu/unique_coroutine_handle.h"
-#include "clu/outcome.h"
+#include "../../unique_coroutine_handle.h"
+#include "../outcome.h"
 #include "concepts.h"
 
 namespace clu

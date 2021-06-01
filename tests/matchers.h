@@ -18,8 +18,11 @@ namespace clu::testing
     MATCHER_P(elements_are, elements, "")
     {
         if (std::ranges::equal(arg, elements)) return true;
-        *result_listener << "contents:";
-        for (auto&& i : arg) *result_listener << ' ' << gtst::PrintToString(i);
+        if constexpr (std::ranges::forward_range<decltype(arg)>)
+        {
+            *result_listener << "contents:";
+            for (auto&& i : arg) *result_listener << ' ' << gtst::PrintToString(i);
+        }
         return false;
     }
 }

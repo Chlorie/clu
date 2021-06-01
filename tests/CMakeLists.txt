@@ -7,8 +7,11 @@ find_package(GTest CONFIG REQUIRED)
 add_executable(tests
     "flags.cpp"
     "forest.cpp"
+    "function_ref.cpp"
+    # "generator.cpp"
     "meta_algorithm.cpp"
     "polymorphic_value.cpp"
+    "scope.cpp"
     "static_vector.cpp"
     "take.cpp"
     "wide_integer.cpp"

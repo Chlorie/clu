@@ -1,7 +1,7 @@
 #pragma once
 
 #include "clu/unique_coroutine_handle.h"
-#include "clu/outcome.h"
+#include "../outcome.h"
 #include "concepts.h"
 
 namespace clu

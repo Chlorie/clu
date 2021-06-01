@@ -5,7 +5,7 @@
 
 #ifdef NDEBUG
 
-#define CLU_ASSERT(expression) ((void)0)
+#define CLU_ASSERT(expr, msg) ((void)0)
 
 #else
 

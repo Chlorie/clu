@@ -4,8 +4,9 @@
 #include <exception>
 #include <ranges>
 
-#include "unique_coroutine_handle.h"
 #include "outcome.h"
+#include "../unique_coroutine_handle.h"
+#include "../iterator.h"
 
 namespace clu
 {
@@ -40,37 +41,25 @@ namespace clu
         struct generator_sentinel final {};
 
         template <typename T>
-        class generator_iterator final
+        class generator_iterator_impl
         {
-        public:
-            using value_type = T;
-            using difference_type = std::ptrdiff_t;
-            using iterator_concept = std::input_iterator_tag;
-
         private:
             using handle_t = std::coroutine_handle<generator_promise<T>>;
             handle_t handle_{};
 
         public:
-            generator_iterator() = default;
-            explicit generator_iterator(const handle_t handle): handle_(handle) {}
+            generator_iterator_impl() = default;
+            explicit generator_iterator_impl(const handle_t handle): handle_(handle) {}
 
             T& operator*() const { return handle_.promise().get(); }
 
-            generator_iterator& operator++()
+            generator_iterator_impl& operator++()
             {
                 handle_.resume();
                 return *this;
             }
 
-            generator_iterator operator++(int)
-            {
-                generator_iterator result = *this;
-                operator++();
-                return result;
-            }
-
-            friend bool operator==(const generator_iterator it, generator_sentinel) { return it.handle_.done(); }
+            friend bool operator==(const generator_iterator_impl it, generator_sentinel) { return it.handle_.done(); }
         };
     }
 
@@ -79,7 +68,7 @@ namespace clu
     {
     public:
         using promise_type = detail::generator_promise<T>;
-        using iterator = detail::generator_iterator<T>;
+        using iterator = iterator_adapter<detail::generator_iterator_impl<T>>;
         using sentinel = detail::generator_sentinel;
 
     private:
@@ -87,11 +76,7 @@ namespace clu
 
     public:
         explicit generator(promise_type& promise):
-            handle_(std::coroutine_handle<promise_type>::from_promise(promise))
-        {
-            static_assert(std::input_iterator<iterator>);
-            static_assert(std::ranges::input_range<generator>);
-        }
+            handle_(std::coroutine_handle<promise_type>::from_promise(promise)) {}
 
         iterator begin() noexcept
         {

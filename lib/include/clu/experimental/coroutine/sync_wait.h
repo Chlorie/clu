@@ -4,7 +4,7 @@
 #include <condition_variable>
 
 #include "concepts.h"
-#include "clu/outcome.h"
+#include "../outcome.h"
 
 namespace clu
 {
