@@ -3,6 +3,20 @@ import shutil
 from argparse import ArgumentParser
 from pathlib import Path
 
+
+def escape_code_block(path: Path):
+    lines = []
+    with open(path, "r") as file:
+        for line in file:
+            if line == "``` cpp":
+                lines.append("{% raw %}")
+            lines.append(line)
+            if line == "```":
+                lines.append("{% endraw %}")
+    with open(path, "w") as file:
+        file.writelines(lines)
+
+
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("output", type=str, default="")
@@ -18,3 +32,5 @@ if __name__ == "__main__":
     command = ["standardese", "-c", str(ini), "--output.prefix", str(standardese_out) + "/"]
     command += [str(path) for path in headers]
     subprocess.run(command)
+    for path in standardese_out.glob("*.md"):
+        escape_code_block(path)
