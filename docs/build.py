@@ -7,12 +7,15 @@ from pathlib import Path
 def escape_code_block(path: Path):
     lines = []
     with open(path, "r") as file:
+        cpp = False
         for line in file:
-            if line == "``` cpp":
-                lines.append("{% raw %}")
+            if line == "``` cpp\n":
+                cpp = True
+                lines.append("{% raw %}\n")
             lines.append(line)
-            if line == "```":
-                lines.append("{% endraw %}")
+            if line == "```\n" and cpp:
+                cpp = False
+                lines.append("{% endraw %}\n")
     with open(path, "w") as file:
         file.writelines(lines)
 
