@@ -1,0 +1,18 @@
+remote_theme: rundocs/jekyll-rtd-theme
+
+title: clu
+description: clu docs
+copyright: Chlorie
+url: "https://chlorie.github.io/clu/"
+
+plugins:
+  - github-pages
+  - jemoji
+  - jekyll-remote-theme
+  - jekyll-avatar
+  - jekyll-mentions
+  - jekyll-readme-index
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
