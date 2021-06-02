@@ -9,6 +9,7 @@ namespace clu
     template <typename Func>
     class function_ref;
 
+    /// Non-owning type erased wrapper for invocable objects.
     template <typename R, typename... Ts>
     class function_ref<R(Ts ...)> final
     {
@@ -43,8 +44,10 @@ namespace clu
         }
 
     public:
+        /// \group empty_ctors
+        /// Construct an empty `function_ref`. Calling thus an object leads to undefined behavior.
         constexpr function_ref() noexcept = default;
-        constexpr explicit(false) function_ref(std::nullptr_t) noexcept {}
+        constexpr explicit(false) function_ref(std::nullptr_t) noexcept {} //< \group empty_ctors
 
         template <typename F> requires (invocable_of<F, R, Ts...> && !similar_to<F, function_ref>)
         explicit(false) function_ref(F&& func) noexcept { assign(std::forward<F>(func)); }

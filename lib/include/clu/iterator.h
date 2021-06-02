@@ -21,6 +21,9 @@ namespace clu
         template <typename It, typename Diff> concept has_subscript = requires(It a, Diff d) { a[d]; };
     }
 
+    /// An adapter type for cutting down boilerplates when implementing iterators.
+    ///
+    /// \tparam It Base implementation type
     template <typename It>
     class iterator_adapter : public It
     {
@@ -76,8 +79,23 @@ namespace clu
         }
 
     public:
-        using base_type = It;
+        using base_type = It; //< Base implementation type.
 
+        /// Iterator category of the adapted iterator type.
+        ///
+        /// The iterator category is inferred from the base implementation
+        /// with the following process:
+        /// - If [*base_type]() has an `iterator_category`
+        ///   member alias, or an `iterator_concept` member alias, use that.
+        /// - If [*base_type]() does not implement a self-equality operator,
+        ///   the category is inferred as [std::input_iterator_tag]().
+        /// - If [*base_type]() implements `operator-` between two objects of
+        ///   its type, the category is inferred as [std::random_access_iterator_tag]().
+        /// - If [*base_type]() implements prefix `operator--`, the category
+        ///   is inferred as [std::bidirectional_iterator_tag]().
+        /// - Otherwise, the category is inferred as [std::forward_iterator_tag]().
+        ///
+        /// \synopsis using iterator_category = /*see-below*/;\n
         using iterator_category = decltype(get_iterator_category());
         using iterator_concept = decltype(get_iterator_concept());
         using value_type = typename decltype(get_value_type())::type;
@@ -173,7 +191,8 @@ namespace clu
                 return *(*this + value);
         }
 
-        [[nodiscard]] constexpr It& base() noexcept { return *this; }
-        [[nodiscard]] constexpr const It& base() const noexcept { return *this; }
+        /// \group base 
+        [[nodiscard]] constexpr It& base() noexcept { return *this; } //< Retrieve the base implementation object reference
+        [[nodiscard]] constexpr const It& base() const noexcept { return *this; } //< \group
     };
 }

@@ -9,6 +9,10 @@
 
 namespace clu
 {
+    /// STL-style hierarchical container type.
+    ///
+    /// \tparam T The value type.
+    /// \tparam Alloc The allocator type. Must not allocate fancy pointers.
     template <typename T, typename Alloc = std::allocator<T>>
     class forest
     {
