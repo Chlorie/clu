@@ -5,6 +5,10 @@
 
 namespace clu
 {
+    /// A fire-and-forget coroutine type.
+    ///
+    /// The coroutine is started inline eagerly. Any uncaught exception thrown
+    /// in the coroutine will trigger `std::terminate`.
     struct oneway_task final
     {
         struct promise_type final

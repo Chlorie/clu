@@ -5,6 +5,7 @@
 
 namespace clu
 {
+    /// Offers utilities for controlling lifetime of an object manually.
     template <typename T>
     class manual_lifetime
     {
@@ -15,8 +16,8 @@ namespace clu
         };
 
     public:
-        manual_lifetime() noexcept {}
-        ~manual_lifetime() noexcept {}
+        manual_lifetime() noexcept {} //< No-op constructor. Space is reserved for the object without starting its lifetime.
+        ~manual_lifetime() noexcept {} //< No-op destructor. Does not destruct potentially living object.
         manual_lifetime(const manual_lifetime&) = delete;
         manual_lifetime(manual_lifetime&&) = delete;
         manual_lifetime& operator=(const manual_lifetime&) = delete;
@@ -28,7 +29,7 @@ namespace clu
             return *new(std::addressof(value_)) T(std::forward<Args>(args)...);
         }
 
-        void destruct() noexcept { value_.~T(); }
+        void destruct() noexcept { value_.~T(); } //< Destruct the controlled object.
 
         [[nodiscard]] T& get() & noexcept { return value_; }
         [[nodiscard]] const T& get() const & noexcept { return value_; }

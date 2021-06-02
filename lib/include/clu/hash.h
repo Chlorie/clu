@@ -7,11 +7,11 @@
 
 namespace clu
 {
-    inline constexpr uint32_t fnv_prime_32 = 0x01000193u;
-    inline constexpr uint64_t fnv_prime_64 = 0x00000100000001b3ull;
+    inline constexpr uint32_t fnv_prime_32 = 0x01000193u; //< 32-bit FNV prime
+    inline constexpr uint64_t fnv_prime_64 = 0x00000100000001b3ull; //< 64-bit FNV prime
 
-    inline constexpr uint32_t fnv_offset_basis_32 = 0x811c9dc5u;
-    inline constexpr uint64_t fnv_offset_basis_64 = 0xcbf29ce484222325ull;
+    inline constexpr uint32_t fnv_offset_basis_32 = 0x811c9dc5u; //< 32-bit FNV offset basis
+    inline constexpr uint64_t fnv_offset_basis_64 = 0xcbf29ce484222325ull; //< 64-bit FNV offset basis
 
     [[nodiscard]] constexpr uint32_t fnv1a32(const std::string_view bytes, uint32_t hash = fnv_offset_basis_32) noexcept
     {

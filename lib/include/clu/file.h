@@ -6,6 +6,11 @@
 
 namespace clu
 {
+    /// Read contents of a binary file into a `std::vector`.
+    ///
+    /// \tparam T Value type of the result vector, must be a trivial type.
+    /// \param path Path to the file to read.
+    /// \returns `std::vector` with the file content.
     template <typename T> requires std::is_trivial_v<T>
     [[nodiscard]] std::vector<T> read_all_bytes(const std::filesystem::path& path)
     {
