@@ -19,7 +19,7 @@ jobs:
           path: main
       - uses: actions/checkout@v2
         with:
-          ref: 96316ba6baaede1de9a5e188ab001ec6f88b8434
+          ref: 9d81b4f13685c757676fe81c5001fadac8775c67
           path: docs
       - uses: conda-incubator/setup-miniconda@v2
         with:
