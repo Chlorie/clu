@@ -1,4 +1,12 @@
 .vs/
+.vscode/
 out/
-CMakeSettings.json
-*.user
+build/
+/CMakeSettings.json
+/Folder.DotSettings.user
+docs/output/
+vcpkg_installed/
+
+_site/
+.sass-cache/
+/Gemfile.lock
