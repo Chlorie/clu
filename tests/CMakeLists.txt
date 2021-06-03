@@ -9,6 +9,7 @@ add_executable(tests
     "forest.cpp"
     "function_ref.cpp"
     # "generator.cpp"
+    "indices.cpp"
     "meta_algorithm.cpp"
     "polymorphic_value.cpp"
     "scope.cpp"

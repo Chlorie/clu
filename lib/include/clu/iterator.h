@@ -81,6 +81,8 @@ namespace clu
     public:
         using base_type = It; //< Base implementation type.
 
+        /// \synopsis using iterator_category = /*see-below*/;
+        ///
         /// Iterator category of the adapted iterator type.
         ///
         /// The iterator category is inferred from the base implementation
@@ -94,8 +96,6 @@ namespace clu
         /// - If [*base_type]() implements prefix `operator--`, the category
         ///   is inferred as [std::bidirectional_iterator_tag]().
         /// - Otherwise, the category is inferred as [std::forward_iterator_tag]().
-        ///
-        /// \synopsis using iterator_category = /*see-below*/;\n
         using iterator_category = decltype(get_iterator_category());
         using iterator_concept = decltype(get_iterator_concept());
         using value_type = typename decltype(get_value_type())::type;

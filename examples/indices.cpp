@@ -3,7 +3,7 @@
 
 int main()
 {
-    for (auto i : clu::indices(10))
+    for (auto [i] : clu::indices(10))
         std::printf("i = %zu; ", i);
     std::puts("");
     for (auto [i, j, k] : clu::indices(2, 3, 4))

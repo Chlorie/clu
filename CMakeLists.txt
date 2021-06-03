@@ -2,7 +2,7 @@
 
 cmake_minimum_required(VERSION 3.14)
 
-project(clu LANGUAGES CXX VERSION 0.25.0)
+project(clu LANGUAGES CXX VERSION 0.26.0)
 
 set(CMAKE_SCRIPTS "${PROJECT_SOURCE_DIR}/cmake")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SCRIPTS})
@@ -23,7 +23,7 @@ if (BUILD_EXAMPLES)
 endif ()
 
 option(BUILD_TESTS "Build unit tests" OFF)
-if (CLU_UNIT_TEST)
+if (BUILD_TESTS)
     list(APPEND VCPKG_MANIFEST_FEATURES "unit-test")
     add_subdirectory(tests)
 endif ()

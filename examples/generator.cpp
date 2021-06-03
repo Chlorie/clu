@@ -1,4 +1,4 @@
-#include <clu/generator.h>
+#include <clu/experimental/generator.h>
 
 clu::generator<int> ints()
 {

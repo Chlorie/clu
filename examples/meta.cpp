@@ -1,4 +1,3 @@
-#include <clu/meta_list.h>
 #include <clu/experimental/meta/algorithm.h>
 
 namespace meta = clu::meta;

@@ -35,6 +35,8 @@ namespace clu
         size_t size_ = 0;
 
     public:
+        using value_type = T;
+
         constexpr basic_buffer() noexcept = default;
         constexpr basic_buffer(T* ptr, const size_t size) noexcept: ptr_(ptr), size_(size) {}
 
@@ -62,7 +64,7 @@ namespace clu
             ptr_ += size;
             return *this;
         }
-        [[nodiscard]] friend constexpr basic_buffer operator+(basic_buffer buffer, const size_t size) noexcept { return buffer += size; }
+        [[nodiscard]] constexpr friend basic_buffer operator+(basic_buffer buffer, const size_t size) noexcept { return buffer += size; }
 
         [[nodiscard]] constexpr std::span<T> as_span() const noexcept { return { ptr_, size_ }; }
     };
