@@ -14,7 +14,7 @@ namespace clu
         class fmap_awaitable
         {
         private:
-            using unwrapped_t = unwrap_reference_keeping_t<A&>;
+            using unwrapped_t = std::unwrap_ref_decay_t<A&>;
 
             A awaitable_;
             F func_;
@@ -25,7 +25,7 @@ namespace clu
             class awaiter
             {
             private:
-                using awaitable_t = unwrap_reference_keeping_t<QualifiedAwaitable>;
+                using awaitable_t = std::unwrap_ref_decay_t<QualifiedAwaitable>;
                 using awaiter_t = awaiter_type_t<awaitable_t>;
                 using func_t = copy_cvref_t<QualifiedAwaitable, F>;
                 using parent_t = copy_cvref_t<QualifiedAwaitable, fmap_awaitable>;

@@ -90,17 +90,17 @@ namespace clu
                 using parent_t = copy_cvref_t<Cvref, race_tuple_awaitable>;
 
                 template <size_t I>
-                using awaitable_t = unwrap_reference_keeping_t<
+                using awaitable_t = std::unwrap_ref_decay_t<
                     copy_cvref_t<Cvref, std::tuple_element_t<I, std::tuple<Ts...>>>>;
 
                 template <size_t I>
                 using result_t = outcome<await_result_t<awaitable_t<I>>>;
 
                 using inter_res_t = std::variant<outcome<await_result_t<
-                    unwrap_reference_keeping_t<copy_cvref_t<Cvref, Ts>>>>...>;
+                    std::unwrap_ref_decay_t<copy_cvref_t<Cvref, Ts>>>>...>;
 
                 using final_res_t = race_tuple_result<await_result_t<
-                    unwrap_reference_keeping_t<copy_cvref_t<Cvref, Ts>>>...>;
+                    std::unwrap_ref_decay_t<copy_cvref_t<Cvref, Ts>>>...>;
 
                 parent_t parent;
                 std::atomic_size_t counter = 0;
@@ -209,7 +209,7 @@ namespace clu
             struct awaiter final
             {
                 using parent_t = copy_cvref_t<Cvref, race_vector_awaitable>;
-                using awaitable_t = unwrap_reference_keeping_t<copy_cvref_t<Cvref, T>>;
+                using awaitable_t = std::unwrap_ref_decay_t<copy_cvref_t<Cvref, T>>;
                 using result_t = await_result_t<awaitable_t>;
                 using inter_res_t = outcome<result_t>;
 

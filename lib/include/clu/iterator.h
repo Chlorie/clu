@@ -19,6 +19,7 @@ namespace clu
         template <typename It> concept has_decrement = requires(It a) { --a; };
         template <typename It, typename Diff> concept has_subtract_assign = requires(It a, Diff d) { a -= d; };
         template <typename It, typename Diff> concept has_subscript = requires(It a, Diff d) { a[d]; };
+        template <typename Sn, typename It> concept half_sized_sentinel_for = requires(It a, Sn s) { a - s; };
     }
 
     /// An adapter type for cutting down boilerplates when implementing iterators.
@@ -191,8 +192,17 @@ namespace clu
                 return *(*this + value);
         }
 
+        [[nodiscard]] constexpr friend auto operator-(const iterator_adapter lhs, const iterator_adapter rhs)
+            requires detail::distance_computable<It>
+        {
+            return lhs.base() - rhs.base();
+        }
+
+        template <detail::half_sized_sentinel_for<It> Sn> requires (!std::same_as<Sn, It>)
+        [[nodiscard]] constexpr friend auto operator-(const Sn sentinel, const iterator_adapter it) { return -(it - sentinel); }
+
         /// \group base 
         [[nodiscard]] constexpr It& base() noexcept { return *this; } //< Retrieve the base implementation object reference
-        [[nodiscard]] constexpr const It& base() const noexcept { return *this; } //< \group
+        [[nodiscard]] constexpr const It& base() const noexcept { return *this; } //< \group base
     };
 }

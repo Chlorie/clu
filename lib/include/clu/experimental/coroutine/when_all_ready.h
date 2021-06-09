@@ -24,7 +24,7 @@ namespace clu
                 using parent_t = copy_cvref_t<Cvref, when_all_ready_tuple_awaitable>;
 
                 template <size_t I>
-                using awaitable_t = unwrap_reference_keeping_t<
+                using awaitable_t = std::unwrap_ref_decay_t<
                     copy_cvref_t<Cvref, std::tuple_element_t<I, std::tuple<Ts...>>>>;
 
                 template <size_t I>
@@ -33,7 +33,7 @@ namespace clu
                 parent_t parent;
                 std::atomic_size_t counter = sizeof...(Ts);
                 std::tuple<outcome<await_result_t<
-                    unwrap_reference_keeping_t<copy_cvref_t<Cvref, Ts>>>>...> results;
+                    std::unwrap_ref_decay_t<copy_cvref_t<Cvref, Ts>>>>...> results;
 
                 template <size_t I>
                 oneway_task await_at(const std::coroutine_handle<> handle)
@@ -99,7 +99,7 @@ namespace clu
             struct awaiter final
             {
                 using parent_t = copy_cvref_t<Cvref, when_all_ready_vector_awaitable>;
-                using awaitable_t = unwrap_reference_keeping_t<copy_cvref_t<Cvref, T>>;
+                using awaitable_t = std::unwrap_ref_decay_t<copy_cvref_t<Cvref, T>>;
                 using result_t = outcome<await_result_t<awaitable_t>>;
 
                 parent_t parent;

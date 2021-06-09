@@ -17,8 +17,7 @@ namespace clu
         class iter_impl;
 
     public:
-        using array_type = std::array<std::size_t, N>;
-        using value_type = array_type;
+        using value_type = std::array<std::size_t, N>;
         using size_type = std::size_t;
         using difference_type = std::ptrdiff_t;
         using iterator = iterator_adapter<iter_impl>;
@@ -32,8 +31,8 @@ namespace clu
         class iter_impl
         {
         private:
-            array_type extents_{};
-            array_type current_{};
+            value_type extents_{};
+            value_type current_{};
 
             template <std::size_t i>
             constexpr void increment_at() noexcept
@@ -86,7 +85,7 @@ namespace clu
             }
 
             template <std::size_t i>
-            constexpr std::ptrdiff_t distance_at(const array_type& other) const noexcept
+            constexpr std::ptrdiff_t distance_at(const value_type& other) const noexcept
             {
                 if constexpr (i == 0)
                     return static_cast<std::ptrdiff_t>(current_[0]) - static_cast<std::ptrdiff_t>(other[0]);
@@ -96,10 +95,10 @@ namespace clu
             }
 
         public:
-            using reference = const array_type&;
+            using reference = const value_type&;
 
             constexpr iter_impl() noexcept = default;
-            constexpr explicit iter_impl(const array_type& extents, const array_type& current = {}) noexcept:
+            constexpr explicit iter_impl(const value_type& extents, const value_type& current = {}) noexcept:
                 extents_(extents), current_(current) {}
 
             constexpr reference operator*() const noexcept { return current_; }
@@ -144,15 +143,21 @@ namespace clu
                 CLU_ASSERT(extents_ == other.extents_, "the iterators have different extents");
                 return distance_at<N - 1>(other.current_);
             }
+
+            [[nodiscard]] constexpr difference_type operator-(sentinel) const noexcept
+            {
+                const value_type other{ extents_[0] };
+                return distance_at<N - 1>(other);
+            }
         };
 
-        array_type extents_{};
+        value_type extents_{};
 
         constexpr iterator end_iter() const noexcept { return iter_impl(extents_, { extents_[0] }); }
 
     public:
         constexpr indices_view() noexcept = default;
-        constexpr explicit indices_view(const array_type& extents) noexcept: extents_(extents) {}
+        constexpr explicit indices_view(const value_type& extents) noexcept: extents_(extents) {}
 
         [[nodiscard]] constexpr iterator begin() const noexcept { return iter_impl(extents_); }
         [[nodiscard]] constexpr sentinel end() const noexcept { return {}; }
@@ -162,6 +167,18 @@ namespace clu
         [[nodiscard]] constexpr reverse_iterator rend() const noexcept { return std::make_reverse_iterator(iter_impl(extents_)); }
         [[nodiscard]] constexpr const_reverse_iterator crbegin() const noexcept { return std::make_reverse_iterator(end_iter()); }
         [[nodiscard]] constexpr const_reverse_iterator crend() const noexcept { return std::make_reverse_iterator(iter_impl(extents_)); }
+        
+        [[nodiscard]] constexpr value_type front() const noexcept { return {}; }
+
+        [[nodiscard]] constexpr value_type back() const noexcept
+        {
+            return [&]<std::size_t... i>(std::index_sequence<i...>) -> value_type
+            {
+                return { (extents_[i] - 1)... };
+            }(std::make_index_sequence<N>{});
+        }
+
+        [[nodiscard]] constexpr value_type operator[](const size_type i) const noexcept { return begin()[i]; }
 
         [[nodiscard]] constexpr size_type size() const noexcept
         {
@@ -170,11 +187,13 @@ namespace clu
                 return (extents_[i] * ... * 1);
             }(std::make_index_sequence<N>{});
         }
+        [[nodiscard]] constexpr size_type empty() const noexcept { return extents_ == value_type{}; }
+        [[nodiscard]] constexpr explicit operator bool() const noexcept { return extents_ != value_type{}; }
 
         [[nodiscard]] constexpr static size_type dimension() noexcept { return N; }
-        [[nodiscard]] constexpr const array_type& extents() const noexcept { return extents_; }
+        [[nodiscard]] constexpr const value_type& extents() const noexcept { return extents_; }
     };
-    
+
     template <std::size_t N> indices_view(std::array<std::size_t, N>) -> indices_view<N>;
 
     template <std::convertible_to<std::size_t>... IdxTypes>
