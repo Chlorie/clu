@@ -25,7 +25,7 @@ namespace clu
         [[nodiscard]] T* operator()(const T& value) const { return new T(value); }
     };
 
-    class bad_polymorphic_value_construction : std::exception
+    class bad_polymorphic_value_construction : public std::exception
     {
     public:
         bad_polymorphic_value_construction() noexcept {}

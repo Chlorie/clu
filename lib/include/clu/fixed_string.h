@@ -106,9 +106,12 @@ namespace clu
     template <size_t N> using fixed_u16string = basic_fixed_string<char16_t, N>;
     template <size_t N> using fixed_u32string = basic_fixed_string<char32_t, N>;
 
-    namespace literals
+    inline namespace literals
     {
-        template <basic_fixed_string str>
-        [[nodiscard]] constexpr auto operator""_fs() { return str; }
+        inline namespace fixed_string_literals
+        {
+            template <basic_fixed_string str>
+            [[nodiscard]] constexpr auto operator""_fs() { return str; }
+        }
     }
 }

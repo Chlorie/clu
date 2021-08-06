@@ -6,6 +6,7 @@ function (add_example TGT)
     target_link_libraries(${TGT} PRIVATE project_options clu::clu)
 endfunction ()
 
+add_example(all_headers)
 add_example(buffer)
 add_example(coroutine)
 add_example(enumerate)

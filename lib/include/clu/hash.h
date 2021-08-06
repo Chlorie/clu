@@ -43,21 +43,24 @@ namespace clu
             return fnv1a64(bytes, hash);
     }
 
-    inline namespace literals::inline hash_literals
+    inline namespace literals
     {
-        [[nodiscard]] constexpr uint32_t operator""_fnv1a32(const char* bytes, const size_t length) noexcept
+        inline namespace hash_literals
         {
-            return fnv1a32({ bytes, length });
-        }
+            [[nodiscard]] constexpr uint32_t operator""_fnv1a32(const char* bytes, const size_t length) noexcept
+            {
+                return fnv1a32({ bytes, length });
+            }
 
-        [[nodiscard]] constexpr uint64_t operator""_fnv1a64(const char* bytes, const size_t length) noexcept
-        {
-            return fnv1a64({ bytes, length });
-        }
+            [[nodiscard]] constexpr uint64_t operator""_fnv1a64(const char* bytes, const size_t length) noexcept
+            {
+                return fnv1a64({ bytes, length });
+            }
 
-        [[nodiscard]] constexpr size_t operator""_fnv1a(const char* bytes, const size_t length) noexcept
-        {
-            return fnv1a({ bytes, length });
+            [[nodiscard]] constexpr size_t operator""_fnv1a(const char* bytes, const size_t length) noexcept
+            {
+                return fnv1a({ bytes, length });
+            }
         }
     }
 

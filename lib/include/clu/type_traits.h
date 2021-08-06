@@ -1,6 +1,7 @@
 #pragma once
 
 #include <type_traits>
+#include <compare>
 
 namespace clu
 {
@@ -21,6 +22,12 @@ namespace clu
     };
     template <auto val>
     inline constexpr value_tag_t<val> value_tag{};
+
+    struct monostate
+    {
+        friend constexpr bool operator==(monostate, monostate) noexcept = default;
+        friend constexpr auto operator<=>(monostate, monostate) noexcept = default;
+    };
 
     namespace detail
     {

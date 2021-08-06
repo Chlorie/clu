@@ -5,6 +5,7 @@ enable_testing()
 find_package(GTest CONFIG REQUIRED)
 
 add_executable(tests
+    "expected.cpp"
     "flags.cpp"
     "forest.cpp"
     "function_ref.cpp"
