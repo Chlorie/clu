@@ -1,1 +1,2 @@
 breathe
+docutils <0.17
