@@ -32,13 +32,13 @@ namespace clu
         {
             if constexpr (std::is_same_v<Uint, uint64_t>)
             {
-                constexpr uint64_t low__bits = 0xffffffffull;
-                const uint64_t lhigh_ = lhs >> 32, llow_ = lhs & low__bits;
-                const uint64_t rhigh_ = rhs >> 32, rlow_ = rhs & low__bits;
-                const uint64_t cross = lhigh_ * rlow_ + rhigh_ * llow_;
+                constexpr uint64_t low_bits = 0xffffffffull;
+                const uint64_t lhigh = lhs >> 32, llow = lhs & low_bits;
+                const uint64_t rhigh = rhs >> 32, rlow = rhs & low_bits;
+                const uint64_t cross = lhigh * rlow + rhigh * llow;
                 return {
-                    llow_ * rlow_ + (cross << 32),
-                    lhigh_ * rhigh_ + (cross >> 32)
+                    llow * rlow + (cross << 32),
+                    lhigh * rhigh + (cross >> 32)
                 };
             }
             else // Uint is wider<T>

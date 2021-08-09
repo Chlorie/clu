@@ -22,6 +22,11 @@ if (BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif ()
 
+option(BUILD_DOCS "Build documentation using Doxygen & Sphinx" OFF)
+if (BUILD_DOCS)
+    add_subdirectory(docs)
+endif ()
+
 option(BUILD_TESTS "Build unit tests" OFF)
 if (BUILD_TESTS)
     list(APPEND VCPKG_MANIFEST_FEATURES "unit-test")

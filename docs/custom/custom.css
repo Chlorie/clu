@@ -1,0 +1,11 @@
+.strike {
+    text-decoration: line-through;
+}
+
+.rst-content dl:not(.docutils) dt {
+    display: table-cell !important;
+}
+
+.rst-content dl:not(.docutils) dd {
+    margin-top: 6px;
+}
