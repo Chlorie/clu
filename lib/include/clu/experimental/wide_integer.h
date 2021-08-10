@@ -5,7 +5,7 @@
 #include <array>
 #include <bit>
 
-#include "concepts.h"
+#include "../concepts.h"
 
 namespace clu
 {

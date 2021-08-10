@@ -11,6 +11,7 @@ add_executable(tests
     "function_ref.cpp"
     "functional.cpp"
     # "generator.cpp"
+    "hash.cpp"
     "indices.cpp"
     "meta_algorithm.cpp"
     "pipeable.cpp"

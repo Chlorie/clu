@@ -10,11 +10,6 @@ namespace clu
     class basic_c_str_view
     {
     private:
-        struct sentinel
-        {
-            [[nodiscard]] constexpr bool operator==(const Char* ptr) const { return *ptr == '\0'; }
-        };
-
         const Char* ptr_ = "";
 
         constexpr const Char* one_past_last() const noexcept { return ptr_ + size(); }
@@ -29,6 +24,11 @@ namespace clu
         using size_type = size_t;
         using difference_type = ptrdiff_t;
         using value_type = Char;
+
+        struct sentinel
+        {
+            [[nodiscard]] constexpr bool operator==(const Char* ptr) const { return *ptr == '\0'; }
+        };
 
         constexpr basic_c_str_view() noexcept = default;
         constexpr explicit(false) basic_c_str_view(const Char* ptr) noexcept: ptr_(ptr) {}

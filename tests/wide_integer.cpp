@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <clu/wide_integer.h>
+#include <clu/experimental/wide_integer.h>
 
 using namespace clu::wide_integer_literals;
 

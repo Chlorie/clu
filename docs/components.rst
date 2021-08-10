@@ -37,7 +37,7 @@ A list of all the headers and their contents is presented as follows:
 ``functional.h``
     Monadic operations for :cc:`std::optional`.
 ``hash.h``
-    Hash-related utilities. Provides a :cc:`constexpr` implementation of the FNV-1a (32/64 bits) hash function, and a ``hash_combine`` function.
+    Hash-related utilities. Provides :cc:`constexpr` implementations of FNV-1a and SHA1 hash functions, and a ``hash_combine`` function.
 ``indices.h``
     A random-access range for multi-dimensional indexing, so that you could use :cc:`for (const auto [i, j, k] : indices(3, 4, 5))` instead of nested :cc:`for` loops.
 ``integer_literals.h``
@@ -78,5 +78,3 @@ A list of all the headers and their contents is presented as follows:
     An RAII type for :cc:`std::coroutine_handle<T>` which destroys the handle on destruction.
 ``vector_utils.h``
     A ``make_vector`` function to remedy the fact that we cannot use :cc:`std::initializer_list` to initialize containers with move-only elements.
-``wide_integer.h``
-    Simple implementation for integers longer than 64 bits.
