@@ -34,9 +34,9 @@ namespace clu::meta
     struct extract_types<Templ<Types...>> : std::type_identity<type_list<Types...>> {};
     template <typename List> using extract_types_t = typename extract_types<List>::type;
 
-    template <typename Invocable, typename List> using invoke = typename List::template apply<Invocable::apply>;
-    template <typename Invocable, typename List> using invoke_t = typename List::template apply<Invocable::apply>::type;
-    template <typename Invocable, typename List> static constexpr auto invoke_v = List::template apply<Invocable::apply>::value;
+    template <typename Invocable, typename List> using invoke = typename List::template apply<Invocable::template apply>;
+    template <typename Invocable, typename List> using invoke_t = typename List::template apply<Invocable::template apply>::type;
+    template <typename Invocable, typename List> static constexpr auto invoke_v = List::template apply<Invocable::template apply>::value;
 
     template <typename... Types>
     struct enumerate

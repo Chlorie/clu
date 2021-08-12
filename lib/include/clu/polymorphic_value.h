@@ -16,7 +16,7 @@ namespace clu
 
     template <typename D, typename T>
     concept deleter_of = std::copy_constructible<D>
-        && requires(D deleter, T* ptr) { { deleter(ptr) } noexcept; };
+        && requires(D deleter, T* ptr) { deleter(ptr); };
     // @formatter:on
 
     template <typename T>
@@ -127,19 +127,19 @@ namespace clu
         polymorphic_value(const polymorphic_value& other): cb_(other.cb_->clone()) {}
 
         template <typename U>
-            requires std::convertible_to<U*, T*> && !std::same_as<T, U>
+            requires std::convertible_to<U*, T*> && (!std::same_as<T, U>)
         explicit(false) polymorphic_value(const polymorphic_value<U>& other):
             cb_(std::make_unique<detail::delegating_control_block<T, U>>(other.cb_->clone())) {}
 
         polymorphic_value(polymorphic_value&&) noexcept = default;
 
         template <typename U>
-            requires std::convertible_to<U*, T*> && !std::same_as<T, U>
+            requires std::convertible_to<U*, T*> && (!std::same_as<T, U>)
         explicit(false) polymorphic_value(polymorphic_value<U>&& other):
             cb_(std::make_unique<detail::delegating_control_block<T, U>>(std::move(other.cb_))) {}
 
         template <typename U> requires
-            !similar_to<U, polymorphic_value> &&
+            (!similar_to<U, polymorphic_value>) &&
             std::copy_constructible<std::remove_cvref_t<U>> &&
             std::convertible_to<std::remove_cvref_t<U>*, T*>
         explicit(false) polymorphic_value(U&& value):
@@ -154,7 +154,7 @@ namespace clu
         }
 
         template <typename U>
-            requires std::convertible_to<U*, T*> && !std::same_as<T, U>
+            requires std::convertible_to<U*, T*> && (!std::same_as<T, U>)
         polymorphic_value& operator=(const polymorphic_value<U>& other)
         {
             cb_ = std::make_unique<detail::delegating_control_block<T, U>>(other.cb_->clone());
@@ -164,7 +164,7 @@ namespace clu
         polymorphic_value& operator=(polymorphic_value&&) noexcept = default;
 
         template <typename U>
-            requires std::convertible_to<U*, T*> && !std::same_as<T, U>
+            requires std::convertible_to<U*, T*> && (!std::same_as<T, U>)
         polymorphic_value& operator=(polymorphic_value<U>&& other)
         {
             cb_ = std::make_unique<detail::delegating_control_block<T, U>>(std::move(other.cb_));
@@ -172,7 +172,7 @@ namespace clu
         }
 
         template <typename U> requires
-            !similar_to<U, polymorphic_value> &&
+            (!similar_to<U, polymorphic_value>) &&
             std::copy_constructible<std::remove_cvref_t<U>> &&
             std::convertible_to<U*, T*>
         polymorphic_value& operator=(U&& value)

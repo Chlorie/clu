@@ -2,9 +2,10 @@
 
 enable_testing()
 
-find_package(GTest CONFIG REQUIRED)
+find_package(Catch2 CONFIG REQUIRED)
 
 add_executable(tests
+    "main.cpp" # with CATCH_CONFIG_MAIN
     "expected.cpp"
     "flags.cpp"
     "forest.cpp"
@@ -25,6 +26,7 @@ add_executable(tests
 target_link_libraries(tests PRIVATE
     clu
     project_options
-    GTest::gmock_main
+    Catch2::Catch2
 )
+target_compile_features(tests PRIVATE cxx_std_20)
 add_test(AllTestsInMain tests)

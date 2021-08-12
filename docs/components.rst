@@ -60,6 +60,8 @@ A list of all the headers and their contents is presented as follows:
     Overload set type. Useful for :cc:`std::visit`.
 ``scope.h``
     Scope guards for running arbitrary code at destruction. Useful for ad-hoc RAII constructs.
+``static_for.h``
+    Loop over compile time indices. Can also be used as a way to force loop unrolling.
 ``static_vector.h``
     :cc:`std::vector` like container allocated on the stack, with a fixed capacity.
 ``string_utils.h``

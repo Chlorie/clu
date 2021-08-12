@@ -29,6 +29,9 @@ namespace clu
         friend constexpr auto operator<=>(monostate, monostate) noexcept = default;
     };
 
+    template <std::size_t I> struct priority_tag : priority_tag<I - 1> {};
+    template <> struct priority_tag<0> {};
+
     namespace detail
     {
         template <bool value>
@@ -68,6 +71,10 @@ namespace clu
     };
 
     template <typename From, typename To> using copy_cvref_t = typename copy_cvref<From, To>::type;
+
+    template <typename... Ts> struct single_type {};
+    template <typename T> struct single_type<T> : std::type_identity<T> {};
+    template <typename... Ts> using single_type_t = typename single_type<Ts...>::type;
 
     template <typename... Ts> struct all_same : std::false_type {};
     template <> struct all_same<> : std::true_type {};

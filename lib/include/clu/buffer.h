@@ -1,6 +1,7 @@
 #pragma once
 
 #include <span>
+#include <type_traits>
 
 #include "assertion.h"
 #include "concepts.h"
@@ -27,28 +28,10 @@ namespace clu
     concept mutable_trivial_range = trivial_range<T> && !std::is_const_v<std::ranges::range_value_t<T>>;
 
     template <alias_safe T>
-    constexpr void bytewise_copy_forward(T* out, const T* in, size_t size) noexcept
+    constexpr void bytewise_copy(T* out, const T* in, size_t size) noexcept
     {
         for (; size > 0; --size)
             *out++ = *in++;
-    }
-
-    template <alias_safe T>
-    constexpr void bytewise_copy_backward(T* out, const T* in, size_t size) noexcept
-    {
-        out += size;
-        in += size;
-        for (; size > 0; --size)
-            *--out = *--in;
-    }
-
-    template <alias_safe T>
-    constexpr void bytewise_copy(T* out, const T* in, const size_t size) noexcept
-    {
-        if (std::less()(out, in))
-            clu::bytewise_copy_forward(out, in, size);
-        else
-            clu::bytewise_copy_backward(out, in, size);
     }
 
     template <typename T>

@@ -115,7 +115,7 @@ namespace clu
             return *this;
         }
 
-        constexpr wider& operator<<=(const int shift) noexcept
+        constexpr wider& operator<<=(const unsigned shift) noexcept
         {
             if (shift >= narrow_bit_size)
             {
@@ -131,7 +131,7 @@ namespace clu
             return *this;
         }
 
-        constexpr wider& operator>>=(const int shift) noexcept
+        constexpr wider& operator>>=(const unsigned shift) noexcept
         {
             if (shift >= narrow_bit_size)
             {
@@ -150,8 +150,8 @@ namespace clu
         [[nodiscard]] friend constexpr wider operator&(wider lhs, const wider& rhs) noexcept { return lhs &= rhs; }
         [[nodiscard]] friend constexpr wider operator|(wider lhs, const wider& rhs) noexcept { return lhs |= rhs; }
         [[nodiscard]] friend constexpr wider operator^(wider lhs, const wider& rhs) noexcept { return lhs ^= rhs; }
-        [[nodiscard]] friend constexpr wider operator<<(wider lhs, const int shift) noexcept { return lhs <<= shift; }
-        [[nodiscard]] friend constexpr wider operator>>(wider lhs, const int shift) noexcept { return lhs >>= shift; }
+        [[nodiscard]] friend constexpr wider operator<<(wider lhs, const unsigned shift) noexcept { return lhs <<= shift; }
+        [[nodiscard]] friend constexpr wider operator>>(wider lhs, const unsigned shift) noexcept { return lhs >>= shift; }
 
         [[nodiscard]] constexpr wider operator~() const noexcept { return { ~low_, ~high_ }; }
         [[nodiscard]] constexpr wider operator+() const noexcept { return *this; }
@@ -215,8 +215,8 @@ namespace clu
         const int shift = countl_zero(other) - countl_zero(*this);
         if (shift < 0) return {};
         wider quotient;
-        wider bit = wider(1) << shift;
-        other <<= shift;
+        wider bit = wider(1) << static_cast<unsigned>(shift);
+        other <<= static_cast<unsigned>(shift);
         while (bit)
         {
             if (*this >= other)
@@ -297,9 +297,9 @@ namespace clu
 
         inline constexpr auto char_index = []
         {
-            std::array<int, 103> result{}; // 102 is 'f'
-            for (int i = 0; i < 10; i++) result[i + '0'] = i;
-            for (int i = 0; i < 6; i++) result[i + 'A'] = result[i + 'a'] = i + 10;
+            std::array<unsigned, 103> result{}; // 102 is 'f'
+            for (unsigned i = 0; i < 10; i++) result[i + '0'] = i;
+            for (unsigned i = 0; i < 6; i++) result[i + 'A'] = result[i + 'a'] = i + 10;
             return result;
         }();
 
@@ -320,12 +320,13 @@ namespace clu
             const uint64_t base = get_base(ptr);
             const uint64_t overflow_thres = ~0ull / base;
             Wider result;
-            const uint64_t& high_est = get_highest_u64(result);
+            const uint64_t& highest = get_highest_u64(result);
             for (; *ptr != 0; ++ptr)
             {
                 if (*ptr == '\'') continue;
-                if (high_est > overflow_thres) overflow();
-                const Wider new_result = result * base + char_index[*ptr];
+                if (highest > overflow_thres) overflow();
+                const Wider new_result = result * base
+                    + char_index[static_cast<size_t>(static_cast<unsigned char>(*ptr))];
                 if (new_result < result) overflow();
                 result = new_result;
             }
@@ -337,7 +338,7 @@ namespace clu
 namespace clu::inline literals::inline wide_integer_literals
 {
     // TODO: change to consteval once MSVC fixes its issues
-    
+
     constexpr uint128_t operator""_u128(const char* str) { return detail::parse_udl<uint128_t>(str); }
     constexpr uint256_t operator""_u256(const char* str) { return detail::parse_udl<uint256_t>(str); }
     constexpr uint512_t operator""_u512(const char* str) { return detail::parse_udl<uint512_t>(str); }

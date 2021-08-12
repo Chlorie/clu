@@ -52,7 +52,7 @@ namespace clu
             if (const std::size_t pos = src_sv.find(from_sv);
                 pos != std::string_view::npos)
             {
-                output = std::ranges::copy_n(src_sv.data(), pos, output).out;
+                output = std::ranges::copy_n(src_sv.data(), static_cast<std::ptrdiff_t>(pos), output).out;
                 output = std::ranges::copy(to_sv, output).out;
                 src_sv.remove_prefix(pos + from_sv.length());
             }
@@ -93,8 +93,8 @@ namespace clu
             if (const std::size_t new_pos = source.find(from_sv, pos);
                 new_pos != string::npos)
             {
-                const std::size_t diff = new_pos - pos;
-                std::ranges::copy_n(&source[pos], diff, &source[write_pos]);
+                const auto diff = new_pos - pos;
+                std::ranges::copy_n(&source[pos], static_cast<std::ptrdiff_t>(diff), &source[write_pos]);
                 write_pos += diff;
                 std::ranges::copy(to_sv, &source[write_pos + diff]);
                 write_pos += to_sv.length();
@@ -102,8 +102,8 @@ namespace clu
             }
             else
             {
-                const std::size_t remain = source.length() - pos;
-                std::ranges::copy_n(&source[pos], remain, &source[write_pos]);
+                const auto remain = source.length() - pos;
+                std::ranges::copy_n(&source[pos], static_cast<std::ptrdiff_t>(remain), &source[write_pos]);
                 source.resize(write_pos + remain);
                 return;
             }

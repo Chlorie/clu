@@ -2,6 +2,7 @@
 
 #include <functional>
 
+#include "macros.h"
 #include "concepts.h"
 
 namespace clu
@@ -34,7 +35,9 @@ namespace clu
             if constexpr (std::is_function_v<stem>)
             {
                 ptr_ = nullptr;
+                CLU_GCC_WNO_CAST_FUNCTION_TYPE
                 fptr_ = reinterpret_cast<ptr_fptr_t>(static_cast<stem*>(func));
+                CLU_GCC_RESTORE_WARNING
             }
             else
             {
@@ -66,7 +69,9 @@ namespace clu
             if (ptr_)
                 return fptr_(ptr_, std::forward<Ts>(args)...);
             else
+            CLU_GCC_WNO_CAST_FUNCTION_TYPE
                 return reinterpret_cast<fptr_t>(fptr_)(std::forward<Ts>(args)...);
+            CLU_GCC_RESTORE_WARNING
         }
 
         constexpr void swap(function_ref& other) noexcept

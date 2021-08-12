@@ -266,7 +266,7 @@ namespace clu
             constexpr full_iter_impl(node_base* ptr, const bool revisit) noexcept: iter_base(ptr), revisit_(revisit) {}
             constexpr explicit(false) operator const_full_iter_impl() const noexcept { return { this->ptr_, revisit_ }; }
 
-            [[nodiscard]] constexpr bool operator==(const full_iter_impl&) const noexcept = default;
+            [[nodiscard]] constexpr friend bool operator==(const full_iter_impl&, const full_iter_impl&) noexcept = default;
             [[nodiscard]] constexpr bool is_revisit() const noexcept { return revisit_; }
 
             constexpr full_iter_impl& operator++() noexcept

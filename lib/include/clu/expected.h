@@ -25,14 +25,14 @@ namespace clu
     {
         template <typename T, typename U>
         concept allow_conversion =
-        !std::constructible_from<T, U&> &&
-        !std::constructible_from<T, U> &&
-        !std::constructible_from<T, const U&> &&
-        !std::constructible_from<T, const U> &&
-        !std::convertible_to<U&, T> &&
-        !std::convertible_to<U, T> &&
-        !std::convertible_to<const U&, T> &&
-        !std::convertible_to<const U, T>;
+        (!std::constructible_from<T, U&>) &&
+        (!std::constructible_from<T, U>) &&
+        (!std::constructible_from<T, const U&>) &&
+        (!std::constructible_from<T, const U>) &&
+        (!std::convertible_to<U&, T>) &&
+        (!std::convertible_to<U, T>) &&
+        (!std::convertible_to<const U&, T>) &&
+        (!std::convertible_to<const U, T>);
     }
 
     template <typename E>
@@ -51,8 +51,8 @@ namespace clu
 
         template <typename Err> requires
             std::constructible_from<E, Err> &&
-            !std::same_as<std::remove_cvref_t<Err>, std::in_place_t> &&
-            !std::same_as<std::remove_cvref_t<Err>, unexpected>
+            (!std::same_as<std::remove_cvref_t<Err>, std::in_place_t>) &&
+            (!std::same_as<std::remove_cvref_t<Err>, unexpected>)
         constexpr explicit unexpected(Err&& error): value_(static_cast<Err&>(error)) {}
 
         template <typename... Args>
@@ -165,33 +165,33 @@ namespace clu
             constexpr data_t(const data_t&) noexcept requires
                 std::is_trivially_copy_constructible_v<real_value> &&
                 std::is_trivially_copy_constructible_v<unexpected_type> = default;
-            constexpr data_t(const data_t&) requires
+            constexpr data_t(const data_t&) requires(
                 !std::is_copy_constructible_v<real_value> ||
-                !std::is_copy_constructible_v<unexpected_type> = delete;
+                !std::is_copy_constructible_v<unexpected_type>) = delete;
             constexpr data_t(const data_t&) noexcept: dummy_{} {}
 
             constexpr data_t(data_t&&) noexcept requires
                 std::is_trivially_move_constructible_v<real_value> &&
                 std::is_trivially_move_constructible_v<unexpected_type> = default;
-            constexpr data_t(data_t&&) requires
+            constexpr data_t(data_t&&) requires(
                 !std::is_move_constructible_v<real_value> ||
-                !std::is_move_constructible_v<unexpected_type> = delete;
+                !std::is_move_constructible_v<unexpected_type>) = delete;
             constexpr data_t(data_t&&) noexcept: dummy_{} {}
 
             constexpr data_t& operator=(const data_t&) noexcept requires
                 std::is_trivially_copy_assignable_v<real_value> &&
                 std::is_trivially_copy_assignable_v<unexpected_type> = default;
-            constexpr data_t& operator=(const data_t&) requires
+            constexpr data_t& operator=(const data_t&) requires(
                 !std::is_copy_assignable_v<real_value> ||
-                !std::is_copy_assignable_v<unexpected_type> = delete;
+                !std::is_copy_assignable_v<unexpected_type>) = delete;
             constexpr data_t& operator=(const data_t&) noexcept { return *this; }
 
             constexpr data_t& operator=(data_t&&) noexcept requires
                 std::is_trivially_move_assignable_v<real_value> &&
                 std::is_trivially_move_assignable_v<unexpected_type> = default;
-            constexpr data_t& operator=(data_t&&) requires
+            constexpr data_t& operator=(data_t&&) requires(
                 !std::is_move_assignable_v<real_value> ||
-                !std::is_move_assignable_v<unexpected_type> = delete;
+                !std::is_move_assignable_v<unexpected_type>) = delete;
             constexpr data_t& operator=(data_t&&) noexcept { return *this; }
 
             constexpr ~data_t() noexcept requires
@@ -204,7 +204,7 @@ namespace clu
         constexpr static decltype(auto) value_impl(Self&& self)
         {
             if (!self.engaged_)
-                throw bad_expected_access<E>(static_cast<copy_cvref_t<Self&&, E>>(data_.err_));
+                throw bad_expected_access<E>(static_cast<copy_cvref_t<Self&&, E>>(self.data_.err_));
             if constexpr (!std::is_void_v<T>)
                 return *static_cast<Self&&>(self);
         }
@@ -218,9 +218,9 @@ namespace clu
             std::is_trivially_copy_constructible_v<real_value> &&
             std::is_trivially_copy_constructible_v<unexpected_type> = default;
 
-        constexpr expected(const expected&) requires
+        constexpr expected(const expected&) requires(
             !std::is_copy_constructible_v<real_value> ||
-            !std::is_copy_constructible_v<unexpected_type> = delete;
+            !std::is_copy_constructible_v<unexpected_type>) = delete;
 
         constexpr expected(const expected& other)
         {
@@ -237,9 +237,9 @@ namespace clu
             std::is_trivially_move_constructible_v<real_value> &&
             std::is_trivially_move_constructible_v<unexpected_type> = default;
 
-        constexpr expected(expected&&) requires
+        constexpr expected(expected&&) requires(
             !std::is_move_constructible_v<real_value> ||
-            !std::is_move_constructible_v<unexpected_type> = delete;
+            !std::is_move_constructible_v<unexpected_type>) = delete;
 
         constexpr expected(expected&& other) noexcept(
             std::is_nothrow_move_constructible_v<real_value> &&
@@ -287,11 +287,11 @@ namespace clu
         }
 
         template <typename U = T> requires
-            !std::is_void_v<T> &&
+            (!std::is_void_v<T>) &&
             std::constructible_from<T, U&&> &&
-            !std::same_as<std::remove_cvref_t<U>, std::in_place_t> &&
-            !std::same_as<std::remove_cvref_t<U>, expected<T, E>> &&
-            !std::same_as<std::remove_cvref_t<U>, unexpected<E>>
+            (!std::same_as<std::remove_cvref_t<U>, std::in_place_t>) &&
+            (!std::same_as<std::remove_cvref_t<U>, expected<T, E>>) &&
+            (!std::same_as<std::remove_cvref_t<U>, unexpected<E>>)
         constexpr explicit(!std::is_convertible_v<U&&, T>) expected(U&& value)
         {
             if constexpr (std::is_lvalue_reference_v<T>)
@@ -366,8 +366,8 @@ namespace clu
             std::is_trivially_copy_assignable_v<unexpected_type> = default;
 
         constexpr expected& operator=(const expected&) requires
-            !std::copyable<real_value> ||
-            !std::copyable<unexpected_type> || (
+            (!std::copyable<real_value>) ||
+            (!std::copyable<unexpected_type>) || (
                 !std::is_nothrow_move_constructible_v<real_value> &&
                 !std::is_nothrow_move_constructible_v<unexpected_type>) = delete;
 
@@ -433,10 +433,10 @@ namespace clu
             std::is_trivially_move_assignable_v<real_value> &&
             std::is_trivially_move_assignable_v<unexpected_type> = default;
 
-        constexpr expected& operator=(expected&&) requires
+        constexpr expected& operator=(expected&&) requires(
             !std::movable<real_value> ||
             !std::is_nothrow_move_constructible_v<unexpected_type> ||
-            !std::is_nothrow_move_assignable_v<unexpected_type> = delete;
+            !std::is_nothrow_move_assignable_v<unexpected_type>) = delete;
 
         constexpr expected& operator=(expected&& other) noexcept(
             std::is_nothrow_move_constructible_v<real_value> &&
@@ -488,7 +488,7 @@ namespace clu
             std::is_object_v<T> &&
             std::constructible_from<T, U> &&
             std::assignable_from<T&, U> &&
-            !std::same_as<expected, std::remove_cvref_t<U>> &&
+            (!std::same_as<expected, std::remove_cvref_t<U>>) &&
             std::is_nothrow_move_constructible_v<E>
         constexpr expected& operator=(U&& other)
         {
@@ -560,9 +560,9 @@ namespace clu
         }
 
         [[nodiscard]] constexpr pointer operator->() noexcept
-            requires !std::is_void_v<T> { return std::addressof(data_.value_); }
+            requires (!std::is_void_v<T>) { return std::addressof(data_.value_); }
         [[nodiscard]] constexpr const_pointer operator->() const noexcept
-            requires !std::is_void_v<T> { return std::addressof(data_.value_); }
+            requires (!std::is_void_v<T>) { return std::addressof(data_.value_); }
 
         [[nodiscard]] constexpr T& operator*() & noexcept
             requires std::is_object_v<T> { return data_.value_; }

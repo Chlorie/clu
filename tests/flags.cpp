@@ -1,9 +1,9 @@
-#include <gtest/gtest.h>
 #include <clu/flags.h>
+#include <catch2/catch.hpp>
 
 using namespace clu::flag_enum_operators;
 
-TEST(Flags, FlagEnumConcept)
+TEST_CASE("flag_enum concept", "[flags]")
 {
     enum class no_member {};
     static_assert(!clu::flag_enum<no_member>);
@@ -13,7 +13,7 @@ TEST(Flags, FlagEnumConcept)
     static_assert(clu::flag_enum<real_flag_enum>);
 }
 
-TEST(Flags, ClassSize)
+TEST_CASE("flags class size", "[flags]")
 {
     enum class one { flags_bit_size = 8 };
     static_assert(sizeof(clu::flags<one>) == 1);
@@ -29,17 +29,17 @@ enum class bits
 
 using flags = clu::flags<bits>;
 
-TEST(Flags, Invert)
+TEST_CASE("flags operator~", "[flags]")
 {
     using enum bits;
-    EXPECT_EQ(flags::none_set(), ~flags::all_set());
-    EXPECT_EQ(b1 | b2, ~(b3 | b4));
+    REQUIRE(flags::none_set() == ~flags::all_set());
+    REQUIRE((b1 | b2) == ~(b3 | b4));
 }
 
-TEST(Flags, TestSetBit)
+TEST_CASE("flags test set bit", "[flags]")
 {
     using enum bits;
-    EXPECT_TRUE((b1 | b2).is_set(b2));
-    EXPECT_TRUE((b1 | b2).is_unset(b3));
-    EXPECT_TRUE((~b4).is_set(b1 | b2));
+    REQUIRE((b1 | b2).is_set(b2));
+    REQUIRE((b1 | b2).is_unset(b3));
+    REQUIRE((~b4).is_set(b1 | b2));
 }

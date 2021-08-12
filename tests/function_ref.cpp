@@ -1,26 +1,26 @@
-#include <gtest/gtest.h>
+#include <catch2/catch.hpp>
 #include <clu/function_ref.h>
 
-TEST(FunctionRef, Empty)
+TEST_CASE("empty function reference", "[function_ref]")
 {
     const clu::function_ref<void()> fref;
-    EXPECT_FALSE(fref);
+    REQUIRE_FALSE(fref);
 }
 
 void cfunc(bool& value) { value = true; }
 
-TEST(FunctionRef, CFunc)
+TEST_CASE("C function reference", "[function_ref]")
 {
     const clu::function_ref fref = cfunc;
-    EXPECT_TRUE(fref);
+    REQUIRE(fref);
     bool value = false;
     fref(value);
-    EXPECT_TRUE(value);
+    REQUIRE(value);
 }
 
-TEST(FunctionRef, Lambda)
+TEST_CASE("lambda reference", "[function_ref]")
 {
     const auto lambda = [i = 40](const int value) { return i + value; };
     const clu::function_ref<int(int)> fref = lambda;
-    EXPECT_EQ(fref(2), 42);
+    REQUIRE(fref(2) == 42);
 }

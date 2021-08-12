@@ -1,7 +1,7 @@
-#include <gtest/gtest.h>
+#include <catch2/catch.hpp>
 #include <clu/scope.h>
 
-TEST(Scope, OnSuccess)
+TEST_CASE("scope on success", "[scope]")
 {
     bool exit = false, success = false, fail = false;
     {
@@ -9,12 +9,12 @@ TEST(Scope, OnSuccess)
         clu::scope_success ss([&] { success = true; });
         clu::scope_fail sf([&] { fail = true; });
     }
-    EXPECT_TRUE(exit);
-    EXPECT_TRUE(success);
-    EXPECT_FALSE(fail);
+    REQUIRE(exit);
+    REQUIRE(success);
+    REQUIRE_FALSE(fail);
 }
 
-TEST(Scope, OnException)
+TEST_CASE("scope on exception", "[scope]")
 {
     bool exit = false, success = false, fail = false;
     try
@@ -25,8 +25,8 @@ TEST(Scope, OnException)
     }
     catch (...)
     {
-        EXPECT_TRUE(exit);
-        EXPECT_FALSE(success);
-        EXPECT_TRUE(fail);
+        REQUIRE(exit);
+        REQUIRE_FALSE(success);
+        REQUIRE(fail);
     }
 }

@@ -1,43 +1,44 @@
 #include "matchers.h"
-#include <gtest/gtest.h>
+#include <catch2/catch.hpp>
 #include <clu/indices.h>
 
-namespace gtst = testing;
+namespace ct = clu::testing;
+namespace cm = Catch::Matchers;
 
-TEST(Indices, OneDimensional)
+TEST_CASE("one dimensional index", "[indices]")
 {
     using arr = std::array<size_t, 1>;
-    const arr elems[]{ { 0 }, { 1 }, { 2 }, { 3 }, { 4 } };
+    const std::vector<arr> elems{ { 0 }, { 1 }, { 2 }, { 3 }, { 4 } };
     const auto idx = clu::indices(5);
-    EXPECT_THAT(idx, gtst::ElementsAreArray(elems));
-    EXPECT_EQ(idx.size(), 5);
-    EXPECT_EQ(decltype(idx)::dimension(), 1);
-    EXPECT_EQ(idx.extents(), arr{ 5 });
-    EXPECT_TRUE(std::ranges::empty(clu::indices(0)));
+    REQUIRE_THAT(ct::to_vector(idx), cm::Equals(elems));
+    REQUIRE(idx.size() == 5);
+    REQUIRE(decltype(idx)::dimension() == 1);
+    REQUIRE(idx.extents() == arr{ 5 });
+    REQUIRE(std::ranges::empty(clu::indices(0)));
 }
 
-TEST(Indices, MultiDimensional)
+TEST_CASE("multi-dimensional indices", "[indices]")
 {
     using arr = std::array<size_t, 2>;
-    const arr elems[]
+    const std::vector<arr> elems
     {
         { 0, 0 }, { 0, 1 }, { 0, 2 },
         { 1, 0 }, { 1, 1 }, { 1, 2 }
     };
     const auto idx = clu::indices(2, 3);
-    EXPECT_THAT(idx, gtst::ElementsAreArray(elems));
-    EXPECT_EQ(idx.size(), 6);
-    EXPECT_EQ(decltype(idx)::dimension(), 2);
-    EXPECT_EQ(idx.extents(), (arr{ 2, 3 }));
+    REQUIRE_THAT(ct::to_vector(idx), cm::Equals(elems));
+    REQUIRE(idx.size() == 6);
+    REQUIRE(decltype(idx)::dimension() == 2);
+    REQUIRE(idx.extents() == (arr{ 2, 3 }));
 }
 
-TEST(Indices, RandomAccess)
+TEST_CASE("index random access", "[indices]")
 {
     using arr = std::array<size_t, 3>;
     const auto idx = clu::indices(3, 4, 5);
-    EXPECT_EQ(idx.size(), 60);
-    EXPECT_EQ(idx.begin()[29], (arr{ 1, 1, 4 }));
-    EXPECT_EQ(*(idx.begin() + 40 - 23), (arr{ 0, 3, 2 }));
-    EXPECT_GT(idx.begin() + 30, idx.begin() + 12);
-    EXPECT_EQ((idx.begin() + 12) - (idx.begin() + 25), -13);
+    REQUIRE(idx.size() == 60);
+    REQUIRE(idx.begin()[29] == (arr{ 1, 1, 4 }));
+    REQUIRE(*(idx.begin() + 40 - 23) == (arr{ 0, 3, 2 }));
+    REQUIRE(idx.begin() + 30 > idx.begin() + 12);
+    REQUIRE((idx.begin() + 12) - (idx.begin() + 25) == -13);
 }

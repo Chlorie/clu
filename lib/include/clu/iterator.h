@@ -75,7 +75,7 @@ namespace clu
         constexpr static bool enable_implicit_ctor()
         {
             if constexpr (implicitly_constructible_from<It, Ts...>) return true;
-            if constexpr (sizeof...(Ts) == 1) return std::convertible_to<Ts..., It>;
+            if constexpr (sizeof...(Ts) == 1) return std::convertible_to<single_type_t<Ts...>, It>;
             return false;
         }
 
@@ -104,6 +104,16 @@ namespace clu
 
         template <typename... Ts> requires std::constructible_from<It, Ts&&...>
         constexpr explicit(!enable_implicit_ctor<Ts...>()) iterator_adapter(Ts&&... args): It(std::forward<Ts>(args)...) {}
+
+        [[nodiscard]] constexpr friend bool operator==(const iterator_adapter&, const iterator_adapter&)
+            requires std::equality_comparable<It> = default;
+        template <typename Other> requires weakly_equality_comparable_with<It, Other>
+        [[nodiscard]] constexpr bool operator==(const Other& other) const { return static_cast<const It&>(*this) == other; }
+
+        [[nodiscard]] constexpr friend auto operator<=>(const iterator_adapter&, const iterator_adapter&)
+            requires std::three_way_comparable<It> = default;
+        template <typename Other> requires partial_ordered_with<It, Other>
+        [[nodiscard]] constexpr bool operator<=>(const iterator_adapter& other) const { return static_cast<const It&>(*this) <=> other; }
 
         [[nodiscard]] constexpr auto operator->() const noexcept(noexcept(*std::declval<It&>()))
             requires std::derived_from<iterator_category, std::input_iterator_tag> { return std::addressof(**this); }

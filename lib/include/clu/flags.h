@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "concepts.h"
 #include "type_traits.h"
 
@@ -15,7 +17,7 @@ namespace clu
     {
         static_assert(flag_enum<Enum>, "type E should be a flag_enum");
     private:
-        static constexpr size_t bit_size = static_cast<size_t>(Enum::flags_bit_size);
+        static constexpr std::size_t bit_size = static_cast<std::size_t>(Enum::flags_bit_size);
 
     public:
         using data_type = decltype([]
@@ -43,7 +45,7 @@ namespace clu
         [[nodiscard]] constexpr static flags none_set() noexcept { return flags(); }
         [[nodiscard]] constexpr static flags all_set() noexcept { return flags(all_set_mask); }
 
-        [[nodiscard]] constexpr static size_t size() noexcept { return bit_size; }
+        [[nodiscard]] constexpr static std::size_t size() noexcept { return bit_size; }
 
         constexpr flags& operator&=(const flags other) noexcept
         {

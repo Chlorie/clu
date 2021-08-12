@@ -90,12 +90,12 @@ namespace clu
                 if constexpr (i == 0)
                     return static_cast<std::ptrdiff_t>(current_[0]) - static_cast<std::ptrdiff_t>(other[0]);
                 else
-                    return extents_[i] * distance_at<i - 1>(other) +
+                    return static_cast<std::ptrdiff_t>(extents_[i]) * distance_at<i - 1>(other) +
                         static_cast<std::ptrdiff_t>(current_[i]) - static_cast<std::ptrdiff_t>(other[i]);
             }
 
         public:
-            using reference = const value_type&;
+            using reference = value_type;
 
             constexpr iter_impl() noexcept = default;
             constexpr explicit iter_impl(const value_type& extents, const value_type& current = {}) noexcept:

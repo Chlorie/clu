@@ -1,7 +1,8 @@
-#include <gtest/gtest.h>
 #include <numbers>
+#include <catch2/catch.hpp>
+#include <clu/polymorphic_value.h>
 
-#include "clu/polymorphic_value.h"
+using namespace Catch::literals;
 
 class Shape
 {
@@ -32,74 +33,71 @@ using ShapeValue = clu::polymorphic_value<Shape>;
 using RectValue = clu::polymorphic_value<Rectangle>;
 using DiskValue = clu::polymorphic_value<Disk>;
 
-TEST(PolymorphicValueCtor, Default)
+TEST_CASE("polymorphic value constructors", "[polymorphic_value]")
 {
-    const ShapeValue shape;
-    EXPECT_TRUE(!shape);
-}
+    SECTION("default")
+    {
+        const ShapeValue shape;
+        REQUIRE(!shape);
+    }
+    SECTION("raw derived pointer")
+    {
+        const ShapeValue rect(new Rectangle(3.0f, 4.0f));
+        REQUIRE(rect);
+        REQUIRE(typeid(*rect) == typeid(Rectangle));
+        REQUIRE(rect->area() == 12.0_a);
+    }
+    SECTION("raw base pointer")
+    {
+        Shape* ptr = new Rectangle(4.0f, 5.0f);
+        const ShapeValue rect(ptr,
+            [](const Shape& s) -> Shape* { return new Rectangle(dynamic_cast<const Rectangle&>(s)); });
+        REQUIRE(rect);
+        REQUIRE(typeid(*rect) == typeid(Rectangle));
+        REQUIRE(rect->area() == 20.0_a);
+    }
+    SECTION("in place")
+    {
+        const RectValue rect(std::in_place, 2.5f, 4.0f);
+        REQUIRE(rect);
+        REQUIRE(typeid(*rect) == typeid(Rectangle));
+        REQUIRE(rect->area() == 10.0_a);
 
-TEST(PolymorphicValueCtor, RawDerivedPointer)
-{
-    const ShapeValue rect(new Rectangle(3.0f, 4.0f));
-    ASSERT_TRUE(rect);
-    EXPECT_TRUE(typeid(*rect) == typeid(Rectangle));
-    EXPECT_FLOAT_EQ(rect->area(), 12.0f);
-}
+        const ShapeValue shape(std::in_place_type<Rectangle>, 2.0f, 2.5f);
+        REQUIRE(shape);
+        REQUIRE(typeid(*shape) == typeid(Rectangle));
+        REQUIRE(shape->area() == 5.0_a);
+    }
+    SECTION("value conversion")
+    {
+        const RectValue rect = Rectangle(2.5f, 4.0f);
+        REQUIRE(rect);
+        REQUIRE(typeid(*rect) == typeid(Rectangle));
+        REQUIRE(rect->area() == 10.0_a);
 
-TEST(PolymorphicValueCtor, RawBasePointer)
-{
-    Shape* ptr = new Rectangle(4.0f, 5.0f);
-    const ShapeValue rect(ptr,
-        [](const Shape& s)-> Shape* { return new Rectangle(dynamic_cast<const Rectangle&>(s)); });
-    ASSERT_TRUE(rect);
-    EXPECT_TRUE(typeid(*rect) == typeid(Rectangle));
-    EXPECT_FLOAT_EQ(rect->area(), 20.0f);
-}
-
-TEST(PolymorphicValueCtor, Inplace)
-{
-    const RectValue rect(std::in_place, 2.5f, 4.0f);
-    ASSERT_TRUE(rect);
-    EXPECT_TRUE(typeid(*rect) == typeid(Rectangle));
-    EXPECT_FLOAT_EQ(rect->area(), 10.0f);
-
-    const ShapeValue shape(std::in_place_type<Rectangle>, 2.0f, 2.5f);
-    ASSERT_TRUE(shape);
-    EXPECT_TRUE(typeid(*shape) == typeid(Rectangle));
-    EXPECT_FLOAT_EQ(shape->area(), 5.0f);
-}
-
-TEST(PolymorphicValueCtor, ValueConvert)
-{
-    const RectValue rect = Rectangle(2.5f, 4.0f);
-    ASSERT_TRUE(rect);
-    EXPECT_TRUE(typeid(*rect) == typeid(Rectangle));
-    EXPECT_FLOAT_EQ(rect->area(), 10.0f);
-
-    const ShapeValue shape = Rectangle(2.0f, 2.5f);
-    ASSERT_TRUE(shape);
-    EXPECT_TRUE(typeid(*shape) == typeid(Rectangle));
-    EXPECT_FLOAT_EQ(shape->area(), 5.0f);
-}
-
-TEST(PolymorphicValueCtor, Copy)
-{
-    const ShapeValue disk(std::in_place_type<Disk>, 3.0f);
-    const ShapeValue copy = disk; // NOLINT(performance-unnecessary-copy-initialization)
-    ASSERT_TRUE(copy);
-    EXPECT_TRUE(typeid(*copy) == typeid(Disk));
-    EXPECT_NE(&*disk, &*copy); // Deep copy
-    EXPECT_FLOAT_EQ(disk->area(), copy->area());
-}
-
-TEST(PolymorphicValueCtor, CopyConvert)
-{
-    const DiskValue disk(std::in_place, 2.5f);
-    const ShapeValue copy = disk;
-    ASSERT_TRUE(copy);
-    EXPECT_TRUE(typeid(*copy) == typeid(Disk));
-    EXPECT_NE(&*disk, &*copy);
-    EXPECT_FLOAT_EQ(disk->area(), copy->area());
+        const ShapeValue shape = Rectangle(2.0f, 2.5f);
+        REQUIRE(shape);
+        REQUIRE(typeid(*shape) == typeid(Rectangle));
+        REQUIRE(shape->area() == 5.0_a);
+    }
+    SECTION("copy")
+    {
+        const ShapeValue disk(std::in_place_type<Disk>, 3.0f);
+        const ShapeValue copy = disk; // NOLINT(performance-unnecessary-copy-initialization)
+        REQUIRE(copy);
+        REQUIRE(typeid(*copy) == typeid(Disk));
+        REQUIRE(&*disk != &*copy); // Deep copy
+        REQUIRE(disk->area() == Approx(copy->area()));
+    }
+    SECTION("copy and conversion")
+    {
+        const DiskValue disk(std::in_place, 2.5f);
+        const ShapeValue copy = disk;
+        REQUIRE(copy);
+        REQUIRE(typeid(*copy) == typeid(Disk));
+        REQUIRE(&*disk != &*copy);
+        REQUIRE(disk->area() == Approx(copy->area()));
+    }
 }
 
 // TODO: more tests

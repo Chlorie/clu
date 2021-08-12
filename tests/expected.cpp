@@ -1,20 +1,20 @@
-#include <gtest/gtest.h>
+#include <catch2/catch.hpp>
 #include <clu/expected.h>
 
-TEST(Expected, DefCtor)
+TEST_CASE("expected default constructor", "[expected]")
 {
     const clu::expected<int, int> ex;
-    EXPECT_TRUE(ex);
-    EXPECT_EQ(*ex, 0);
+    REQUIRE(ex);
+    REQUIRE(*ex == 0);
     static_assert(std::is_trivially_copyable_v<clu::expected<int, int>>);
 }
 
-TEST(Expected, RefExpected)
+TEST_CASE("expected with reference type", "[expected]")
 {
     int val = 0;
     const clu::expected<int&, int> ex = val;
-    EXPECT_TRUE(ex);
-    EXPECT_EQ(*ex, 0);
+    REQUIRE(ex);
+    REQUIRE(*ex == 0);
     val = 1;
-    EXPECT_EQ(*ex, 1);
+    REQUIRE(*ex == 1);
 }

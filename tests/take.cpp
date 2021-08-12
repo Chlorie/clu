@@ -1,28 +1,28 @@
-#include <gtest/gtest.h>
+#include <catch2/catch.hpp>
 #include <memory>
 #include <string>
 
 #include "clu/take.h"
 
-TEST(Take, Primitive)
+TEST_CASE("take primitive value", "[take]")
 {
     int x = 42;
-    EXPECT_EQ(clu::take(x), 42);
-    EXPECT_EQ(x, 0);
+    REQUIRE(clu::take(x) == 42);
+    REQUIRE(x == 0);
 
     int* ptr = &x;
-    EXPECT_EQ(clu::take(ptr), &x);
-    EXPECT_EQ(ptr, nullptr);
+    REQUIRE(clu::take(ptr) == &x);
+    REQUIRE(ptr == nullptr);
 }
 
-TEST(Take, NonPrimitive)
+TEST_CASE("take non-primitive value", "[take]")
 {
     auto ptr = std::make_unique<int>();
     int* value = ptr.get();
-    EXPECT_EQ(clu::take(ptr).get(), value);
-    EXPECT_EQ(ptr, nullptr);
+    REQUIRE(clu::take(ptr).get() == value);
+    REQUIRE(ptr == nullptr);
 
     std::string str = "test";
-    EXPECT_EQ(clu::take(str), "test");
-    EXPECT_TRUE(str.empty());
+    REQUIRE(clu::take(str) == "test");
+    REQUIRE(str.empty());
 }
