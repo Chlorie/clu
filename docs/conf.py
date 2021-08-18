@@ -17,6 +17,8 @@
 
 # -- Project information -----------------------------------------------------
 
+import subprocess
+import os
 project = 'clu'
 copyright = '2021, Chlorie'
 author = 'Chlorie'
@@ -35,7 +37,12 @@ cpp_index_common_prefix = ['clu::']
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['breathe']
+extensions = [
+    'breathe',
+    'sphinx.ext.mathjax'
+]
+
+mathjax_path = "https://cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS-MML_HTMLorMML"
 
 breathe_default_project = 'clu'
 breathe_default_members = ()
@@ -72,7 +79,6 @@ html_css_files = ['custom.css']
 
 # -- Read the Docs support ---------------------------------------------------
 
-import os, subprocess
 
 def config_doxyfile():
     with open('Doxyfile.in', 'r') as f:
@@ -80,6 +86,7 @@ def config_doxyfile():
     s = s.replace('@PROJECT_SOURCE_DIR@', '..')
     with open('Doxyfile', 'w') as f:
         f.write(s)
+
 
 if os.environ.get('READTHEDOCS', None) == 'True':  # On RtD
     config_doxyfile()

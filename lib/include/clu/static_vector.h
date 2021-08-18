@@ -13,9 +13,7 @@ namespace clu
 {
     struct list_init_t {};
     inline constexpr list_init_t list_init{};
-
-    // ReSharper disable CppClangTidyCppcoreguidelinesProTypeMemberInit
-
+    
     template <typename T, size_t N>
     class static_vector
     {

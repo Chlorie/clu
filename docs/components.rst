@@ -14,7 +14,7 @@ A list of all the headers and their contents is presented as follows:
     Defines a macro :cc:`CLU_ASSERT(expr, msg)`, which functions roughly the same as ``assert`` from ``<cassert>``, but takes an additional message parameter.
 ``buffer.h``
     A buffer class template, similar to :cc:`std::span` but more suitable for raw buffer manipulation.
-``c_str_view.h``
+:doc:`components/c_str_view`
     View types for null-terminated strings.
 ``chrono_utils.h``
     Utilities related to :cc:`std::chrono`. Providing a centralized namespace for all the constants in :cc:`std::chrono` like :cc:`std::chrono::January`. Also some helper functions.
@@ -36,7 +36,7 @@ A list of all the headers and their contents is presented as follows:
     Type traits for function types. Provides meta-functions for extracting parameter types or result type from function signatures.
 ``functional.h``
     Monadic operations for :cc:`std::optional`.
-``hash.h``
+:doc:`components/hash`
     Hash-related utilities. Provides :cc:`constexpr` implementations of FNV-1a and SHA1 hash functions, and a ``hash_combine`` function.
 ``indices.h``
     A random-access range for multi-dimensional indexing, so that you could use :cc:`for (const auto [i, j, k] : indices(3, 4, 5))` instead of nested :cc:`for` loops.
@@ -80,3 +80,10 @@ A list of all the headers and their contents is presented as follows:
     An RAII type for :cc:`std::coroutine_handle<T>` which destroys the handle on destruction.
 ``vector_utils.h``
     A ``make_vector`` function to remedy the fact that we cannot use :cc:`std::initializer_list` to initialize containers with move-only elements.
+
+.. toctree::
+    :maxdepth: 1
+    :glob:
+    :hidden:
+ 
+    components/*

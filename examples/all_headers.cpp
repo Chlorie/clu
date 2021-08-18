@@ -23,16 +23,20 @@
 #include <clu/oneway_task.h>
 #include <clu/optional_ref.h>
 #include <clu/overload.h>
+#include <clu/random.h>
 #include <clu/scope.h>
+#include <clu/semver.h>
 #include <clu/static_for.h>
 #include <clu/static_vector.h>
 #include <clu/string_utils.h>
 #include <clu/take.h>
 #include <clu/type_traits.h>
+#include <clu/parse.h>
 #include <clu/pipeable.h>
 #include <clu/polymorphic_value.h>
 #include <clu/polymorphic_visit.h>
 #include <clu/unique_coroutine_handle.h>
+#include <clu/uuid.h>
 #include <clu/vector_utils.h>
 
 int main() {}

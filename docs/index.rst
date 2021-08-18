@@ -6,7 +6,7 @@ Welcome to clu Reference!
 Chlorie's Utilities (clu) is a header-only library, consisting of many independent components.
 
 .. warning:: 
-   This library is mainly created by Chlorie for personal use, so a large portion of this library is still untested and lacking documentation. Please use at your own risk.
+    This library is mainly created by Chlorie for personal use, so a large portion of this library is still untested and lacking documentation. Please use at your own risk.
 
 Things included in this library:
 
@@ -22,7 +22,7 @@ Things *not* included in this library:
 Have fun!
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Contents
+    :maxdepth: 1
+    :caption: Contents
 
-   components
+    components

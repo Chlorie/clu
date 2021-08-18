@@ -15,12 +15,15 @@ add_executable(tests
     "hash.cpp"
     "indices.cpp"
     "meta_algorithm.cpp"
+    "parse.cpp"
     "pipeable.cpp"
     "polymorphic_value.cpp"
     "scope.cpp"
+    "semver.cpp"
     "static_vector.cpp"
     "string_utils.cpp"
     "take.cpp"
+    "uuid.cpp"
     "wide_integer.cpp"
 )
 target_link_libraries(tests PRIVATE

@@ -73,7 +73,7 @@ namespace clu
         [[nodiscard]] constexpr friend bool operator==(flags, flags) noexcept = default;
 
         constexpr flags& set(const Enum bit) noexcept { return *this |= bit; }
-        constexpr flags& reset(const Enum bit) noexcept { return *this |= ~(flags(bit)); }
+        constexpr flags& reset(const Enum bit) noexcept { return *this &= ~(flags(bit)); }
         constexpr flags& toggle(const Enum bit) noexcept { return *this ^= bit; }
         constexpr flags& toggle_all() noexcept { return *this ^= flags(all_set_mask); }
 

@@ -1,6 +1,6 @@
 .. role:: strike
-   :class: strike
+    :class: strike
  
 .. role:: cc(code)
-   :language: c++
-   :class: highlight
+    :language: c++
+    :class: highlight
