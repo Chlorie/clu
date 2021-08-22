@@ -22,10 +22,10 @@ add_executable(tests
     "semver.cpp"
     "static_vector.cpp"
     "string_utils.cpp"
+    "tag_invoke.cpp"
     "take.cpp"
     "uuid.cpp"
-    "wide_integer.cpp"
-)
+    "wide_integer.cpp")
 target_link_libraries(tests PRIVATE
     clu
     project_options

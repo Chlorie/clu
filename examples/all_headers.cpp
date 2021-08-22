@@ -29,6 +29,7 @@
 #include <clu/static_for.h>
 #include <clu/static_vector.h>
 #include <clu/string_utils.h>
+#include <clu/tag_invoke.h>
 #include <clu/take.h>
 #include <clu/type_traits.h>
 #include <clu/parse.h>
