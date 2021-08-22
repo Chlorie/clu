@@ -15,6 +15,7 @@ add_executable(tests
     "hash.cpp"
     "indices.cpp"
     "meta_algorithm.cpp"
+    "overload.cpp"
     "parse.cpp"
     "pipeable.cpp"
     "polymorphic_value.cpp"
@@ -25,7 +26,7 @@ add_executable(tests
     "tag_invoke.cpp"
     "take.cpp"
     "uuid.cpp"
-    "wide_integer.cpp")
+    "wide_integer.cpp" "overload.cpp")
 target_link_libraries(tests PRIVATE
     clu
     project_options
