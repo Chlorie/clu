@@ -26,7 +26,7 @@ add_executable(tests
     "tag_invoke.cpp"
     "take.cpp"
     "uuid.cpp"
-    "wide_integer.cpp" "overload.cpp")
+    "wide_integer.cpp")
 target_link_libraries(tests PRIVATE
     clu
     project_options
