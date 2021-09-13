@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstdint>
-
 #include "concepts.h"
 #include "type_traits.h"
 
@@ -17,15 +15,15 @@ namespace clu
     {
         static_assert(flag_enum<Enum>, "type E should be a flag_enum");
     private:
-        static constexpr std::size_t bit_size = static_cast<std::size_t>(Enum::flags_bit_size);
+        static constexpr size_t bit_size = static_cast<size_t>(Enum::flags_bit_size);
 
     public:
         using data_type = decltype([]
         {
-            if constexpr (bit_size <= 8) return std::uint8_t{};
-            else if constexpr (bit_size <= 16) return std::uint16_t{};
-            else if constexpr (bit_size <= 32) return std::uint32_t{};
-            else if constexpr (bit_size <= 64) return std::uint64_t{};
+            if constexpr (bit_size <= 8) return u8{};
+            else if constexpr (bit_size <= 16) return u16{};
+            else if constexpr (bit_size <= 32) return u32{};
+            else if constexpr (bit_size <= 64) return u64{};
             else static_assert(dependent_false<Enum>, "flags with more than 64 bits are not supported");
         }());
 

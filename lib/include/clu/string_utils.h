@@ -36,7 +36,7 @@ namespace clu
     }
 
     template <detail::sv_like T>
-    [[nodiscard]] constexpr std::size_t strlen(const T& str) noexcept { return clu::to_string_view(str).length(); }
+    [[nodiscard]] constexpr size_t strlen(const T& str) noexcept { return clu::to_string_view(str).length(); }
 
     template <
         detail::sv_like SrcType, detail::sv_like FromType, detail::sv_like ToType,

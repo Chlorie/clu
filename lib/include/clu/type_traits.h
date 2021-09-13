@@ -3,6 +3,8 @@
 #include <type_traits>
 #include <compare>
 
+#include "integer_literals.h"
+
 namespace clu
 {
     template <typename Type>
@@ -29,7 +31,7 @@ namespace clu
         friend constexpr auto operator<=>(monostate, monostate) noexcept = default;
     };
 
-    template <std::size_t I> struct priority_tag : priority_tag<I - 1> {};
+    template <size_t I> struct priority_tag : priority_tag<I - 1> {};
     template <> struct priority_tag<0> {};
 
     namespace detail

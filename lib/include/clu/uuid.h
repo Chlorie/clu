@@ -48,7 +48,7 @@ namespace clu
         constexpr uuid() noexcept = default;
         constexpr explicit uuid(const value_type data): data_(data) {}
 
-        constexpr explicit uuid(const uint64_t first, const uint64_t second) noexcept
+        constexpr explicit uuid(const u64 first, const u64 second) noexcept
         {
             constexpr auto shift_byte =
                 [](const uint64_t value, const int shift) { return static_cast<std::byte>(value >> shift); };

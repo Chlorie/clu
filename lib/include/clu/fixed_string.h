@@ -5,12 +5,12 @@
 
 namespace clu
 {
-    template <typename T, size_t N>
+    template <typename T, std::size_t N>
     struct basic_fixed_string
     {
         using value_type = T;
-        using size_type = size_t;
-        using difference_type = ptrdiff_t;
+        using size_type = std::size_t;
+        using difference_type = std::ptrdiff_t;
         using reference = T&;
         using const_reference = const T&;
         using pointer = T*;
@@ -28,13 +28,13 @@ namespace clu
 
         constexpr explicit(false) basic_fixed_string(const T (& str)[N + 1]) noexcept
         {
-            for (size_t i = 0; i <= N; i++)
+            for (std::size_t i = 0; i <= N; i++)
                 data_[i] = str[i];
         }
 
         constexpr basic_fixed_string& operator=(const T (& str)[N + 1]) noexcept
         {
-            for (size_t i = 0; i <= N; i++)
+            for (std::size_t i = 0; i <= N; i++)
                 data_[i] = str[i];
             return *this;
         }
@@ -58,53 +58,53 @@ namespace clu
         [[nodiscard]] constexpr const T* c_str() const noexcept { return data_; }
         [[nodiscard]] constexpr T* data() noexcept { return data_; }
         [[nodiscard]] constexpr const T* data() const noexcept { return data_; }
-        [[nodiscard]] constexpr T& operator[](const size_t index) noexcept { return data_[index]; }
-        [[nodiscard]] constexpr const T& operator[](const size_t index) const noexcept { return data_[index]; }
-        [[nodiscard]] constexpr size_t size() const noexcept { return N; }
-        [[nodiscard]] constexpr size_t length() const noexcept { return N; }
+        [[nodiscard]] constexpr T& operator[](const std::size_t index) noexcept { return data_[index]; }
+        [[nodiscard]] constexpr const T& operator[](const std::size_t index) const noexcept { return data_[index]; }
+        [[nodiscard]] constexpr std::size_t size() const noexcept { return N; }
+        [[nodiscard]] constexpr std::size_t length() const noexcept { return N; }
         [[nodiscard]] constexpr bool operator==(const basic_fixed_string&) const noexcept = default;
         [[nodiscard]] constexpr auto operator<=>(const basic_fixed_string&) const noexcept = default;
         [[nodiscard]] constexpr explicit(false) operator view() const noexcept { return view(data_, N); }
 
-        template <size_t M>
+        template <std::size_t M>
         [[nodiscard]] constexpr friend basic_fixed_string<T, N + M> operator+(
             const basic_fixed_string<T, N>& lhs, const basic_fixed_string<T, M>& rhs) noexcept
         {
             basic_fixed_string<T, N + M> result{};
-            for (size_t i = 0; i < N; i++) result[i] = lhs[i];
-            for (size_t i = 0; i <= M; i++) result[i + N] = rhs[i];
+            for (std::size_t i = 0; i < N; i++) result[i] = lhs[i];
+            for (std::size_t i = 0; i <= M; i++) result[i + N] = rhs[i];
             return result;
         }
 
-        template <size_t M>
+        template <std::size_t M>
         [[nodiscard]] constexpr friend basic_fixed_string<T, N + M - 1> operator+(
             const basic_fixed_string<T, N>& lhs, const T (& rhs)[M]) noexcept
         {
             basic_fixed_string<T, N + M - 1> result{};
-            for (size_t i = 0; i < N; i++) result[i] = lhs[i];
-            for (size_t i = 0; i < M; i++) result[i + N] = rhs[i];
+            for (std::size_t i = 0; i < N; i++) result[i] = lhs[i];
+            for (std::size_t i = 0; i < M; i++) result[i + N] = rhs[i];
             return result;
         }
 
-        template <size_t M>
+        template <std::size_t M>
         [[nodiscard]] constexpr friend basic_fixed_string<T, N + M - 1> operator+(
             const T (& lhs)[M], const basic_fixed_string<T, N>& rhs) noexcept
         {
             basic_fixed_string<T, N + M - 1> result{};
-            for (size_t i = 0; i < M - 1; i++) result[i] = lhs[i];
-            for (size_t i = 0; i <= N; i++) result[i + M - 1] = rhs[i];
+            for (std::size_t i = 0; i < M - 1; i++) result[i] = lhs[i];
+            for (std::size_t i = 0; i <= N; i++) result[i + M - 1] = rhs[i];
             return result;
         }
     };
 
-    template <typename T, size_t N>
+    template <typename T, std::size_t N>
     basic_fixed_string(const T (&)[N]) -> basic_fixed_string<T, N - 1>;
 
-    template <size_t N> using fixed_string = basic_fixed_string<char, N>;
-    template <size_t N> using fixed_wstring = basic_fixed_string<wchar_t, N>;
-    template <size_t N> using fixed_u8string = basic_fixed_string<char8_t, N>;
-    template <size_t N> using fixed_u16string = basic_fixed_string<char16_t, N>;
-    template <size_t N> using fixed_u32string = basic_fixed_string<char32_t, N>;
+    template <std::size_t N> using fixed_string = basic_fixed_string<char, N>;
+    template <std::size_t N> using fixed_wstring = basic_fixed_string<wchar_t, N>;
+    template <std::size_t N> using fixed_u8string = basic_fixed_string<char8_t, N>;
+    template <std::size_t N> using fixed_u16string = basic_fixed_string<char16_t, N>;
+    template <std::size_t N> using fixed_u32string = basic_fixed_string<char32_t, N>;
 
     inline namespace literals
     {

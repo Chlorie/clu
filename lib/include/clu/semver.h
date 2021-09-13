@@ -5,15 +5,16 @@
 #include <format>
 
 #include "parse.h"
+#include "integer_literals.h"
 
 namespace clu
 {
     class semver
     {
     private:
-        uint32_t major_ = 0;
-        uint32_t minor_ = 1;
-        uint32_t patch_ = 0;
+        u32 major_ = 0;
+        u32 minor_ = 1;
+        u32 patch_ = 0;
         std::string prerelease_;
         std::vector<size_t> prerelease_sep_;
         std::string build_;
@@ -78,10 +79,10 @@ namespace clu
             return result;
         }
 
-        static uint32_t parse_u32_no_leading_zero(std::string_view& str)
+        static u32 parse_u32_no_leading_zero(std::string_view& str)
         {
             const std::string_view original = str;
-            const auto res = parse_consume<uint32_t>(str);
+            const auto res = parse_consume<u32>(str);
             if (!res) error("failed to parse integer for semver");
             if (str.data() - original.data() > 1 && original[0] == '0') error("semver integer part cannot have leading zeros");
             return *res;
@@ -112,8 +113,8 @@ namespace clu
                 const auto rseg = rhs.prerelease_segment_at(i);
                 if (is_numeric(lseg) && is_numeric(rseg)) // both are numeric, compare as integers
                 {
-                    const auto lnum = parse<uint32_t>(lseg).value();
-                    const auto rnum = parse<uint32_t>(rseg).value();
+                    const auto lnum = parse<u32>(lseg).value();
+                    const auto rnum = parse<u32>(rseg).value();
                     if (const auto comp = lnum <=> rnum; comp != 0)
                         return comp;
                 }
@@ -131,7 +132,7 @@ namespace clu
     public:
         constexpr semver() noexcept = default; /// Initialize the version to 0.1.0
 
-        semver(const uint32_t major, const uint32_t minor, const uint32_t patch,
+        semver(const u32 major, const u32 minor, const u32 patch,
             std::string prerelease = "", std::string build = ""):
             major_(major), minor_(minor), patch_(patch),
             prerelease_(std::move(prerelease)), prerelease_sep_(validate_and_separate(prerelease_, true)),
@@ -188,9 +189,9 @@ namespace clu
                 build_.empty() ? "" : "+", build_);
         }
 
-        [[nodiscard]] uint32_t major() const noexcept { return major_; }
-        [[nodiscard]] uint32_t minor() const noexcept { return minor_; }
-        [[nodiscard]] uint32_t patch() const noexcept { return patch_; }
+        [[nodiscard]] u32 major() const noexcept { return major_; }
+        [[nodiscard]] u32 minor() const noexcept { return minor_; }
+        [[nodiscard]] u32 patch() const noexcept { return patch_; }
         [[nodiscard]] std::string_view prerelease() const noexcept { return prerelease_; }
         [[nodiscard]] std::string_view build_metadata() const noexcept { return build_; }
 

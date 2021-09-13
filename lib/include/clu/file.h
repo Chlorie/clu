@@ -3,6 +3,7 @@
 #include <vector>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 
 namespace clu
 {
@@ -17,12 +18,21 @@ namespace clu
         std::ifstream fs(path, std::ios::in | std::ios::binary);
         if (fs.fail()) throw std::runtime_error("failed to open binary file");
         fs.ignore(std::numeric_limits<std::streamsize>::max());
-        const std::streamsize size = fs.gcount();
-        const size_t vec_size = static_cast<size_t>(size / sizeof(T) + (size % sizeof(T) != 0));
+        const auto size = static_cast<std::size_t>(fs.gcount());
+        const auto vec_size = size / sizeof(T) + (size % sizeof(T) != 0);
         std::vector<T> buffer(vec_size);
         fs.seekg(0, std::ios::beg);
         fs.read(reinterpret_cast<char*>(buffer.data()), size);
         if (fs.fail() && !fs.eof()) throw std::runtime_error("failed to read binary file");
         return buffer;
+    }
+
+    [[nodiscard]] inline std::string read_all_text(const std::filesystem::path& path)
+    {
+        std::ifstream fs(path);
+        if (fs.fail()) throw std::runtime_error("failed to open text file");
+        std::stringstream buf;
+        buf << fs.rdbuf();
+        return std::move(buf).str();
     }
 }

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <span>
-#include <type_traits>
 
 #include "assertion.h"
 #include "concepts.h"
