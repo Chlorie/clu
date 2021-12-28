@@ -30,6 +30,11 @@ namespace clu
         friend constexpr bool operator==(monostate, monostate) noexcept = default;
         friend constexpr auto operator<=>(monostate, monostate) noexcept = default;
     };
+    
+    struct unit
+    {
+        friend constexpr bool operator==(unit, unit) noexcept = default;
+    };
 
     template <size_t I> struct priority_tag : priority_tag<I - 1> {};
     template <> struct priority_tag<0> {};
@@ -73,6 +78,9 @@ namespace clu
     };
 
     template <typename From, typename To> using copy_cvref_t = typename copy_cvref<From, To>::type;
+
+    template <typename T>
+    using with_regular_void_t = conditional_t<std::is_void_v<T>, copy_cvref_t<T, unit>, T>;
 
     template <typename... Ts> struct single_type {};
     template <typename T> struct single_type<T> : std::type_identity<T> {};

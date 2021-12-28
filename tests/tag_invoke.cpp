@@ -3,7 +3,17 @@
 
 namespace mylib
 {
-    CLU_DEFINE_TAG_INVOKE_CPO(do_things);
+    inline struct do_things_t
+    {
+        template <typename... Args>
+            requires clu::tag_invocable<do_things_t, Args&&...>
+        constexpr auto operator()(Args&&... args) const
+            noexcept(clu::nothrow_tag_invocable<do_things_t, Args&&...>)
+            -> clu::tag_invoke_result_t<do_things_t, Args&&...>
+        {
+            return clu::tag_invoke(*this, static_cast<Args&&>(args)...);
+        }
+    } constexpr do_things{};
 }
 
 struct ThingDoer

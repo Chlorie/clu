@@ -4,7 +4,7 @@ function (add_example TGT)
     add_executable(${TGT} "${TGT}.cpp")
     target_set_output_dirs(${TGT})
     target_link_libraries(${TGT} PRIVATE project_options clu::clu)
-    target_compile_options(${TGT} PRIVATE cxx_std_20)
+    target_set_cxx_std(${TGT})
 endfunction ()
 
 add_example(all_headers)

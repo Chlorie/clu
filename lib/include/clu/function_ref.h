@@ -86,3 +86,5 @@ namespace clu
     template <typename R, typename... Ts>
     function_ref(R (*)(Ts ...)) -> function_ref<R(Ts ...)>;
 }
+
+#include "undef_macros.h"

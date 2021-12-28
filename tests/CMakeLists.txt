@@ -17,7 +17,6 @@ add_executable(tests
     "meta_algorithm.cpp"
     "overload.cpp"
     "parse.cpp"
-    "pipeable.cpp"
     "polymorphic_value.cpp"
     "scope.cpp"
     "semver.cpp"
@@ -32,5 +31,5 @@ target_link_libraries(tests PRIVATE
     project_options
     Catch2::Catch2
 )
-target_compile_features(tests PRIVATE cxx_std_20)
+target_set_cxx_std(tests)
 add_test(AllTestsInMain tests)

@@ -12,6 +12,11 @@ TEST_CASE("optional and_then", "[functional]")
     REQUIRE((opt() | clu::and_then(half)) == std::nullopt);
     REQUIRE((opt(1) | clu::and_then(half)) == std::nullopt);
     REQUIRE((opt(2) | clu::and_then(half)) == 1);
+    constexpr auto and_then_half_twice = clu::and_then(half) | clu::and_then(half);
+    REQUIRE((opt() | and_then_half_twice) == std::nullopt);
+    REQUIRE((opt(1) | and_then_half_twice) == std::nullopt);
+    REQUIRE((opt(2) | and_then_half_twice) == std::nullopt);
+    REQUIRE((opt(4) | and_then_half_twice) == 1);
 }
 
 TEST_CASE("optional transform", "[functional]")

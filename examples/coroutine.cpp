@@ -5,6 +5,9 @@
 #include <clu/experimental/coroutine/race.h>
 #include <clu/experimental/coroutine/cancellable_task.h>
 
+#include <clu/stop_token.h>
+#include <clu/execution/execution_traits.h>
+
 using namespace std::literals;
 
 template <typename F>
@@ -89,7 +92,7 @@ clu::cancellable_task<> waiter()
 
 int main() // NOLINT
 {
-    sync_wait(race(
+    clu::sync_wait(race(
         trash_timer(),
         waiter()
     ));

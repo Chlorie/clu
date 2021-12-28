@@ -1,4 +1,9 @@
-#pragma once
+#ifndef CLU_MACROS_HEADER
+#define CLU_MACROS_HEADER
+
+#ifdef CLU_UNDEF_MACROS_HEADER
+#   undef CLU_UNDER_MACROS_HEADER
+#endif
 
 #ifdef __GNUC__
 #   define CLU_GCC_COMPILERS
@@ -14,4 +19,8 @@
 #else
 #   define CLU_GCC_WNO_CAST_FUNCTION_TYPE
 #   define CLU_GCC_RESTORE_WARNING
+#endif
+
+#define CLU_SINGLE_RETURN(expr) noexcept(noexcept(expr)) -> decltype(expr) { return expr; }
+
 #endif

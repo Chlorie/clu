@@ -84,7 +84,7 @@ namespace clu
                 static_cast<uint8_t>(data_[6] >> 4) & 15u);
         }
 
-        [[nodiscard]] constexpr static uuid nil() noexcept { return uuid(); }
+        [[nodiscard]] constexpr static uuid nil() noexcept { return {}; }
 
         [[nodiscard]] static uuid from_string(std::string_view str)
         {

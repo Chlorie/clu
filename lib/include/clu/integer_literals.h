@@ -30,4 +30,6 @@ namespace clu::inline literals::inline integer_literals
     [[nodiscard]] constexpr u64 operator""_u64(const unsigned long long value) noexcept { return static_cast<u64>(value); }
     [[nodiscard]] constexpr size_t operator""_uz(const unsigned long long value) noexcept { return static_cast<size_t>(value); }
     [[nodiscard]] constexpr ssize_t operator""_z(const unsigned long long value) noexcept { return static_cast<ssize_t>(value); }
+
+    [[nodiscard]] constexpr std::byte operator""_b(const unsigned long long value) noexcept { return static_cast<std::byte>(value); }
 }

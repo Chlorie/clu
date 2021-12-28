@@ -94,3 +94,14 @@ function (target_set_output_dirs TGT)
         LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/out"
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/out")
 endfunction ()
+
+function (target_set_cxx_std TGT)
+    # Set C++20
+    if (MSVC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 19.29.30129)
+        # We actually need /std:c++latest (C++23) for some of the C++20 features
+        # i.e. ranges and format, for MSVC 16.11 or later
+        target_compile_features(${TGT} PRIVATE cxx_std_23)
+    else ()
+        target_compile_features(${TGT} PRIVATE cxx_std_20)
+    endif ()
+endfunction ()

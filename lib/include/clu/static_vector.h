@@ -54,10 +54,7 @@ namespace clu
             {
                 const auto dist = static_cast<size_t>(std::ranges::distance(first, last));
                 if (dist > N) size_exceed_capacity();
-                // TODO: remove this MSVC STL issue workaround
-                const auto common = std::views::common(std::ranges::subrange(first, last));
-                std::uninitialized_copy(common.begin(), common.end(), data());
-                // std::ranges::uninitialized_copy(first, last, data(), data() + dist);
+                std::ranges::uninitialized_copy(first, last, data(), data() + dist);
                 size_ = dist;
             }
             else

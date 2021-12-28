@@ -47,16 +47,4 @@ namespace clu
     using tag_invoke_result = std::invoke_result<detail::tag_invoke_t, Tag, Args...>;
     template <typename Tag, typename... Args>
     using tag_invoke_result_t = std::invoke_result_t<detail::tag_invoke_t, Tag, Args...>;
-
-#define CLU_DEFINE_TAG_INVOKE_CPO(cpo)                                                \
-    inline constexpr struct cpo##_t final                                             \
-    {                                                                                 \
-        template <typename... Args> requires ::clu::tag_invocable<cpo##_t, Args&&...> \
-        constexpr auto operator()(Args&&... args) const                               \
-            noexcept(::clu::nothrow_tag_invocable<cpo##_t, Args&&...>)                \
-            -> ::clu::tag_invoke_result_t<cpo##_t, Args&&...>                         \
-        {                                                                             \
-            return ::clu::tag_invoke(*this, static_cast<Args&&>(args)...);            \
-        }                                                                             \
-    } cpo{}
 }
