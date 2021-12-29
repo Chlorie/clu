@@ -5,8 +5,8 @@
 #include "awaitable_traits.h"
 #include "../tag_invoke.h"
 #include "../meta_list.h"
-#include "../macros.h"
 #include "../unique_coroutine_handle.h"
+#include "../macros.h"
 
 namespace clu::exec
 {
@@ -19,7 +19,7 @@ namespace clu::exec
             noexcept(nothrow_tag_invocable<set_value_t, R&&, Vs&&...>)
             -> tag_invoke_result_t<set_value_t, R&&, Vs&&...>
         {
-            return tag_invoke(*this,
+            return clu::tag_invoke(*this,
                 static_cast<R&&>(recv), static_cast<Vs&&>(values)...);
         }
     } constexpr set_value{};
@@ -32,7 +32,7 @@ namespace clu::exec
             noexcept(nothrow_tag_invocable<set_error_t, R&&, E&&>)
             -> tag_invoke_result_t<set_error_t, R&&, E&&>
         {
-            return tag_invoke(*this,
+            return clu::tag_invoke(*this,
                 static_cast<R&&>(recv), static_cast<E&&>(error));
         }
     } constexpr set_error{};
@@ -45,7 +45,7 @@ namespace clu::exec
             noexcept(nothrow_tag_invocable<set_done_t, R&&>)
             -> tag_invoke_result_t<set_done_t, R&&>
         {
-            return tag_invoke(*this, static_cast<R&&>(recv));
+            return clu::tag_invoke(*this, static_cast<R&&>(recv));
         }
     } constexpr set_done{};
 
@@ -69,6 +69,9 @@ namespace clu::exec
 
     namespace detail
     {
+        template <typename T>
+        concept completion_cpo = same_as_any_of<T, set_value_t, set_error_t, set_done_t>;
+
         template <template <template <typename...> typename, template <typename...> typename> typename V>
         struct has_value_types {};
         template <template <template <typename...> typename> typename E>
@@ -92,7 +95,7 @@ namespace clu::exec
             noexcept(nothrow_tag_invocable<start_t, O&&>)
             -> tag_invoke_result_t<start_t, O&&>
         {
-            return tag_invoke(*this, static_cast<O&&>(op));
+            return clu::tag_invoke(*this, static_cast<O&&>(op));
         }
     } constexpr start{};
 
@@ -239,23 +242,21 @@ namespace clu::exec
 
                 // @formatter:off
                 template <typename A>
-                    requires tag_invocable<as_awaitable_t, A&&, promise_type&>
+                    requires callable<as_awaitable_t, A&&, promise_type&>
                 auto await_transform(A&& a)
-                    noexcept(nothrow_tag_invocable<as_awaitable_t, A&&, promise_type&>)
-                    -> tag_invoke_result_t<as_awaitable_t, A&&, promise_type&>
+                    noexcept(nothrow_callable<as_awaitable_t, A&&, promise_type&>)
+                    -> call_result_t<as_awaitable_t, A&&, promise_type&>
                 {
-                    return clu::tag_invoke(as_awaitable,
-                        static_cast<A&&>(a), *this);
+                    return as_awaitable(static_cast<A&&>(a), *this);
                 }
 
                 template <typename Cpo, typename... Args>
-                    requires tag_invocable<Cpo, const R&, Args&&...>
-                auto tag_invoke(Cpo, Args&&... args)
-                    noexcept(nothrow_tag_invocable<Cpo, const R&, Args&&...>)
-                    -> tag_invoke_result_t<Cpo, const R&, Args&&...>
+                    requires callable<Cpo, const R&, Args&&...>
+                auto tag_invoke(const Cpo cpo, Args&&... args)
+                    noexcept(nothrow_callable<Cpo, const R&, Args&&...>)
+                    -> call_result_t<Cpo, const R&, Args&&...>
                 {
-                    return clu::tag_invoke(Cpo{},
-                        recv, static_cast<Args&&>(args)...);
+                    return cpo(recv, static_cast<Args&&>(args)...);
                 }
                 // @formatter:on
 
@@ -352,6 +353,17 @@ namespace clu::exec
         CLU_SINGLE_RETURN(connect_t::select(static_cast<S&&>(snd), static_cast<R&&>(recv), priority_tag<1>{}));
     } constexpr connect{};
 
+    template <typename S, receiver R>
+    using connect_result_t = decltype(connect(std::declval<S>(), std::declval<R>()));
+
+    // @formatter:off
+    template <typename S, typename R>
+    concept sender_to =
+        sender<S> &&
+        receiver<R> &&
+        requires(S&& snd, R&& recv) { exec::connect(static_cast<S&&>(snd), static_cast<R&&>(recv)); };
+    // @formatter:on
+
     namespace detail
     {
         template <typed_sender S>
@@ -382,51 +394,132 @@ namespace clu::exec
         requires { typename single_sender_value_type<S>; };
     // @formatter:on
 
-    template <typed_sender S>
-    class sender_awaitable
+    namespace detail
     {
-    private:
-        using value_t = single_sender_value_type<S>;
-        using result_t = with_regular_void_t<value_t>;
+        template <typed_sender S, typename P>
+        class sender_awaitable
+        {
+        private:
+            using value_t = single_sender_value_type<S>;
+            using result_t = with_regular_void_t<value_t>;
+            using variant_t = std::variant<std::monostate, result_t, std::exception_ptr>;
 
-    public:
-        struct awaitable_receiver { };
+        public:
+            struct awaitable_receiver
+            {
+                variant_t* ptr_ = nullptr;
+                std::coroutine_handle<P> cont_{};
 
-    private:
-        std::variant<std::monostate, result_t, std::exception_ptr> result_{};
-    };
+                template <typename = int>
+                    requires std::is_void_v<value_t>
+                friend void tag_invoke(set_value_t, awaitable_receiver&& recv) noexcept
+                {
+                    recv.ptr_->template emplace<1>();
+                    recv.cont_.resume();
+                }
+
+                template <forwarding<value_t> T = value_t>
+                    requires (!std::is_void_v<value_t>)
+                friend void tag_invoke(set_value_t, awaitable_receiver&& recv, T&& value)
+                {
+                    recv.ptr_->template emplace<1>(static_cast<T&&>(value));
+                    recv.cont_.resume();
+                }
+
+                template <typename E>
+                friend void tag_invoke(set_error_t, awaitable_receiver&& recv, E&& error)
+                {
+                    using err_t = std::decay_t<E>;
+                    if constexpr (std::is_same_v<err_t, std::exception_ptr>)
+                        recv.ptr_->template emplace<2>(static_cast<E&&>(error));
+                    else if constexpr (std::is_same_v<err_t, std::error_code>)
+                        recv.ptr_->template emplace<2>(std::make_exception_ptr(std::system_error(error)));
+                    else
+                        recv.ptr_->template emplace<2>(std::make_exception_ptr(static_cast<E&&>(error)));
+                    recv.cont_.resume();
+                }
+
+                friend void tag_invoke(set_done_t, awaitable_receiver&& recv)
+                {
+                    recv.cont_.promise().unhandled_done().resume();
+                }
+
+                // @formatter:off
+                template <typename Cpo, typename... Args> requires
+                    callable<Cpo, const P&, Args&&...> &&
+                    (!completion_cpo<Cpo>)
+                friend auto tag_invoke(const Cpo cpo, awaitable_receiver&& recv, Args&&... args)
+                    noexcept(nothrow_callable<Cpo, const P&, Args&&...>)
+                    -> call_result_t<Cpo, const P&, Args&&...>
+                {
+                    return cpo(std::as_const(recv.cont_.promise()), static_cast<Args&&>(args)...);
+                }
+                // @formatter:on
+            };
+
+            sender_awaitable(S&& snd, P& promise):
+                state_(connect(
+                    static_cast<S&&>(snd),
+                    awaitable_receiver{ &result_, std::coroutine_handle<P>::from_promise(promise) }
+                )) {}
+
+            bool await_ready() const noexcept { return false; }
+            void await_suspend(std::coroutine_handle<>) noexcept { start(state_); }
+
+            value_t await_resume()
+            {
+                if (result_.index() == 2) // exception_ptr
+                    std::rethrow_exception(std::get<2>(result_));
+                if constexpr (std::is_void_v<value_t>) return;
+                return static_cast<value_t&&>(std::get<1>(result_));
+            }
+
+        private:
+            variant_t result_{};
+            connect_result_t<S, awaitable_receiver> state_;
+        };
+
+        // @formatter:off
+        template <typename S, typename P>
+        concept awaitable_sender =
+            single_typed_sender<S> &&
+            sender_to<S, typename sender_awaitable<S, P>::awaitable_receiver> &&
+            requires(P& promise) { { promise.unhandled_done() } -> std::convertible_to<std::coroutine_handle<>>; };
+        // @formatter:on
+    }
 
     inline struct as_awaitable_t
     {
-        // TODO
+        template <typename T, typename P>
+        constexpr decltype(auto) operator()(T&& value, P& promise) const
+        {
+            if constexpr (tag_invocable<as_awaitable_t, T&&, P&>)
+                return clu::tag_invoke(*this, static_cast<T&&>(value), promise);
+            else if constexpr (awaitable<T>)
+                return static_cast<T&&>(value); // NOLINT(bugprone-branch-clone)
+            else if constexpr (detail::awaitable_sender<T, P>)
+                return detail::sender_awaitable<T, P>{ static_cast<T&&>(value), promise };
+            else
+                return static_cast<T&&>(value);
+        }
     } constexpr as_awaitable{};
 
+    // @formatter:off
     inline struct schedule_t
     {
-        // TODO   
+        template <typename S> requires
+            tag_invocable<schedule_t, S&&> &&
+            sender<tag_invoke_result_t<schedule_t, S&&>>
+        constexpr sender auto operator()(S&& sch) const
+            noexcept(nothrow_tag_invocable<schedule_t, S&&>)
+        {
+            return clu::tag_invoke(*this, static_cast<S&&>(sch));
+        }
     } constexpr schedule{};
 
-    inline struct get_scheduler_t
-    {
-        // TODO    
-    } constexpr get_scheduler{};
-
-    inline struct get_allocator_t
-    {
-        // TODO
-    } constexpr get_allocator{};
-
-    inline struct get_stop_token_t
-    {
-        // TODO
-    } constexpr get_stop_token{};
-
-    inline struct get_completion_scheduler_t
-    {
-        // TODO
-    } constexpr get_completion_scheduler{};
-
-    // @formatter:off
+    template <detail::completion_cpo Cpo>
+    struct get_completion_scheduler_t;
+    
     template <typename S>
     concept scheduler =
         std::copy_constructible<std::remove_cvref_t<S>> &&
@@ -441,7 +534,59 @@ namespace clu::exec
                 )
             } -> std::same_as<std::remove_cvref_t<S>>;
         };
+
+    template <detail::completion_cpo Cpo>
+    struct get_completion_scheduler_t
+    {
+        template <sender S> requires
+            tag_invocable<get_completion_scheduler_t, const S&> &&
+            scheduler<tag_invoke_result_t<get_completion_scheduler_t, const S&>>
+        constexpr scheduler auto operator()(const S& snd) const
+            noexcept(nothrow_tag_invocable<get_completion_scheduler_t, const S&>)
+        {
+            return clu::tag_invoke(*this, snd);
+        }
+    };
     // @formatter:on
+
+    template <detail::completion_cpo Cpo>
+    inline constexpr get_completion_scheduler_t<Cpo> get_completion_scheduler{};
+
+    inline struct get_scheduler_t
+    {
+        template <receiver R> requires
+            nothrow_tag_invocable<get_scheduler_t, const R&> &&
+            scheduler<tag_invoke_result_t<get_scheduler_t, const R&>>
+        constexpr scheduler auto operator()(const R& recv) const noexcept
+        {
+            return clu::tag_invoke(*this, recv);
+        }
+    } constexpr get_scheduler{};
+
+    inline struct get_allocator_t
+    {
+        template <receiver R> requires
+            nothrow_tag_invocable<get_allocator_t, const R&> // TODO: return type should model Allocator
+        constexpr auto operator()(const R& recv) const noexcept
+        {
+            return clu::tag_invoke(*this, recv);
+        }
+    } constexpr get_allocator{};
+
+    inline struct get_stop_token_t
+    {
+        template <receiver R>
+        constexpr auto operator()(const R& recv) const noexcept
+        {
+            if constexpr (
+                nothrow_tag_invocable<get_stop_token_t, const R&> &&
+                stoppable_token<tag_invoke_result_t<get_stop_token_t, const R&>>
+            )
+                return clu::tag_invoke(*this, recv);
+            else
+                return never_stop_token{};
+        }
+    } constexpr get_stop_token{};
 
     enum class forward_progress_guarantee
     {
@@ -452,7 +597,20 @@ namespace clu::exec
 
     inline struct get_forward_progress_guarantee_t
     {
-        // TODO
+        template <scheduler S>
+        constexpr forward_progress_guarantee operator()(const S& sch) noexcept
+        {
+            if constexpr (
+                nothrow_tag_invocable<get_forward_progress_guarantee_t, const S&> &&
+                std::same_as<
+                    tag_invoke_result_t<get_forward_progress_guarantee_t, const S&>,
+                    forward_progress_guarantee
+                >
+            )
+                return clu::tag_invoke(*this, sch);
+            else
+                return forward_progress_guarantee::weakly_parallel;
+        }
     } constexpr get_forward_progress_guarantee{};
 
     template <typename R>
@@ -463,7 +621,17 @@ namespace clu::this_thread
 {
     inline struct execute_may_block_caller_t
     {
-        // TODO
+        template <exec::scheduler S>
+        constexpr bool operator()(const S& sch) noexcept
+        {
+            if constexpr (
+                nothrow_tag_invocable<execute_may_block_caller_t, const S&> &&
+                std::same_as<tag_invoke_result_t<execute_may_block_caller_t, const S&>, bool>
+            )
+                return clu::tag_invoke(*this, sch);
+            else
+                return true;
+        }
     } constexpr execute_may_block_caller{};
 }
 

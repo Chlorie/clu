@@ -2,7 +2,7 @@
 #define CLU_MACROS_HEADER
 
 #ifdef CLU_UNDEF_MACROS_HEADER
-#   undef CLU_UNDER_MACROS_HEADER
+#   undef CLU_UNDEF_MACROS_HEADER
 #endif
 
 #ifdef __GNUC__

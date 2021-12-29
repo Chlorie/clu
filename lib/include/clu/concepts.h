@@ -12,6 +12,13 @@ namespace clu
     template <typename Inv, typename Res, typename... Ts>
     concept invocable_of = std::invocable<Inv, Ts...> && std::convertible_to<std::invoke_result_t<Inv, Ts...>, Res>;
 
+    template <typename F, typename... Args>
+    concept callable = requires(F func, Args ... args) { static_cast<F&&>(func)(static_cast<Args&&>(args)...); };
+    template <typename F, typename... Args>
+    concept nothrow_callable = requires(F func, Args ... args) { { static_cast<F&&>(func)(static_cast<Args&&>(args)...) } noexcept; };
+    template <typename F, typename... Args>
+    using call_result_t = decltype(std::declval<F>()(std::declval<Args>()...));
+
     // Some exposition-only concepts in the standard, good to have them here
     // @formatter:off
     template <typename B>
@@ -51,6 +58,14 @@ namespace clu
     template <typename From, typename To> concept decays_to = std::same_as<std::decay_t<From>, To>;
 
     template <typename T> concept class_type = decays_to<T, T> && std::is_class_v<T>;
+
+    template <typename T>
+    concept nullable_pointer =
+        std::default_initializable<T> &&
+        std::copy_constructible<T> &&
+        std::is_copy_assignable_v<T> &&
+        std::equality_comparable<T> &&
+        weakly_equality_comparable_with<T, std::nullptr_t>;
     // @formatter:on
 
     template <typename Type, template <typename...> typename Templ>
@@ -68,9 +83,10 @@ namespace clu
 
     // @formatter:off
     template <typename T, typename U>
-    concept forwarding = !std::is_rvalue_reference_v<T>
-        && std::same_as<std::remove_cvref_t<U>, U>
-        && std::same_as<std::remove_cvref_t<T>, U>;
+    concept forwarding = 
+        !std::is_rvalue_reference_v<T> &&
+        std::same_as<std::remove_cvref_t<U>, U> &&
+        std::same_as<std::remove_cvref_t<T>, U>;
     // @formatter:on
 
     template <typename T> concept enumeration = std::is_enum_v<T>;

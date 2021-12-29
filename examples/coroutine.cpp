@@ -81,19 +81,6 @@ clu::cancellable_task<> trash_timer()
     }
 }
 
-clu::cancellable_task<> waiter()
-{
-    {
-        auto _ = co_await cout_mutex.async_lock_scoped();
-        std::cout << "Wait for 3.14s\n";
-    }
-    co_await wait_on_detached_thread(3140ms);
-}
-
 int main() // NOLINT
 {
-    clu::sync_wait(race(
-        trash_timer(),
-        waiter()
-    ));
 }
