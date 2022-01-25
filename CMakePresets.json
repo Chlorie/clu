@@ -16,7 +16,7 @@
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
                 "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
                 "_VCPKG_INSTALLED_DIR": "${sourceDir}/out/vcpkg_installed",
-                "BUILD_TESTS": "True" 
+                "BUILD_TESTS": "True"
             },
             "vendor": { "microsoft.com/VisualStudioSettings/CMake/1.0": { "hostOS": [ "Windows" ] } }
         },
@@ -40,20 +40,48 @@
             "vendor": { "microsoft.com/VisualStudioSettings/CMake/1.0": { "hostOS": [ "Windows" ] } }
         },
         {
-            "name": "linux-debug",
-            "displayName": "Linux Debug",
+            "name": "linux-gcc-debug",
+            "displayName": "Linux Debug (gcc)",
             "description": "Target the Windows Subsystem for Linux (WSL) or a remote Linux system.",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/out/build/${presetName}",
             "cacheVariables": {
+                "CMAKE_CXX_COMPILER": "g++",
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
-                "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+                "CMAKE_TOOLCHAIN_FILE": {
+                    "value": "$env{HOME}/vcpkg/scripts/buildsystems/vcpkg.cmake",
+                    "type": "FILEPATH"
+                },
                 "_VCPKG_INSTALLED_DIR": "${sourceDir}/out/vcpkg_installed",
                 "BUILD_TESTS": "True"
             },
             "vendor": {
                 "microsoft.com/VisualStudioSettings/CMake/1.0": { "hostOS": [ "Linux" ] },
+                "microsoft.com/VisualStudioRemoteSettings/CMake/1.0": {
+                    "sourceDir": "$env{HOME}/.vs/$ms{projectDirName}"
+                }
+            }
+        },
+        {
+            "name": "linux-clang-debug",
+            "displayName": "Linux Debug (clang)",
+            "description": "Target the Windows Subsystem for Linux (WSL) or a remote Linux system.",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_CXX_COMPILER": "clang++",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+                "CMAKE_TOOLCHAIN_FILE": {
+                    "value": "$env{HOME}/vcpkg/scripts/buildsystems/vcpkg.cmake",
+                    "type": "FILEPATH"
+                },
+                "_VCPKG_INSTALLED_DIR": "${sourceDir}/out/vcpkg_installed",
+                "BUILD_TESTS": "True"
+            },
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": { "hostOS": ["Linux"] },
                 "microsoft.com/VisualStudioRemoteSettings/CMake/1.0": {
                     "sourceDir": "$env{HOME}/.vs/$ms{projectDirName}"
                 }

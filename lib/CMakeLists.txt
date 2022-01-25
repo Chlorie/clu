@@ -7,6 +7,10 @@ INTERFACE
     $<INSTALL_INTERFACE:include>
 )
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads)
+target_link_libraries(clu INTERFACE Threads::Threads)
+
 if (ENABLE_INSTALL)
     include(CMakePackageConfigHelpers)
     write_basic_package_version_file(

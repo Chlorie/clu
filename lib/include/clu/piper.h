@@ -124,9 +124,9 @@ namespace clu
         using inv_t = std::remove_cvref_t<Inv>;
         struct pipeable : private inv_t, piper_mixin
         {
-            constexpr explicit pipeable(Inv&& invocable)
+            constexpr explicit pipeable(Inv&& inv)
                 noexcept(std::is_nothrow_constructible_v<inv_t, Inv&&>):
-                inv_t(static_cast<Inv&&>(invocable)) {}
+                inv_t(static_cast<Inv&&>(inv)) {}
             using inv_t::operator();
         };
         return pipeable(static_cast<Inv&&>(invocable));

@@ -1,8 +1,7 @@
 #pragma once
 
-#include <coroutine>
-
 #include "../concepts.h"
+#include "../coroutine.h"
 #include "../macros.h"
 
 namespace clu::exec
@@ -13,12 +12,12 @@ namespace clu::exec
         template <typename T>
         concept valid_await_suspend_type =
             same_as_any_of<T, void, bool> ||
-            template_of<T, std::coroutine_handle>;
+            template_of<T, coro::coroutine_handle>;
     }
 
     template <typename A, typename P = void>
     concept awaiter =
-        requires(A&& a, std::coroutine_handle<P> h)
+        requires(A&& a, coro::coroutine_handle<P> h)
         {
             { a.await_ready() } -> boolean_testable;
             { a.await_suspend(h) } -> detail::valid_await_suspend_type;
@@ -45,7 +44,7 @@ namespace clu::exec
         using awaiter_type = decltype(get_awaiter_t::get_awaiter_impl(std::declval<A>(), priority_tag<2>{}));
 
         template <typename A> requires awaiter<awaiter_type<A>>
-        constexpr auto operator()(A&& a)
+        constexpr auto operator()(A&& a) const
         CLU_SINGLE_RETURN(get_awaiter_t::get_awaiter_impl(static_cast<A&&>(a), priority_tag<2>{}));
     } constexpr get_awaiter{};
 
@@ -53,11 +52,11 @@ namespace clu::exec
     {
         template <typename P, typename A>
             requires requires(P& promise, A&& awaited) { promise.await_transform(static_cast<A&&>(awaited)); }
-        constexpr auto operator()(P& promise, A&& awaited)
+        constexpr auto operator()(P& promise, A&& awaited) const
         CLU_SINGLE_RETURN(promise.await_transform(static_cast<A&&>(awaited)));
 
         template <typename P, typename A>
-        constexpr A operator()(P&, A&& awaited) noexcept
+        constexpr A operator()(P&, A&& awaited) const noexcept
         {
             return static_cast<A&&>(awaited);
         }
@@ -76,7 +75,9 @@ namespace clu::exec
     }
 
     template <typename A, typename P = void>
-    concept awaitable = detail::unconditionally_awaitable<detail::await_transform_type<A, P>>;
+    concept awaitable =
+        requires { typename detail::await_transform_type<A, P>; } &&
+        detail::unconditionally_awaitable<detail::await_transform_type<A, P>>;
 
     template <typename A, typename P = void>
     using awaiter_type_t = get_awaiter_t::awaiter_type<detail::await_transform_type<A, P>>;

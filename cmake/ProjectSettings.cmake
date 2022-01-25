@@ -76,15 +76,22 @@ function (target_set_options TGT ACCESS)
             target_compile_definitions(${TGT} PUBLIC _WIN32_WINNT=${WIN32_WINNT})
         endif ()
     endif ()
-        
+
     if (MSVC) # Visual Studio
         target_compile_options(${TGT} ${ACCESS} # Conformance settings
             /utf-8 /permissive- /Zc:__cplusplus /Zc:externConstexpr)
-    # Colored diagnostics for clang and gcc
     elseif (CMAKE_CXX_COMPILER_ID MATCHES ".*Clang")
-        target_compile_options(${TGT} ${ACCESS} -fcolor-diagnostics)
+        target_compile_options(${TGT} ${ACCESS}
+            -stdlib=libc++
+            -fcolor-diagnostics
+            -ftemplate-backtrace-limit=16)
+        target_link_options(${TGT} ${ACCESS} -stdlib=libc++)
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        target_compile_options(${TGT} ${ACCESS} -fdiagnostics-color=always)
+        target_compile_options(${TGT}
+            ${ACCESS}
+            -fdiagnostics-color=always
+            -fconcepts-diagnostics-depth=16
+            -ftemplate-backtrace-limit=16)
     endif ()
 endfunction ()
 

@@ -4,6 +4,7 @@
 
 #include "type_traits.h"
 #include "meta_list.h"
+#include "concepts.h"
 
 namespace clu::meta
 {
@@ -29,190 +30,392 @@ namespace clu::meta
         struct add_one_t<T> : std::integral_constant<typename T::value_type, T::value + 1> {};
     }
 
-    template <typename List> struct extract_types {};
-    template <template <typename...> typename Templ, typename... Types>
-    struct extract_types<Templ<Types...>> : std::type_identity<type_list<Types...>> {};
-    template <typename List> using extract_types_t = typename extract_types<List>::type;
+    template <template <typename...> typename Fn>
+    struct quote
+    {
+        template <typename... Ts>
+        using fn = Fn<Ts...>;
+    };
 
-    template <typename Invocable, typename List> using invoke = typename List::template apply<Invocable::template apply>;
-    template <typename Invocable, typename List> using invoke_t = typename List::template apply<Invocable::template apply>::type;
-    template <typename Invocable, typename List> static constexpr auto invoke_v = List::template apply<Invocable::template apply>::value;
+    template <template <typename> typename UnaryFn>
+    struct quote1
+    {
+        template <typename T>
+        using fn = UnaryFn<T>;
+    };
+
+    template <template <typename, typename> typename BinaryFn>
+    struct quote2
+    {
+        template <typename T, typename U>
+        using fn = BinaryFn<T, U>;
+    };
+
+    template <typename T> using id = T;
+    using id_q = quote1<id>;
+    template <typename T> using _t = typename T::type;
+    using _t_q = quote1<_t>;
+
+    template <typename T> inline constexpr auto _v = T::value;
 
     namespace detail
     {
-        template <typename... Types>
-        struct enumerate
-        {
-            using type = decltype([]<size_t... idx>(std::index_sequence<idx...>)
-            {
-                return type_list<indexed_type<idx, Types>...>{};
-            }(std::make_index_sequence<sizeof...(Types)>{}));
-        };
-
-        template <typename Target>
-        struct contains
-        {
-            template <typename... Types> static constexpr bool apply_v = (std::is_same_v<Target, Types> || ...);
-            template <typename... Types> using apply = std::bool_constant<apply_v<Types...>>;
-        };
-
-        template <template <typename> typename Pred>
-        struct all_of
-        {
-            template <typename... Types> static constexpr bool apply_v = (Pred<Types>::value && ...);
-            template <typename... Types> using apply = std::integral_constant<size_t, apply_v<Types...>>;
-        };
-
-        template <template <typename> typename Pred>
-        struct any_of
-        {
-            template <typename... Types> static constexpr bool apply_v = (Pred<Types>::value || ...);
-            template <typename... Types> using apply = std::integral_constant<size_t, apply_v<Types...>>;
-        };
-
-        template <template <typename> typename Pred>
-        struct none_of
-        {
-            template <typename... Types> static constexpr bool apply_v = !(Pred<Types>::value || ...);
-            template <typename... Types> using apply = std::integral_constant<size_t, apply_v<Types...>>;
-        };
-
-        template <typename Target>
-        struct find
-        {
-            template <typename... Types> struct apply : value_tag_t<npos> {};
-            template <typename... Types> static constexpr auto apply_v = apply<Types...>::value;
-        };
-        template <typename Target> template <typename... Rest>
-        struct find<Target>::apply<Target, Rest...> : std::integral_constant<size_t, 0> {};
-        template <typename Target> template <typename First, typename... Rest>
-        struct find<Target>::apply<First, Rest...> : add_one_t<apply<Rest...>> {};
-
-        template <typename Target>
-        struct count
-        {
-            template <typename... Types> static constexpr auto apply_v = (std::is_same_v<Target, Types> + ... + 0);
-            template <typename... Types> using apply = std::integral_constant<size_t, apply_v<Types...>>;
-        };
-
-        template <template <typename> typename Pred>
-        struct count_if
-        {
-            template <typename... Types> static constexpr auto apply_v = (static_cast<size_t>(Pred<Types>::value) + ... + 0);
-            template <typename... Types> using apply = std::integral_constant<size_t, apply_v<Types...>>;
-        };
-
-        template <template <typename> typename Pred>
-        struct filter
-        {
-            template <typename... Types> struct apply : std::type_identity<type_list<>> {};
-            template <typename... Types> using apply_t = typename apply<Types...>::type;
-        };
-        template <template <typename> typename Pred>
-        template <typename First, typename... Rest>
-        struct filter<Pred>::apply<First, Rest...>
-        {
-            using type = conditional_t<
-                Pred<First>::value,
-                typename apply<Rest...>::type::template concatenate_front<First>,
-                typename apply<Rest...>::type>;
-        };
-
-        template <typename... Types> struct is_unique : std::true_type {};
-        template <typename First, typename... Rest> struct is_unique<First, Rest...> :
-            std::bool_constant<!(std::is_same_v<First, Rest> || ...) && is_unique<Rest...>::value> {};
-
-        template <typename... Types> struct unique : std::type_identity<type_list<>> {};
-        template <typename First, typename... Rest>
-        struct unique<First, Rest...>
-        {
-            using type = conditional_t<
-                (std::is_same_v<First, Rest> || ...),
-                typename unique<Rest...>::type,
-                typename unique<Rest...>::type::template concatenate_front<First>>;
-        };
+        template <typename Fn, typename... Ts>
+        struct invoke_impl : std::type_identity<typename Fn::template fn<Ts...>> {};
+        template <typename Fn, typename T>
+        struct invoke_impl<Fn, T> : std::type_identity<typename Fn::template fn<T>> {};
+        template <typename Fn, typename T, typename U>
+        struct invoke_impl<Fn, T, U> : std::type_identity<typename Fn::template fn<T, U>> {};
     }
 
-    template <typename List> using enumerate_t = typename List::template apply_t<detail::enumerate>;
-    template <typename List> using enumerate = std::type_identity<enumerate_t<List>>;
+    template <typename Fn, typename... Ts>
+    using invoke = typename detail::invoke_impl<Fn, Ts...>::type;
+    template <typename Fn, typename... Ts>
+    inline constexpr auto invoke_v = detail::invoke_impl<Fn, Ts...>::type::value;
 
-    template <typename List, typename T> inline constexpr bool contains_v = List::template apply_v<detail::contains<T>::template apply>;
-    template <typename List, typename T> using contains = std::bool_constant<contains_v<List, T>>;
+    template <typename Pred, typename TrueTrans, typename FalseTrans = id_q>
+    struct if_q
+    {
+        template <typename T>
+        using fn = invoke<conditional_t<invoke<Pred, T>::value, TrueTrans, FalseTrans>, T>;
+    };
 
-    template <typename List, template <typename> typename Pred>
-    inline constexpr bool all_of_v = List::template apply_v<detail::all_of<Pred>::template apply>;
-    template <typename List, template <typename> typename Pred> using all_of = std::bool_constant<all_of_v<List, Pred>>;
+    template <typename Fn, typename T>
+    struct bind_front_q
+    {
+        template <typename... Us>
+        using fn = invoke<Fn, T, Us...>;
+    };
 
-    template <typename List, template <typename> typename Pred>
-    inline constexpr bool any_of_v = List::template apply_v<detail::any_of<Pred>::template apply>;
-    template <typename List, template <typename> typename Pred> using any_of = std::bool_constant<any_of_v<List, Pred>>;
+    template <typename Fn, typename T>
+    struct bind_front_q1
+    {
+        template <typename U>
+        using fn = invoke<Fn, T, U>;
+    };
 
-    template <typename List, template <typename> typename Pred>
-    inline constexpr bool none_of_v = List::template apply_v<detail::none_of<Pred>::template apply>;
-    template <typename List, template <typename> typename Pred> using none_of = std::bool_constant<none_of_v<List, Pred>>;
+    template <typename Fn, typename T>
+    struct bind_back_q
+    {
+        template <typename... Us>
+        using fn = invoke<Fn, Us..., T>;
+    };
 
-    template <typename List, typename T> inline constexpr auto find_v = List::template apply_v<detail::find<T>::template apply>;
-    template <typename List, typename T> using find = value_tag_t<find_v<List, T>>;
+    template <typename Fn, typename T>
+    struct bind_back_q1
+    {
+        template <typename U>
+        using fn = invoke<Fn, U, T>;
+    };
 
-    template <typename List, typename T> inline constexpr size_t count_v = List::template apply<detail::count<T>::template apply>;
-    template <typename List, typename T> using count = std::integral_constant<size_t, count_v<List, T>>;
+    template <typename Fn>
+    struct negate_q
+    {
+        template <typename... Ts>
+        using fn = std::bool_constant<!invoke_v<Fn, Ts...>>;
+    };
+
+    template <typename Fn>
+    struct negate_q1
+    {
+        template <typename T>
+        using fn = std::bool_constant<!invoke_v<Fn, T>>;
+    };
+
+    template <typename... Fns>
+    struct compose_q
+    {
+        template <typename T>
+        using fn = T;
+    };
+    template <typename First, typename... Rest>
+    struct compose_q<First, Rest...>
+    {
+        template <typename T>
+        using fn = typename compose_q<Rest...>::template fn<typename First::template fn<T>>;
+    };
+
+    namespace detail
+    {
+        template <typename List, template <typename...> typename Fn>
+        struct unpack_invoke_impl {};
+        template <template <typename...> typename Templ, typename... Types, template <typename...> typename Fn>
+        struct unpack_invoke_impl<Templ<Types...>, Fn> : std::type_identity<Fn<Types...>> {};
+    }
+
+    template <typename List, typename Fn = quote<type_list>>
+    using unpack_invoke = typename detail::unpack_invoke_impl<List, Fn::template fn>::type;
+    using unpack_invoke_q = quote2<unpack_invoke>;
+    template <typename List, typename Fn = quote<type_list>>
+    inline constexpr auto unpack_invoke_v = detail::unpack_invoke_impl<List, Fn::template fn>::type::value;
+
+    template <template <typename...> typename Fn, typename... Args>
+    concept valid = requires { typename Fn<Args...>; };
+    template <template <typename> typename Fn, typename Arg>
+    concept valid1 = requires { typename Fn<Arg>; };
+
+    namespace detail
+    {
+        template <
+            template <typename...> typename TemplT, typename... Ts,
+            template <typename...> typename TemplU, typename... Us>
+        type_list<Ts..., Us...> concat_impl(TemplT<Ts...>, TemplU<Us...>);
+
+        template <template <typename...> typename Templ, typename... Ts, std::size_t... idx>
+        type_list<indexed_type<idx, Ts>...> enumerate_impl(Templ<Ts...>, std::index_sequence<idx...>);
+    }
 
     template <typename List1, typename List2>
-    using concatenate_t = typename List1::template apply<List2::template concatenate_front>;
-    template <typename List1, typename List2> using concatenate = std::type_identity<concatenate_t<List1, List2>>;
+    using concatenate_l = decltype(detail::concat_impl(List1{}, List2{}));
 
-    template <typename List, template <typename> typename Pred>
-    inline constexpr size_t count_if_v = List::template apply_v<detail::count_if<Pred>::template apply>;
-    template <typename List, template <typename> typename Pred> using count_if = std::integral_constant<size_t, count_if_v<List, Pred>>;
+    template <typename... Ts>
+    using enumerate = decltype(detail::enumerate_impl(
+        type_list<Ts...>{}, std::make_index_sequence<sizeof...(Ts)>{}));
+    using enumerate_q = quote<enumerate>;
+    template <typename List>
+    using enumerate_l = unpack_invoke<List, enumerate_q>;
 
-    template <typename List, template <typename> typename Pred>
-    using filter_t = typename List::template apply_t<detail::filter<Pred>::template apply>;
-    template <typename List, template <typename> typename Pred> using filter = std::type_identity<filter_t<List, Pred>>;
-
-    template <typename List> inline constexpr bool is_unique_v = List::template apply_v<detail::is_unique>;
-    template <typename List> using is_unique = std::bool_constant<is_unique_v<List>>;
-
-    template <typename List> using unique_t = typename List::template apply_t<detail::unique>;
-    template <typename List> using unique = std::type_identity<unique_t<List>>;
-
-    // Check whether Set1 includes Set2
-    // Preconditions: Set1 and Set2 are type sets
-    template <typename Set1, typename Set2> struct set_include;
-    template <typename Set1, typename... Types2>
-    struct set_include<Set1, type_list<Types2...>> : std::bool_constant<(Set1::template contains_v<Types2> && ...)> {};
-    template <typename Set1, typename Set2> inline constexpr bool set_include_v = set_include<Set1, Set2>::value;
-
-    template <typename Set1, typename Set2> inline constexpr bool set_equal_v = Set1::size == Set2::size && set_include_v<Set1, Set2>;
-    template <typename Set1, typename Set2> using set_equal = std::integral_constant<size_t, set_equal_v<Set1, Set2>>;
-
-    template <typename Set1, typename Set2> using set_union_t = unique_t<concatenate_t<Set1, Set2>>;
-    template <typename Set1, typename Set2> using set_union = std::type_identity<set_union_t<Set1, Set2>>;
-
-    template <typename Set1, typename Set2> struct set_intersection;
-    template <typename Set1> struct set_intersection<Set1, type_list<>> : std::type_identity<type_list<>> {};
-    template <typename Set1, typename First, typename... Rest>
-    struct set_intersection<Set1, type_list<First, Rest...>>
+    template <typename T>
+    struct push_back_q
     {
-        using type = conditional_t<
-            Set1::template contains_v<First>,
-            typename set_intersection<Set1, type_list<Rest...>>::type::template concatenate_front<First>,
-            typename set_intersection<Set1, type_list<Rest...>>::type>;
+        template <typename... Ts>
+        using fn = type_list<Ts..., T>;
     };
-    template <typename Set1, typename Set2> using set_intersection_t = typename set_intersection<Set1, Set2>::type;
+    template <typename List, typename T>
+    using push_back_l = unpack_invoke<List, push_back_q<T>>;
 
-    template <typename Set1, typename Set2> struct set_difference;
-    template <typename Set2> struct set_difference<type_list<>, Set2> : std::type_identity<type_list<>> {};
-    template <typename First, typename... Rest, typename Set2>
-    struct set_difference<type_list<First, Rest...>, Set2>
+    template <typename T>
+    struct push_back_unique_q
     {
-        using type = conditional_t<
-            Set2::template contains_v<First>,
-            typename set_difference<type_list<Rest...>, Set2>::type,
-            typename set_difference<type_list<Rest...>, Set2>::type::template concatenate_front<First>>;
+        template <typename... Ts>
+        using fn = conditional_t<
+            same_as_any_of<T, Ts...>,
+            type_list<Ts...>,
+            type_list<Ts..., T>>;
     };
-    template <typename Set1, typename Set2> using set_difference_t = typename set_difference<Set1, Set2>::type;
+    template <typename List, typename T>
+    using push_back_unique_l = unpack_invoke<List, push_back_unique_q<T>>;
+
+    template <typename T>
+    struct push_front_q
+    {
+        template <typename... Ts>
+        using fn = type_list<T, Ts...>;
+    };
+    template <typename List, typename T>
+    using push_front_l = unpack_invoke<List, push_front_q<T>>;
+
+    template <typename Target>
+    struct contains_q
+    {
+        template <typename... Ts>
+        using fn = std::bool_constant<same_as_any_of<Target, Ts...>>;
+    };
+    template <typename List, typename Target>
+    using contains_l = unpack_invoke<List, contains_q<Target>>;
+    template <typename List, typename Target>
+    inline constexpr bool contains_lv = unpack_invoke_v<List, contains_q<Target>>;
+
+    template <typename Pred = id_q>
+    struct all_of_q
+    {
+    private:
+        template <typename... Ts> // MSVC 17.0 workaround
+        static constexpr bool value = (invoke_v<Pred, Ts> && ...);
+    public:
+        template <typename... Ts>
+        using fn = std::bool_constant<value<Ts...>>;
+    };
+    template <typename List, typename Pred = id_q>
+    using all_of_l = unpack_invoke<List, all_of_q<Pred>>;
+    template <typename List, typename Pred = id_q>
+    inline constexpr bool all_of_lv = unpack_invoke_v<List, all_of_q<Pred>>;
+
+    template <typename Pred = id_q>
+    struct any_of_q
+    {
+    private:
+        template <typename... Ts> // MSVC 17.0 workaround
+        static constexpr bool value = (invoke_v<Pred, Ts> || ...);
+    public:
+        template <typename... Ts>
+        using fn = std::bool_constant<value<Ts...>>;
+    };
+    template <typename List, typename Pred = id_q>
+    using any_of_l = unpack_invoke<List, any_of_q<Pred>>;
+    template <typename List, typename Pred = id_q>
+    inline constexpr bool any_of_lv = unpack_invoke_v<List, any_of_q<Pred>>;
+
+    template <typename Pred = id_q>
+    struct none_of_q
+    {
+    private:
+        template <typename... Ts> // MSVC 17.0 workaround
+        static constexpr bool value = !(invoke_v<Pred, Ts> || ...);
+    public:
+        template <typename... Ts>
+        using fn = std::bool_constant<value<Ts...>>;
+    };
+    template <typename List, typename Pred = id_q>
+    using none_of_l = unpack_invoke<List, none_of_q<Pred>>;
+    template <typename List, typename Pred = id_q>
+    inline constexpr bool none_of_lv = unpack_invoke_v<List, none_of_q<Pred>>;
+
+    template <typename Target>
+    struct find_q
+    {
+        template <typename... Ts>
+        struct fn : value_tag_t<npos> {};
+    };
+    template <typename Target> template <typename... Rest>
+    struct find_q<Target>::fn<Target, Rest...> : std::integral_constant<size_t, 0> {};
+    template <typename Target> template <typename First, typename... Rest>
+    struct find_q<Target>::fn<First, Rest...> : detail::add_one_t<fn<Rest...>> {};
+    template <typename List, typename Target>
+    using find_l = unpack_invoke<List, find_q<Target>>;
+    template <typename List, typename Target>
+    inline constexpr auto find_lv = unpack_invoke_v<List, find_q<Target>>;
+
+    template <typename Target>
+    struct count_q
+    {
+    private:
+        template <typename... Ts> // MSVC 17.0 workaround
+        static constexpr std::size_t value = (static_cast<std::size_t>(std::is_same_v<Target, Ts>) + ... + 0_uz);
+    public:
+        template <typename... Ts>
+        using fn = std::integral_constant<std::size_t, value<Ts...>>;
+    };
+    template <typename List, typename Target>
+    using count_l = unpack_invoke<List, count_q<Target>>;
+    template <typename List, typename Target>
+    inline constexpr auto count_lv = unpack_invoke_v<List, count_q<Target>>;
+
+    template <typename Pred = id_q>
+    struct count_if_q
+    {
+    private:
+        template <typename... Ts> // MSVC 17.0 workaround
+        static constexpr std::size_t value = (static_cast<std::size_t>(invoke_v<Pred, Ts>) + ... + 0_uz);
+    public:
+        template <typename... Ts>
+        using fn = std::integral_constant<std::size_t, value<Ts...>>;
+    };
+    template <typename List, typename Pred = id_q>
+    using count_if_l = unpack_invoke<List, count_if_q<Pred>>;
+    template <typename List, typename Pred = id_q>
+    inline constexpr auto count_if_lv = unpack_invoke_v<List, count_if_q<Pred>>;
+
+    namespace detail
+    {
+        template <typename BinaryFn, typename Res, typename... Ts>
+        struct foldl_impl : std::type_identity<Res> {};
+
+        template <typename BinaryFn, typename Res, typename First, typename... Rest>
+        struct foldl_impl<BinaryFn, Res, First, Rest...> :
+            foldl_impl<BinaryFn, invoke<BinaryFn, Res, First>, Rest...> {};
+    }
+
+    template <typename BinaryFn, typename Initial>
+    struct foldl_q
+    {
+        template <typename... Ts>
+        using fn = typename detail::foldl_impl<BinaryFn, Initial, Ts...>::type;
+    };
+    template <typename List, typename BinaryFn, typename Initial>
+    using foldl_l = unpack_invoke<List, foldl_q<BinaryFn, Initial>>;
+
+    template <typename... Lists>
+    using flatten = foldl_q<quote2<concatenate_l>, type_list<>>::fn<Lists...>;
+    using flatten_q = quote<flatten>;
+    template <typename Lists>
+    using flatten_l = unpack_invoke<Lists, flatten_q>;
+
+    template <typename UnaryFn>
+    struct transform_q
+    {
+        template <typename... Ts>
+        using fn = type_list<invoke<UnaryFn, Ts>...>;
+    };
+    template <typename List, typename UnaryFn>
+    using transform_l = unpack_invoke<List, transform_q<UnaryFn>>;
+
+    template <typename Old, typename New>
+    struct replace_q
+    {
+        template <typename... Ts>
+        using fn = type_list<conditional_t<std::is_same_v<Ts, Old>, New, Ts>...>;
+    };
+    template <typename List, typename Old, typename New>
+    using replace_all_l = unpack_invoke<List, replace_q<Old, New>>;
+
+    template <typename Pred = id_q>
+    struct filter_q
+    {
+    private:
+        template <typename... Ts>
+        struct fn_impl : std::type_identity<type_list<>> {};
+    public:
+        template <typename... Ts>
+        using fn = typename fn_impl<Ts...>::type;
+    };
+    template <typename Pred>
+    template <typename First, typename... Rest>
+    struct filter_q<Pred>::fn_impl<First, Rest...>
+    {
+        using rest_list = typename fn_impl<Rest...>::type;
+        using type = conditional_t<
+            invoke_v<Pred, First>,
+            push_front_l<rest_list, First>,
+            rest_list
+        >;
+    };
+    template <typename List, typename Pred = id_q>
+    using filter_l = unpack_invoke<List, filter_q<Pred>>;
+
+    template <typename Target>
+    using remove_q = filter_q<
+        compose_q<
+            bind_front_q1<quote2<std::is_same>, Target>,
+            quote1<std::negation>
+        >
+    >;
+    template <typename List, typename Target>
+    using remove_l = unpack_invoke<List, remove_q<Target>>;
+
+    template <typename... Ts>
+    struct is_unique : std::true_type {};
+    template <typename First, typename... Rest>
+    struct is_unique<First, Rest...> :
+        std::bool_constant<!(std::is_same_v<First, Rest> || ...) && is_unique<Rest...>::value> {};
+    using is_unique_q = quote<is_unique>;
+    template <typename List>
+    using is_unique_l = unpack_invoke<List, is_unique_q>;
+    template <typename List>
+    inline constexpr bool is_unique_lv = unpack_invoke_v<List, is_unique_q>;
+
+    template <typename... Ts>
+    using unique = foldl_q<quote2<push_back_unique_l>, type_list<>>::fn<Ts...>;
+    using unique_q = quote<unique>;
+    template <typename List>
+    using unique_l = unpack_invoke<List, unique_q>;
 
     template <typename Set1, typename Set2>
-    using set_symmetric_difference_t = concatenate_t<set_difference_t<Set1, Set2>, set_difference_t<Set2, Set1>>;
-    template <typename Set1, typename Set2> using set_symmetric_difference = std::type_identity<set_symmetric_difference_t<Set1, Set2>>;
+    using set_include_l = all_of_l<Set2, bind_front_q1<quote2<contains_l>, Set1>>;
+    template <typename Set1, typename Set2>
+    inline constexpr bool set_include_lv = set_include_l<Set1, Set2>::value;
+
+    template <typename Set1, typename Set2>
+    inline constexpr bool set_equal_lv = Set1::size == Set2::size && set_include_lv<Set1, Set2>;
+    template <typename Set1, typename Set2>
+    using set_equal_l = std::bool_constant<set_equal_lv<Set1, Set2>>;
+
+    template <typename Set1, typename Set2>
+    using set_union_l = unique_l<concatenate_l<Set1, Set2>>;
+    template <typename Set1, typename Set2>
+    using set_intersection_l = filter_l<Set2, bind_front_q1<quote2<contains_l>, Set1>>;
+    template <typename Set1, typename Set2>
+    using set_difference_l = filter_l<Set1, negate_q<bind_front_q1<quote2<contains_l>, Set2>>>;
+    template <typename Set1, typename Set2>
+    using set_symmetric_difference_l = concatenate_l<set_difference_l<Set1, Set2>, set_difference_l<Set2, Set1>>;
 }

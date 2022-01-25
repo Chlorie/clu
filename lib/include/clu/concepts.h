@@ -18,6 +18,8 @@ namespace clu
     concept nothrow_callable = requires(F func, Args ... args) { { static_cast<F&&>(func)(static_cast<Args&&>(args)...) } noexcept; };
     template <typename F, typename... Args>
     using call_result_t = decltype(std::declval<F>()(std::declval<Args>()...));
+    template <typename F, typename... Args>
+    struct call_result : std::type_identity<call_result_t<F, Args...>> {};
 
     // Some exposition-only concepts in the standard, good to have them here
     // @formatter:off
@@ -80,6 +82,8 @@ namespace clu
 
     template <typename T, typename... Us>
     concept same_as_any_of = (std::same_as<T, Us> || ...);
+    template <typename T, typename... Us>
+    concept same_as_none_of = (!same_as_any_of<T, Us...>);
 
     // @formatter:off
     template <typename T, typename U>

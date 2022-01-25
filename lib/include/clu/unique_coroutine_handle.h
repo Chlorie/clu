@@ -1,7 +1,8 @@
 #pragma once
 
-#include <coroutine>
 #include <utility>
+
+#include "coroutine.h"
 
 namespace clu
 {
@@ -9,11 +10,11 @@ namespace clu
     class unique_coroutine_handle
     {
     private:
-        std::coroutine_handle<Pms> handle_{};
+        coro::coroutine_handle<Pms> handle_{};
 
     public:
         unique_coroutine_handle() = default;
-        explicit unique_coroutine_handle(const std::coroutine_handle<Pms> hdl): handle_(hdl) {}
+        explicit unique_coroutine_handle(const coro::coroutine_handle<Pms> hdl): handle_(hdl) {}
         ~unique_coroutine_handle() noexcept { if (handle_) handle_.destroy(); }
         unique_coroutine_handle(const unique_coroutine_handle&) = delete;
         unique_coroutine_handle(unique_coroutine_handle&& other) noexcept: handle_(std::exchange(other.handle_, {})) {}
@@ -28,9 +29,9 @@ namespace clu
         void swap(unique_coroutine_handle& other) noexcept { std::swap(handle_, std::move(other.handle_)); }
         friend void swap(unique_coroutine_handle& lhs, unique_coroutine_handle& rhs) noexcept { lhs.swap(rhs); }
 
-        std::coroutine_handle<Pms> get() const { return handle_; }
+        coro::coroutine_handle<Pms> get() const { return handle_; }
     };
 
     template <typename Pms>
-    unique_coroutine_handle(std::coroutine_handle<Pms>) -> unique_coroutine_handle<Pms>;
+    unique_coroutine_handle(coro::coroutine_handle<Pms>) -> unique_coroutine_handle<Pms>;
 }

@@ -49,6 +49,14 @@ namespace clu
 
     class never_stop_token
     {
+    private:
+        struct callback
+        {
+            explicit callback(never_stop_token, auto&&) noexcept {}
+        };
+
+    public:
+        template <typename> using callback_type = callback;
         [[nodiscard]] static constexpr bool stop_possible() noexcept { return false; }
         [[nodiscard]] static constexpr bool stop_requested() noexcept { return false; }
         [[nodiscard]] friend constexpr bool operator==(never_stop_token, never_stop_token) noexcept = default;
