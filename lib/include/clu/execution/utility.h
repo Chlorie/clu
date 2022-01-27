@@ -131,7 +131,11 @@ namespace clu::exec
             constexpr friend void tag_invoke(set_error_t, Derived&& self, E&& err) noexcept
             {
                 if constexpr (has_set_error<D, E>)
+                {
+                    static_assert(noexcept(std::declval<Derived>().set_error(std::declval<E>())),
+                        "set_error should be noexcept");
                     static_cast<Derived&&>(self).set_error(static_cast<E&&>(err));
+                }
                 else
                     exec::set_error(get_base(static_cast<Derived&&>(self)), static_cast<E&&>(err));
             }
@@ -141,7 +145,11 @@ namespace clu::exec
             constexpr friend void tag_invoke(set_stopped_t, Derived&& self) noexcept
             {
                 if constexpr (has_set_stopped<D>)
+                {
+                    static_assert(noexcept(std::declval<Derived>().set_stopped()),
+                        "set_stopped should be noexcept");
                     static_cast<Derived&&>(self).set_stopped();
+                }
                 else
                     exec::set_stopped(get_base(static_cast<Derived&&>(self)));
             }
@@ -162,7 +170,7 @@ namespace clu::exec
 
     template <class_type Derived, typename Base = detail::no_base>
     using receiver_adaptor = typename detail::receiver_adaptor_<Derived, Base>::type;
-    
+
     template <class P> requires
         std::is_class_v<P> &&
         std::same_as<P, std::remove_cvref_t<P>>

@@ -9,39 +9,56 @@
 
 namespace clu
 {
-    namespace detail
+    namespace detail::taginv
     {
-        struct tag_invoke_t final
+        void tag_invoke();
+
+        template <typename Tag, typename... Args>
+        concept tag_invocable = requires(Tag&& tag, Args&&... args)
+        {
+            tag_invoke(static_cast<Tag&&>(tag), static_cast<Args&&>(args)...);
+        };
+
+        // @formatter:off
+        template <typename Tag, typename... Args>
+        concept nothrow_tag_invocable = 
+            tag_invocable<Tag, Args...> && 
+            requires(Tag&& tag, Args&&... args)
+            {
+                { tag_invoke(static_cast<Tag&&>(tag), static_cast<Args&&>(args)...) } noexcept;
+            };
+        // @formatter:on
+
+        template <typename Tag, typename... Args>
+        using tag_invoke_result_t = decltype(tag_invoke(std::declval<Tag>(), std::declval<Args>()...));
+
+        template <typename Tag, typename... Args> struct tag_invoke_result {};
+        template <typename Tag, typename... Args>
+            requires tag_invocable<Tag, Args...>
+        struct tag_invoke_result<Tag, Args...>
+        {
+            using type = tag_invoke_result_t<Tag, Args...>;
+        };
+
+        struct tag_invoke_t
         {
             // @formatter:off
             template <typename Tag, typename... Args>
-                requires requires(Tag tag, Args&&... args) { tag_invoke(tag, static_cast<Args&&>(args)...); }
-            constexpr decltype(auto) operator()(Tag tag, Args&&... args) const
-                noexcept(noexcept(tag_invoke(tag, static_cast<Args&&>(args)...)))
+                requires tag_invocable<Tag, Args...>
+            constexpr decltype(auto) operator()(Tag&& tag, Args&&... args) const
+                noexcept(nothrow_tag_invocable<Tag, Args...>)
             {
-                // You must write it twice twice.mp4
-                return tag_invoke(tag, static_cast<Args&&>(args)...);
+                return tag_invoke(static_cast<Tag&&>(tag), static_cast<Args&&>(args)...);
             }
             // @formatter:on
         };
     }
 
-    inline constexpr detail::tag_invoke_t tag_invoke{};
+    inline constexpr detail::taginv::tag_invoke_t tag_invoke{};
+    using detail::taginv::tag_invocable;
+    using detail::taginv::nothrow_tag_invocable;
+    using detail::taginv::tag_invoke_result;
+    using detail::taginv::tag_invoke_result_t;
 
     template <auto& Tag> using tag_t = std::decay_t<decltype(Tag)>;
-
-    template <typename Tag, typename... Args>
-    concept tag_invocable = callable<detail::tag_invoke_t, Tag, Args...>;
-
-    // @formatter:off
-    template <typename Tag, typename... Args>
-    concept nothrow_tag_invocable =
-        tag_invocable<Tag, Args...> && 
-        nothrow_callable<detail::tag_invoke_t, Tag, Args...>;
-    // @formatter:on
-
-    template <typename Tag, typename... Args>
-    using tag_invoke_result_t = call_result_t<detail::tag_invoke_t, Tag, Args...>;
-    template <typename Tag, typename... Args>
-    struct tag_invoke_result : std::type_identity<tag_invoke_result_t<Tag, Args...>> {};
 }

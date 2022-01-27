@@ -290,7 +290,7 @@ namespace clu::exec
         }
     } constexpr get_completion_signatures{};
 
-    template <typename S, typename E>
+    template <typename S, typename E = no_env>
     using completion_signatures_of_t = decltype(
         get_completion_signatures(std::declval<S>(), std::declval<E>()));
 

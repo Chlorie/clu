@@ -65,12 +65,21 @@ struct to_detached_thread
 // }
 
 namespace ex = clu::exec;
+namespace ed = ex::detail;
+
+template <typename T>
+[[deprecated]] void print_type() {}
 
 int main() // NOLINT
 {
-    print_thread_id();
-    ex::single_thread_context ctx;
-    auto schd = ctx.get_scheduler();
-    ex::start_detached(ex::schedule(schd) | ex::then(print_thread_id));
-    ctx.finish();
+    using then_snd = ed::then_snd<ex::run_loop::snd_t, void(*)()>;
+    using start_recv = ex::start_detached_t::recv_t<then_snd>;
+    using then_recv = ed::then_recv<start_recv, void(*)()>;
+    // print_type<ex::completion_signatures_of_t<then_snd>>();
+    static_assert(clu::tag_invocable<ex::connect_t, then_snd, start_recv>);
+    // print_thread_id();
+    // ex::single_thread_context ctx;
+    // auto schd = ctx.get_scheduler();
+    // ex::start_detached(ex::schedule(schd) | ex::then(print_thread_id));
+    // ctx.finish();
 }
