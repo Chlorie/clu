@@ -156,6 +156,18 @@ namespace clu::meta
 
     namespace detail
     {
+        template <typename Fn, typename Default, typename... Args>
+        struct invoke_if_valid_impl : std::type_identity_t<Default> {};
+        template <typename Fn, typename Default, typename... Args>
+            requires requires { typename invoke<Fn, Args...>; }
+        struct invoke_if_valid_impl<Fn, Default, Args...> : std::type_identity_t<invoke<Fn, Args...>> {};
+    }
+    
+    template <typename Fn, typename Default, typename... Args>
+    using invoke_if_valid = detail::invoke_if_valid_impl<Fn, Default, Args...>;
+    
+    namespace detail
+    {
         template <
             template <typename...> typename TemplT, typename... Ts,
             template <typename...> typename TemplU, typename... Us>

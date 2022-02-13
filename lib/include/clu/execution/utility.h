@@ -1,18 +1,15 @@
 #pragma once
 
 #include "execution_traits.h"
-#include "../meta_algorithm.h"
 #include "../macros.h"
 
 namespace clu::exec
 {
-    namespace detail
+    namespace detail::recv_adpt
     {
-        struct no_base {};
-
         template <typename T, typename U>
             requires decays_to<T, T>
-        copy_cvref_t<U&&, T> c_cast(U&& u) noexcept
+        constexpr copy_cvref_t<U&&, T> c_cast(U&& u)
         {
             CLU_GCC_WNO_OLD_STYLE_CAST
             // ReSharper disable once CppCStyleCast
@@ -20,34 +17,17 @@ namespace clu::exec
             CLU_GCC_RESTORE_WARNING
         }
 
-        template <typename Derived, typename Base>
-        struct receiver_adaptor_
-        {
-            class type;
-        };
-
-        // @formatter:off
         template <typename R, typename... Args>
         concept has_set_value = requires(R&& recv, Args&&... args)
         {
             static_cast<R&&>(recv).set_value(static_cast<Args&&>(args)...);
         };
 
-        template <typename R, typename B, typename... Args>
-        concept inherits_set_value = 
-            requires { typename R::set_value; } &&
-            receiver_of<B, Args...>;
-            
         template <typename R, typename E>
         concept has_set_error = requires(R&& recv, E&& err)
         {
             static_cast<R&&>(recv).set_error(static_cast<E&&>(err));
         };
-
-        template <typename R, typename B, typename E>
-        concept inherits_set_error =
-            requires { typename R::set_error; } &&
-            receiver<B, E>;
 
         template <typename R>
         concept has_set_stopped = requires(R&& recv)
@@ -56,21 +36,54 @@ namespace clu::exec
         };
 
         template <typename R>
-        concept inherits_set_stopped = requires { typename R::set_stopped; };
+        concept has_get_env = requires(const R& recv)
+        {
+            recv.get_env();
+        };
+
+        // @formatter:off
+        template <typename R, typename B, typename... Args>
+        concept inherits_set_value =
+            requires { typename R::set_value; } &&
+            tag_invocable<set_value_t, B, Args...>;
+
+        template <typename R, typename B, typename E>
+        concept inherits_set_error =
+            requires { typename R::set_error; } &&
+            tag_invocable<set_error_t, B, E>;
+
+        template <typename R, typename B>
+        concept inherits_set_stopped =
+            requires { typename R::set_stopped; } &&
+            tag_invocable<set_stopped_t, B>;
+
+        template <typename R, typename B>
+        concept inherits_get_env =
+            requires { typename R::get_env; } &&
+            tag_invocable<get_env_t, B>;
         // @formatter:on
+
+        struct no_base {};
+
+        template <typename Derived, typename Base>
+        struct receiver_adaptor_
+        {
+            class type;
+        };
 
         template <typename Derived, typename Base>
         class receiver_adaptor_<Derived, Base>::type
         {
         private:
-            static constexpr bool has_base = !std::same_as<Base, no_base>;
+            constexpr static bool has_base = !std::same_as<Base, no_base>;
 
         public:
             using set_value = void;
             using set_error = void;
             using set_stopped = void;
+            using get_env = void;
 
-            constexpr type() = default;
+            // Not to spec: no default c'tor
 
             template <typename B> requires
                 (!std::same_as<Base, no_base>) &&
@@ -86,51 +99,42 @@ namespace clu::exec
             [[no_unique_address]] Base base_;
 
             template <typename D>
-            using no_base_base_type = decltype(std::declval<D>().base());
-
-            template <typename D>
-            using base_type = meta::invoke<conditional_t<
-                has_base,
-                meta::compose_q<
-                    meta::bind_back_q1<meta::quote2<copy_cvref>, Base>,
-                    meta::_t_q
-                >,
-                meta::quote1<no_base_base_type>
-            >, D>;
-
-            template <typename D>
-            static base_type<D> get_base(D&& d)
+            constexpr static decltype(auto) get_base(D&& d)
             {
                 if constexpr (has_base)
-                    return detail::c_cast<type>(static_cast<D&&>(d)).base();
+                    return recv_adpt::c_cast<type>(static_cast<D&&>(d)).base();
                 else
                     return static_cast<D&&>(d).base();
             }
 
-            template <typename D = Derived, typename... Args>
-            constexpr static bool set_val_noex()
-            {
-                if constexpr (has_set_value<D, Args...>)
-                    return noexcept(std::declval<D>().set_value(std::declval<Args>()...));
-                else
-                    return noexcept(exec::set_value(std::declval<base_type<D>>(), std::declval<Args>()...));
-            }
+            template <typename D>
+            using base_type = decltype(get_base(std::declval<D>()));
 
-            template <typename D = Derived, typename... Args>
-                requires has_set_value<D, Args...> || inherits_set_value<D, base_type<D>, Args...>
-            constexpr friend void tag_invoke(set_value_t, Derived&& self, Args&&... args) noexcept(set_val_noex<D, Args...>())
+            // Not to spec:
+            // Requiring std::derived_from<D, Derived> and make the parameter
+            // reference to D for all the tag_invoke overloads to make gcc happy
+
+            template <std::derived_from<Derived> D, typename... Args> requires
+                has_set_value<D, Args...> ||
+                inherits_set_value<D, base_type<D&&>, Args...>
+            constexpr friend void tag_invoke(set_value_t, D&& self, Args&&... args) noexcept
             {
-                if constexpr (has_set_value<D, Args...>)
+                if constexpr (has_set_value<Derived, Args...>)
+                {
+                    static_assert(noexcept(std::declval<Derived>().set_value(std::declval<Args>()...)),
+                        "set_value should be noexcept");
                     static_cast<Derived&&>(self).set_value(static_cast<Args&&>(args)...);
+                }
                 else
                     exec::set_value(get_base(static_cast<Derived&&>(self)), static_cast<Args&&>(args)...);
             }
 
-            template <typename E, typename D = Derived>
-                requires has_set_error<D, E> || inherits_set_error<D, base_type<D>, E>
-            constexpr friend void tag_invoke(set_error_t, Derived&& self, E&& err) noexcept
+            template <typename E, std::derived_from<Derived> D> requires
+                has_set_error<D, E> ||
+                inherits_set_error<D, base_type<D&&>, E>
+            constexpr friend void tag_invoke(set_error_t, D&& self, E&& err) noexcept
             {
-                if constexpr (has_set_error<D, E>)
+                if constexpr (has_set_error<Derived, E>)
                 {
                     static_assert(noexcept(std::declval<Derived>().set_error(std::declval<E>())),
                         "set_error should be noexcept");
@@ -140,11 +144,12 @@ namespace clu::exec
                     exec::set_error(get_base(static_cast<Derived&&>(self)), static_cast<E&&>(err));
             }
 
-            template <typename D = Derived>
-                requires has_set_stopped<D> || inherits_set_stopped<D>
-            constexpr friend void tag_invoke(set_stopped_t, Derived&& self) noexcept
+            template <std::derived_from<Derived> D> requires
+                has_set_stopped<D> ||
+                inherits_set_stopped<D, base_type<D&&>>
+            constexpr friend void tag_invoke(set_stopped_t, D&& self) noexcept
             {
-                if constexpr (has_set_stopped<D>)
+                if constexpr (has_set_stopped<Derived>)
                 {
                     static_assert(noexcept(std::declval<Derived>().set_stopped()),
                         "set_stopped should be noexcept");
@@ -154,22 +159,38 @@ namespace clu::exec
                     exec::set_stopped(get_base(static_cast<Derived&&>(self)));
             }
 
+            template <std::derived_from<Derived> D> requires
+                has_get_env<D> ||
+                inherits_get_env<D, base_type<const D&>>
+            constexpr friend decltype(auto) tag_invoke(get_env_t, const D& self) noexcept
+            {
+                if constexpr (has_get_env<Derived>)
+                {
+                    static_assert(noexcept(self.get_env()),
+                        "get_env should be noexcept");
+                    return self.get_env();
+                }
+                else
+                    return exec::get_env(get_base(self));
+            }
+
             // @formatter:off
-            template <fwd_recv_query Cpo, typename D = Derived, typename... Args>
+            template <recv_qry::fwd_recv_query Cpo, std::derived_from<Derived> D, typename... Args>
                 requires callable<Cpo, base_type<const D&>, Args...>
-            constexpr friend auto tag_invoke(Cpo cpo, const Derived& self, Args&&... args)
+            constexpr friend decltype(auto) tag_invoke(Cpo cpo, const D& self, Args&&... args)
                 noexcept(nothrow_callable<Cpo, base_type<const D&>, Args...>)
-                -> call_result_t<Cpo, base_type<const D&>, Args...>
             {
                 return static_cast<Cpo&&>(cpo)(
                     get_base(self), static_cast<Args&&>(args)...);
             }
             // @formatter:on
         };
+
+        template <class_type Derived, typename Base = no_base>
+        using receiver_adaptor = typename receiver_adaptor_<Derived, Base>::type;
     }
 
-    template <class_type Derived, typename Base = detail::no_base>
-    using receiver_adaptor = typename detail::receiver_adaptor_<Derived, Base>::type;
+    using detail::recv_adpt::receiver_adaptor;
 
     template <class P> requires
         std::is_class_v<P> &&

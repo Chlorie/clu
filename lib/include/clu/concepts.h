@@ -9,8 +9,15 @@ namespace clu
     template <typename T, typename U>
     concept similar_to = std::same_as<std::remove_cvref_t<T>, std::remove_cvref_t<U>>;
 
+    // @formatter:off
     template <typename Inv, typename Res, typename... Ts>
     concept invocable_of = std::invocable<Inv, Ts...> && std::convertible_to<std::invoke_result_t<Inv, Ts...>, Res>;
+    template <typename F, typename... Args>
+    concept nothrow_invocable =
+        std::invocable<F, Args...> &&
+        std::is_nothrow_invocable_v<F, Args...>;
+        // noexcept(std::invoke(std::declval<F>(), std::declval<Args>()...));
+    // @formatter:on
 
     template <typename F, typename... Args>
     concept callable = requires(F func, Args ... args) { static_cast<F&&>(func)(static_cast<Args&&>(args)...); };
@@ -102,4 +109,158 @@ namespace clu
     {
         fptr({ static_cast<Us&&>(args)... });
     } && std::constructible_from<T, Us...>;
+
+    namespace detail
+    {
+        // @formatter:off
+        template <typename Ptr>
+        concept allocator_ptr =
+            nullable_pointer<Ptr> &&
+            std::contiguous_iterator<Ptr>;
+        // @formatter:on
+
+        template <typename T>
+        struct pointer_of : std::type_identity<typename T::value_type*> {};
+        template <typename T> requires requires { typename T::pointer; }
+        struct pointer_of<T> : std::type_identity<typename T::pointer> {};
+        template <typename T>
+        using pointer_of_t = typename pointer_of<T>::type;
+
+        template <typename Ptr>
+        struct diff_type_of : std::type_identity<std::ptrdiff_t> {};
+        template <typename Ptr> requires requires { typename Ptr::difference_type; }
+        struct diff_type_of<Ptr> : std::type_identity<typename Ptr::difference_type> {};
+        template <typename Ptr>
+        struct size_type_of : std::type_identity<std::make_unsigned_t<typename diff_type_of<Ptr>::type>> {};
+        template <typename Ptr> requires requires { typename Ptr::size_type; }
+        struct size_type_of<Ptr> : std::type_identity<typename Ptr::size_type> {};
+
+        template <typename Ptr>
+        struct specialization_first_arg {};
+        template <template <typename...> typename Templ, typename T, typename... Args>
+        struct specialization_first_arg<Templ<T, Args...>> : std::type_identity<T> {};
+
+        template <typename Ptr>
+        constexpr auto element_type_of_impl() noexcept
+        {
+            if constexpr (requires { typename Ptr::element_type; })
+                return type_tag<typename Ptr::element_type>;
+            else if constexpr (requires { typename specialization_first_arg<Ptr>::type; })
+                return type_tag<typename specialization_first_arg<Ptr>::type>;
+            else
+                return;
+        }
+
+        template <typename Ptr>
+        using element_type_of_t = typename decltype(element_type_of_impl<Ptr>())::type;
+
+        template <typename Alloc>
+        using size_type_of_allocator = typename size_type_of<pointer_of_t<Alloc>>::type;
+
+        template <typename T> using always_eq = typename T::is_always_eq;
+        template <typename T> using pocca = typename T::propagate_on_container_copy_assignment;
+        template <typename T> using pocma = typename T::propagate_on_container_move_assignment;
+        template <typename T> using pocs = typename T::propagate_on_container_swap;
+
+        // @formatter:off
+        template <typename T>
+        concept boolean_alias =
+            std::same_as<T, std::true_type> ||
+            std::same_as<T, std::false_type> ||
+            std::derived_from<T, std::true_type> ||
+            std::derived_from<T, std::false_type>;
+
+        template <typename T>
+        concept allocator_base =
+            std::copyable<T> &&
+            std::equality_comparable<T> &&
+            requires { typename T::value_type; } &&
+            requires (
+                T& alloc,
+                pointer_of_t<T> ptr,
+                size_type_of_allocator<T> size)
+            {
+                { alloc.allocate(size) } -> std::same_as<pointer_of_t<T>>;
+                alloc.deallocate(ptr, size);
+            };
+
+        template <typename T>
+        concept has_valid_allocator_types =
+            allocator_ptr<typename std::allocator_traits<T>::pointer> &&
+            allocator_ptr<typename std::allocator_traits<T>::const_pointer> &&
+            std::convertible_to<typename std::allocator_traits<T>::pointer, typename std::allocator_traits<T>::const_pointer> &&
+            nullable_pointer<typename std::allocator_traits<T>::void_pointer> &&
+            std::convertible_to<typename std::allocator_traits<T>::pointer, typename std::allocator_traits<T>::void_pointer> &&
+            nullable_pointer<typename std::allocator_traits<T>::const_void_pointer> &&
+            std::convertible_to<typename std::allocator_traits<T>::pointer, typename std::allocator_traits<T>::const_void_pointer> &&
+            std::convertible_to<typename std::allocator_traits<T>::const_pointer, typename std::allocator_traits<T>::const_void_pointer> &&
+            std::convertible_to<typename std::allocator_traits<T>::void_pointer, typename std::allocator_traits<T>::const_void_pointer> &&
+            std::unsigned_integral<typename std::allocator_traits<T>::size_type> &&
+            std::signed_integral<typename std::allocator_traits<T>::difference_type>;
+
+        template <typename Ptr>
+        concept traits_has_pointer_to =
+            std::is_pointer_v<Ptr> ||
+            (
+                requires { typename element_type_of_t<Ptr>; } &&
+                requires(element_type_of_t<Ptr>& ref)
+                {
+                    { Ptr::pointer_to(ref) } -> std::same_as<Ptr>;
+                }
+            );
+
+        template <typename T>
+        concept has_valid_allocator_ptr_operations =
+            requires (
+                typename std::allocator_traits<T>::pointer p,
+                typename std::allocator_traits<T>::const_pointer cp,
+                typename std::allocator_traits<T>::void_pointer vp,
+                typename std::allocator_traits<T>::const_void_pointer cvp)
+            {
+                { *p } -> std::same_as<typename T::value_type&>;
+                { *cp } -> std::same_as<const typename T::value_type&>;
+                static_cast<typename std::allocator_traits<T>::pointer>(vp);
+                static_cast<typename std::allocator_traits<T>::const_pointer>(cvp);
+            } &&
+            traits_has_pointer_to<typename std::allocator_traits<T>::pointer> &&
+            requires (typename T::value_type& r)
+            {
+                { std::pointer_traits<typename std::allocator_traits<T>::pointer>::pointer_to(r) }
+                -> std::same_as<typename std::allocator_traits<T>::pointer>;
+            };
+            
+        template <typename T>
+        concept has_valid_soccc = 
+            (!requires(T al) { al.select_on_container_copy_construction(); }) ||
+            requires(T al)
+            {
+                { al.select_on_container_copy_construction() }
+                -> std::same_as<T>;
+            };
+
+        template <typename T, template <typename> typename Member>
+        concept valid_boolean_alias =
+            (!requires { typename Member<T>; }) ||
+            boolean_alias<Member<T>>;
+
+        template <typename T>
+        concept has_valid_allocator_boolean_aliases =
+            valid_boolean_alias<T, always_eq> &&
+            valid_boolean_alias<T, pocca> &&
+            valid_boolean_alias<T, pocma> &&
+            valid_boolean_alias<T, pocs>;
+        // @formatter:on
+    }
+
+    // @formatter:off
+    template <typename T>
+    concept allocator =
+        detail::allocator_base<T> &&
+        detail::has_valid_allocator_types<T> &&
+        detail::has_valid_allocator_ptr_operations<T> &&
+        detail::has_valid_soccc<T> &&
+        detail::has_valid_allocator_boolean_aliases<T>;
+    // @formatter:on
+
+    static_assert(allocator<std::allocator<int>>);
 }

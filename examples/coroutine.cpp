@@ -3,11 +3,7 @@
 #include <chrono>
 #include <mutex>
 
-#include <clu/execution/execution_traits.h>
-#include <clu/execution/sender_consumers.h>
-#include <clu/execution/sender_factories.h>
-#include <clu/execution/contexts.h>
-#include <clu/execution/algorithms.h>
+#include <clu/execution.h>
 
 using namespace std::literals;
 
@@ -65,21 +61,43 @@ struct to_detached_thread
 // }
 
 namespace ex = clu::exec;
-namespace ed = ex::detail;
 
-template <typename T>
-[[deprecated]] void print_type() {}
+auto maybe_throw(const bool do_throw)
+{
+    return [do_throw]
+    {
+        if (do_throw)
+            throw std::runtime_error("wat");
+    };
+}
+
+void happy_path()
+{
+    std::cout << "Yeah!\n";
+}
+
+void sad_path(const std::exception_ptr& eptr)
+{
+    try
+    {
+        std::rethrow_exception(eptr);
+    }
+    catch (const std::exception& e)
+    {
+        std::cout << "Sad things happened: " << e.what() << '\n';
+    }
+}
 
 int main() // NOLINT
 {
-    using then_snd = ed::then_snd<ex::run_loop::snd_t, void(*)()>;
-    using start_recv = ex::start_detached_t::recv_t<then_snd>;
-    using then_recv = ed::then_recv<start_recv, void(*)()>;
-    // print_type<ex::completion_signatures_of_t<then_snd>>();
-    static_assert(clu::tag_invocable<ex::connect_t, then_snd, start_recv>);
-    // print_thread_id();
-    // ex::single_thread_context ctx;
-    // auto schd = ctx.get_scheduler();
-    // ex::start_detached(ex::schedule(schd) | ex::then(print_thread_id));
-    // ctx.finish();
+    print_thread_id();
+    ex::single_thread_context ctx;
+    auto schd = ctx.get_scheduler();
+    ex::start_detached(
+        ex::schedule(schd)
+        | ex::then(print_thread_id)
+        | ex::then(maybe_throw(true))
+        | ex::then(happy_path)
+        | ex::upon_error(sad_path));
+    ctx.finish();
 }

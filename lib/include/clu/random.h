@@ -59,4 +59,11 @@ namespace clu
             return dist(random_engine());
         }
     }
+
+    template <std::floating_point T>
+    T randfloat(const T low, const T high)
+    {
+        std::uniform_real_distribution<T> dist(low, high);
+        return dist(random_engine());
+    }
 }
