@@ -431,6 +431,11 @@ namespace clu::exec
                 }
             };
         }
+
+        namespace on
+        {
+            
+        }
     }
 
     using detail::start_det::start_detached_t;

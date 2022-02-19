@@ -4,6 +4,7 @@
 #include <mutex>
 
 #include <clu/execution.h>
+#include <clu/concurrency.h>
 
 using namespace std::literals;
 
