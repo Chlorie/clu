@@ -1,7 +1,10 @@
 #pragma once
 
+#include <mutex>
 #include <shared_mutex>
 #include <atomic>
+#include <thread>
+#include <functional>
 
 #include "assertion.h"
 

@@ -4,7 +4,6 @@
 #include <mutex>
 
 #include <clu/execution.h>
-#include <clu/concurrency.h>
 
 using namespace std::literals;
 
@@ -92,13 +91,15 @@ void sad_path(const std::exception_ptr& eptr)
 int main() // NOLINT
 {
     print_thread_id();
-    ex::single_thread_context ctx;
-    auto schd = ctx.get_scheduler();
+    // ex::single_thread_context ctx;
+    // auto schd = ctx.get_scheduler();
+    // auto schd = ex::inline_scheduler{};
     ex::start_detached(
-        ex::schedule(schd)
+        to_detached_thread()
         | ex::then(print_thread_id)
         | ex::then(maybe_throw(true))
         | ex::then(happy_path)
         | ex::upon_error(sad_path));
-    ctx.finish();
+    std::this_thread::sleep_for(10ms);
+    // ctx.finish();
 }

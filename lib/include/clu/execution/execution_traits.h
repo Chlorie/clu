@@ -283,7 +283,7 @@ namespace clu::exec
                     static_assert(boolean_testable<tag_invoke_result_t<forwarding_receiver_query_t, Cpo>>);
                     return tag_invoke(*this, cpo) ? true : false;
                 }
-                else 
+                else
                     return false;
             }
         };
@@ -402,7 +402,21 @@ namespace clu::exec
             sender<S, E> &&
             requires { typename single_sender_value_type<S, E>; };
         // @formatter:on
+
+        template <typename T>
+        using comp_sig_of_single = conditional_t<
+            std::is_void_v<T>,
+            set_value_t(),
+            set_value_t(with_regular_void_t<T>)>;
     }
+
+    namespace detail::coro_utils
+    {
+        struct as_awaitable_t;
+    }
+
+    using detail::coro_utils::as_awaitable_t;
+    extern const as_awaitable_t as_awaitable;
 
     namespace detail::conn
     {
@@ -421,7 +435,121 @@ namespace clu::exec
         // @formatter:on
 
         template <typename S, typename R>
-        concept connectable = tag_connectable<S, R>; // TODO
+        class ops_task
+        {
+        public:
+            class promise_type
+            {
+            public:
+                template <typename S2, typename R2>
+                promise_type(S2&& snd, R2&& recv):
+                    snd_(snd), recv_(recv) {}
+
+                coro::suspend_always initial_suspend() const noexcept { return {}; }
+                coro::suspend_never final_suspend() const noexcept { unreachable(); }
+                void return_void() const noexcept {}
+                ops_task get_return_object() { return ops_task(*this); }
+
+                coro::coroutine_handle<> unhandled_stopped() const noexcept
+                {
+                    exec::set_stopped(static_cast<R&&>(recv_));
+                    return coro::noop_coroutine();
+                }
+
+                template <typename F>
+                auto yield_value(F&& func) noexcept
+                {
+                    struct res_t
+                    {
+                        std::decay_t<F> f;
+
+                        bool await_ready() const noexcept { return false; }
+                        void await_suspend(coro::coroutine_handle<>) { f(); }
+                        void await_resume() const noexcept { unreachable(); }
+                    };
+                    return res_t{ static_cast<F&&>(func) };
+                }
+
+                template <typename T>
+                decltype(auto) await_transform(T&& value)
+                {
+                    if constexpr(tag_invocable<as_awaitable_t, T, promise_type&>)
+                        return clu::tag_invoke(as_awaitable, static_cast<T&&>(value), *this);
+                    else
+                        return static_cast<T&&>(value);
+                }
+
+                void unhandled_exception() const noexcept { std::terminate(); }
+
+            private:
+                S& snd_;
+                R& recv_;
+
+                // @formatter:off
+                template <typename Cpo, typename... Args> requires
+                    recv_qry::fwd_recv_query<Cpo> &&
+                    callable<Cpo, const R&, Args...>
+                friend decltype(auto) tag_invoke(const Cpo cpo, const promise_type& self, Args&&... args)
+                    noexcept(nothrow_callable<Cpo, const R&, Args...>)
+                {
+                    return cpo(self.recv_, static_cast<Args&&>(args)...);
+                }
+                // @formatter:on
+            };
+
+        private:
+            unique_coroutine_handle<promise_type> handle_;
+
+            explicit ops_task(promise_type& promise):
+                handle_(coro::coroutine_handle<promise_type>::from_promise(promise)) {}
+
+            friend void tag_invoke(start_t, ops_task& self) noexcept { self.handle_.get().resume(); }
+        };
+
+        template <typename S, typename R>
+        using conn_await_promise = typename ops_task<std::decay_t<S>, std::decay_t<R>>::promise_type;
+
+        template <typename S, typename R>
+        using await_comp_sigs = completion_signatures<
+            comp_sig_of_single<await_result_t<S, conn_await_promise<S, R>>>,
+            set_error_t(std::exception_ptr),
+            set_stopped_t()
+        >;
+
+        template <typename S, typename R>
+            requires receiver_of<R, await_comp_sigs<S, R>>
+        ops_task<S, R> connect_awaitable(S snd, R recv)
+        {
+            std::exception_ptr eptr;
+            try
+            {
+                if constexpr (std::is_void_v<await_result_t<S, conn_await_promise<S, R>>>)
+                {
+                    co_await std::move(snd);
+                    co_yield [&] { exec::set_value(std::move(recv)); };
+                }
+                else
+                {
+                    auto&& res = co_await std::move(snd);
+                    co_yield [&] { exec::set_value(std::move(recv), static_cast<decltype(res)>(res)); };
+                }
+            }
+            catch (...)
+            {
+                eptr = std::current_exception();
+            }
+            co_yield [&] { exec::set_error(std::move(recv), std::move(eptr)); };
+        }
+
+        template <typename S, typename R>
+        concept await_connectable = awaitable<S, conn_await_promise<S, R>>;
+
+        // @formatter:off
+        template <typename S, typename R>
+        concept connectable =
+            receiver<R> &&
+            (tag_connectable<S, R> || await_connectable<S, R>);
+        // @formatter:on
 
         struct connect_t
         {
@@ -430,9 +558,13 @@ namespace clu::exec
             auto operator()(S&& snd, R&& recv) const
             {
                 if constexpr (tag_connectable<S, R>)
+                {
+                    static_assert(operation_state<tag_invoke_result_t<connect_t, S, R>>,
+                        "return type of connect should satisfy operation_state");
                     return tag_invoke(*this, static_cast<S&&>(snd), static_cast<R&&>(recv));
+                }
                 else
-                    static_assert(dependent_false<S, R>);
+                    return conn::connect_awaitable(static_cast<S&&>(snd), static_cast<R&&>(recv));
             }
         };
     }
@@ -630,7 +762,7 @@ namespace clu::exec
 
     template <scheduler S>
     using schedule_result_t = call_result_t<schedule_t, S>;
-    
+
     namespace detail
     {
         template <typename... Args>
@@ -682,7 +814,6 @@ namespace clu::exec
         struct as_awaitable_t { }; // TODO
     }
 
-    using detail::coro_utils::as_awaitable_t;
     inline constexpr as_awaitable_t as_awaitable{};
 
     namespace detail::gnrl_qry

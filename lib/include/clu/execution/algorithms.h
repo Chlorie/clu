@@ -8,12 +8,6 @@ namespace clu::exec
 {
     namespace detail
     {
-        template <typename T>
-        using comp_sig_of_single = conditional_t<
-            std::is_void_v<T>,
-            set_value_t(),
-            set_value_t(with_regular_void_t<T>)>;
-
         template <typename T, bool NoThrow = false>
         using comp_sigs_of_single = conditional_t<
             NoThrow,
@@ -30,85 +24,6 @@ namespace clu::exec
         using comp_sigs_of_inv = comp_sigs_of_single<
             std::invoke_result_t<F, Args...>,
             nothrow_invocable<F, Args...>>;
-
-        namespace start_det
-        {
-            template <typename S>
-            struct ops_wrapper;
-
-            template <typename S>
-            struct recv_
-            {
-                struct type;
-            };
-
-            template <typename S>
-            struct recv_<S>::type
-            {
-                ops_wrapper<S>* ptr = nullptr;
-
-                template <typename... Ts>
-                friend void tag_invoke(set_value_t, type&& self, Ts&&...) noexcept { delete self.ptr; }
-
-                template <typename = int>
-                friend void tag_invoke(set_stopped_t, type&& self) noexcept { delete self.ptr; }
-
-                template <typename E>
-                friend void tag_invoke(set_error_t, type&& self, E&&) noexcept
-                {
-                    delete self.ptr;
-                    std::terminate();
-                }
-
-                friend empty_env tag_invoke(get_env_t, const type&) noexcept { return {}; }
-            };
-
-            template <typename S>
-            using recv_t = typename recv_<S>::type;
-
-            template <typename S>
-            struct ops_wrapper
-            {
-                connect_result_t<S, recv_t<S>> op_state;
-
-                explicit ops_wrapper(S&& snd):
-                    op_state(exec::connect(static_cast<S&&>(snd), recv_t<S>{ .ptr = this })) {}
-            };
-
-            struct start_detached_t
-            {
-                template <sender S>
-                constexpr void operator()(S&& snd) const
-                {
-                    if constexpr (requires
-                    {
-                        requires tag_invocable<
-                            start_detached_t,
-                            call_result_t<get_completion_scheduler_t<set_value_t>, S>,
-                            S>;
-                    })
-                    {
-                        static_assert(std::is_void_v<tag_invoke_result_t<
-                                start_detached_t,
-                                call_result_t<get_completion_scheduler_t<set_value_t>, S>,
-                                S>>,
-                            "start_detached should return void");
-                        clu::tag_invoke(
-                            *this,
-                            exec::get_completion_scheduler<set_value_t>(snd),
-                            static_cast<S&&>(snd));
-                    }
-                    else if constexpr (tag_invocable<start_detached_t, S>)
-                    {
-                        static_assert(std::is_void_v<tag_invoke_result_t<start_detached_t, S>>,
-                            "start_detached should return void");
-                        clu::tag_invoke(*this, static_cast<S&&>(snd));
-                    }
-                    else
-                        exec::start((new ops_wrapper<S>(static_cast<S&&>(snd)))->op_state);
-                }
-            };
-        }
 
         namespace just
         {
@@ -410,6 +325,90 @@ namespace clu::exec
             struct upon_stopped_t : upon_t<upon_stopped_t, set_stopped_t> {};
         }
 
+        namespace on
+        {
+            
+        }
+
+        namespace start_det
+        {
+            template <typename S>
+            struct ops_wrapper;
+
+            template <typename S>
+            struct recv_
+            {
+                struct type;
+            };
+
+            template <typename S>
+            struct recv_<S>::type
+            {
+                ops_wrapper<S>* ptr = nullptr;
+
+                template <typename... Ts>
+                friend void tag_invoke(set_value_t, type&& self, Ts&&...) noexcept { delete self.ptr; }
+
+                template <typename = int>
+                friend void tag_invoke(set_stopped_t, type&& self) noexcept { delete self.ptr; }
+
+                template <typename E>
+                friend void tag_invoke(set_error_t, type&& self, E&&) noexcept
+                {
+                    delete self.ptr;
+                    std::terminate();
+                }
+
+                friend empty_env tag_invoke(get_env_t, const type&) noexcept { return {}; }
+            };
+
+            template <typename S>
+            using recv_t = typename recv_<S>::type;
+
+            template <typename S>
+            struct ops_wrapper
+            {
+                connect_result_t<S, recv_t<S>> op_state;
+
+                explicit ops_wrapper(S&& snd):
+                    op_state(exec::connect(static_cast<S&&>(snd), recv_t<S>{ .ptr = this })) {}
+            };
+
+            struct start_detached_t
+            {
+                template <sender S>
+                constexpr void operator()(S&& snd) const
+                {
+                    if constexpr (requires
+                    {
+                        requires tag_invocable<
+                            start_detached_t,
+                            call_result_t<get_completion_scheduler_t<set_value_t>, S>,
+                            S>;
+                    })
+                    {
+                        static_assert(std::is_void_v<tag_invoke_result_t<
+                                start_detached_t,
+                                call_result_t<get_completion_scheduler_t<set_value_t>, S>,
+                                S>>,
+                            "start_detached should return void");
+                        clu::tag_invoke(
+                            *this,
+                            exec::get_completion_scheduler<set_value_t>(snd),
+                            static_cast<S&&>(snd));
+                    }
+                    else if constexpr (tag_invocable<start_detached_t, S>)
+                    {
+                        static_assert(std::is_void_v<tag_invoke_result_t<start_detached_t, S>>,
+                            "start_detached should return void");
+                        clu::tag_invoke(*this, static_cast<S&&>(snd));
+                    }
+                    else
+                        exec::start((new ops_wrapper<S>(static_cast<S&&>(snd)))->op_state);
+                }
+            };
+        }
+
         namespace execute
         {
             struct execute_t
@@ -431,15 +430,8 @@ namespace clu::exec
                 }
             };
         }
-
-        namespace on
-        {
-            
-        }
     }
 
-    using detail::start_det::start_detached_t;
-    inline constexpr start_detached_t start_detached{};
     using detail::just::just_t;
     using detail::just::just_error_t;
     using detail::just::just_stopped_t;
@@ -452,11 +444,16 @@ namespace clu::exec
     inline constexpr then_t then{};
     inline constexpr upon_error_t upon_error{};
     inline constexpr upon_stopped_t upon_stopped{};
+    using detail::start_det::start_detached_t;
+    inline constexpr start_detached_t start_detached{};
     using detail::execute::execute_t;
     inline constexpr execute_t execute{};
 }
 
 namespace clu::this_thread
 {
-    inline struct sync_wait_t { } constexpr sync_wait{}; // TODO
+    inline struct sync_wait_t
+    {
+        
+    } constexpr sync_wait{};
 }

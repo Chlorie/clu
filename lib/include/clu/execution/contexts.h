@@ -171,7 +171,6 @@ namespace clu::exec
 
         namespace inl_schd
         {
-            // TODO: finish this
             template <typename R>
             struct ops_
             {
@@ -188,6 +187,11 @@ namespace clu::exec
 
             private:
                 R recv_;
+
+                friend void tag_invoke(start_t, type& self) noexcept
+                {
+                    exec::set_value(static_cast<R&&>(self.recv_));
+                }
             };
 
             template <typename R>
@@ -202,8 +206,7 @@ namespace clu::exec
                 }
 
                 friend completion_signatures<
-                    set_value_t(),
-                    set_error_t(std::exception_ptr)
+                    set_value_t()
                 > tag_invoke(get_completion_signatures_t, const snd_t&, auto) noexcept { return {}; }
             };
 
