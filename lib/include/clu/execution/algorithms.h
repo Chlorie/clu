@@ -2,23 +2,28 @@
 
 #include "execution_traits.h"
 #include "utility.h"
+#include "contexts.h"
 #include "../piper.h"
 
 namespace clu::exec
 {
     namespace detail
     {
+        template <typename... Sigs>
+        using filtered_comp_sigs = meta::unpack_invoke<
+            meta::remove_q<void>::fn<Sigs...>,
+            meta::quote<completion_signatures>>;
+
         template <typename T, bool NoThrow = false>
-        using comp_sigs_of_single = conditional_t<
-            NoThrow,
-            completion_signatures<conditional_t<
+        using comp_sigs_of_single = filtered_comp_sigs<
+            conditional_t<
                 std::is_void_v<T>,
                 set_value_t(),
-                set_value_t(with_regular_void_t<T>)>>,
-            completion_signatures<conditional_t<
-                std::is_void_v<T>,
-                set_value_t(),
-                set_value_t(with_regular_void_t<T>)>, set_error_t(std::exception_ptr)>>;
+                set_value_t(with_regular_void_t<T>)>,
+            conditional_t<
+                NoThrow,
+                void,
+                set_error_t(std::exception_ptr)>>;
 
         template <typename F, typename... Args>
         using comp_sigs_of_inv = comp_sigs_of_single<
@@ -327,7 +332,167 @@ namespace clu::exec
 
         namespace on
         {
-            
+            template <typename Env, typename S>
+            struct replace_schd_env_
+            {
+                class type;
+            };
+
+            template <typename Env, typename S>
+            class replace_schd_env_<Env, S>::type
+            {
+            public:
+                template <typename Env2, typename S2>
+                type(Env2&& env, S2&& schd) noexcept:
+                    base_(static_cast<Env2&&>(env)), schd_(static_cast<S2&&>(schd)) {}
+
+            private:
+                [[no_unique_address]] Env base_;
+                [[no_unique_address]] S schd_;
+
+                // @formatter:off
+                template <exec_envs::fwd_env_query Cpo, typename... Ts>
+                    requires callable<Cpo, const type&, Ts...>
+                friend decltype(auto) tag_invoke(Cpo, const type& self, Ts&&... args)
+                    noexcept(nothrow_callable<Cpo, const type&, Ts...>)
+                {
+                    return Cpo{}(self.base_, static_cast<Ts&&>(args)...);
+                }
+                // @formatter:on
+
+                friend S tag_invoke(get_scheduler_t, const type& self) noexcept { return schd_; }
+            };
+
+            template <typename Env, typename S>
+            auto replace_schd(Env&& env, S&& schd) noexcept
+            {
+                using env_t = typename replace_schd_env_<
+                    std::remove_cvref_t<Env>, std::remove_cvref_t<S>>::type;
+                return env_t(static_cast<Env&&>(env), static_cast<S&&>(schd));
+            }
+
+            struct on_t
+            {
+                template <scheduler Schd, sender Snd>
+                auto operator()(Schd&& schd, Snd&& snd) const
+                {
+                    if constexpr(tag_invocable<on_t, Schd, Snd>)
+                    {
+                        static_assert(sender<tag_invoke_result_t<on_t, Schd, Snd>>,
+                            "customization of on should return a sender");
+                        return clu::tag_invoke(*this, static_cast<Schd&&>(schd), static_cast<Snd&&>(snd));
+                    }
+                    else
+                    {
+                        // TODO: default impl
+                    }
+                }
+            };
+        }
+
+        namespace into_var
+        {
+            template <typename S, typename Env>
+            using variant_of = value_types_of_t<S, Env>;
+
+            template <typename T, bool WithSetValue = false>
+            struct comp_sigs_of_construction
+            {
+                template <typename... Ts>
+                using fn = filtered_comp_sigs<
+                    conditional_t<
+                        std::is_nothrow_constructible_v<T, Ts...>,
+                        void, set_error_t(std::exception_ptr)>,
+                    conditional_t<WithSetValue, set_value_t(T), void>>;
+            };
+
+            template <typename S, typename Env>
+            using snd_comp_sigs = make_completion_signatures<
+                S, Env,
+                completion_signatures<set_value_t(variant_of<S, Env>)>,
+                comp_sigs_of_construction<variant_of<S, Env>>::template fn>;
+
+            template <typename R, typename Var>
+            struct recv_
+            {
+                struct type;
+            };
+
+            template <typename R, typename Var>
+            using recv_t = typename recv_<std::remove_cvref_t<R>, Var>::type;
+
+            template <typename R, typename Var>
+            struct recv_<R, Var>::type : receiver_adaptor<recv_t<R, Var>, R>
+            {
+                using receiver_adaptor<recv_t<R, Var>, R>::receiver_adaptor;
+
+                template <typename... Ts>
+                using comp_sigs = typename comp_sigs_of_construction<decayed_tuple<Ts...>, true>::template fn<Ts...>;
+
+                template <typename... Ts>
+                    requires receiver_of<R, comp_sigs<Ts...>>
+                void set_value(Ts&&... args) && noexcept
+                {
+                    using tuple = decayed_tuple<Ts...>;
+                    if constexpr (std::is_nothrow_constructible_v<tuple, Ts...>)
+                    {
+                        exec::set_value(std::move(*this).base(),
+                            Var(std::in_place_type<tuple>, static_cast<Ts&&>(args)...));
+                    }
+                    else
+                    {
+                        try
+                        {
+                            exec::set_value(std::move(*this).base(),
+                                Var(std::in_place_type<tuple>, static_cast<Ts&&>(args)...));
+                        }
+                        catch (...)
+                        {
+                            exec::set_error(std::move(*this).base(),
+                                std::current_exception());
+                        }
+                    }
+                }
+            };
+
+            template <typename S>
+            struct snd_
+            {
+                class type;
+            };
+
+            template <typename S>
+            class snd_<S>::type
+            {
+            public:
+                template <typename S2>
+                constexpr explicit type(S2&& snd): snd_(static_cast<S2&&>(snd)) {}
+
+            private:
+                [[no_unique_address]] S snd_;
+
+                template <typename R>
+                constexpr friend auto tag_invoke(connect_t, type&& snd, R&& recv)
+                {
+                    return exec::connect(
+                        static_cast<type&&>(snd).snd_,
+                        recv_t<R, variant_of<S, env_of_t<R>>>(static_cast<R&&>(recv))
+                    );
+                }
+
+                template <typename Env>
+                constexpr friend snd_comp_sigs<S, Env> tag_invoke(get_completion_signatures_t, type&&, Env) { return {}; }
+            };
+
+            template <typename S>
+            using snd_t = typename snd_<std::remove_cvref_t<S>>::type;
+
+            struct into_variant_t
+            {
+                template <sender S>
+                auto operator()(S&& snd) const { return snd_t<S>(static_cast<S&&>(snd)); }
+                auto operator()() const noexcept { return make_piper(*this); }
+            };
         }
 
         namespace start_det
@@ -444,6 +609,8 @@ namespace clu::exec
     inline constexpr then_t then{};
     inline constexpr upon_error_t upon_error{};
     inline constexpr upon_stopped_t upon_stopped{};
+    using detail::into_var::into_variant_t;
+    inline constexpr into_variant_t into_variant{};
     using detail::start_det::start_detached_t;
     inline constexpr start_detached_t start_detached{};
     using detail::execute::execute_t;
@@ -452,8 +619,169 @@ namespace clu::exec
 
 namespace clu::this_thread
 {
-    inline struct sync_wait_t
+    namespace detail::sync_wait
     {
-        
-    } constexpr sync_wait{};
+        template <typename S>
+        struct recv_
+        {
+            class type;
+        };
+
+        namespace loop = exec::detail::loop;
+
+        struct env_t
+        {
+            loop::schd_t schd;
+            friend loop::schd_t tag_invoke(exec::get_scheduler_t, const env_t& self) noexcept { return self.schd; }
+            friend loop::schd_t tag_invoke(exec::get_delegatee_scheduler_t, const env_t& self) noexcept { return self.schd; }
+        };
+
+        template <typename S>
+        using value_types_t = exec::value_types_of_t<S, env_t, exec::detail::decayed_tuple, single_type_t>;
+        template <typename S>
+        using result_t = std::optional<value_types_t<S>>;
+        template <typename S>
+        using variant_t = std::variant<std::monostate, value_types_t<S>, std::exception_ptr, exec::set_stopped_t>;
+
+        // @formatter:off
+        template <typename S>
+        concept sync_waitable_sender =
+            exec::sender<S, env_t> &&
+            requires { typename result_t<S>; };
+        // @formatter:on
+
+        template <typename S>
+        class recv_<S>::type
+        {
+        public:
+            type(loop::run_loop* loop, variant_t<S>* ptr):
+                loop_(loop), ptr_(ptr) {}
+
+        private:
+            loop::run_loop* loop_;
+            variant_t<S>* ptr_;
+
+            friend env_t tag_invoke(exec::get_env_t, const type& self) noexcept { return { self.loop_->get_scheduler() }; }
+
+            template <typename... Ts>
+                requires std::constructible_from<value_types_t<S>, Ts...>
+            friend void tag_invoke(exec::set_value_t, type&& self, Ts&&... args) noexcept
+            {
+                try
+                {
+                    self.ptr_->template emplace<1>(static_cast<Ts&&>(args)...);
+                    self.loop_->finish();
+                }
+                catch (...)
+                {
+                    exec::set_error(std::move(self), std::current_exception());
+                }
+            }
+
+            template <typename E>
+            friend void tag_invoke(exec::set_error_t, type&& self, E&& error) noexcept
+            {
+                self.ptr_->template emplace<2>(exec::detail::make_exception_ptr(static_cast<E&&>(error)));
+                self.loop_->finish();
+            }
+
+            friend void tag_invoke(exec::set_stopped_t, type&& self) noexcept
+            {
+                self.ptr_->template emplace<3>();
+                self.loop_->finish();
+            }
+        };
+
+        template <typename S>
+        using recv_t = typename recv_<std::remove_cvref_t<S>>::type;
+
+        struct sync_wait_t
+        {
+            template <sync_waitable_sender S>
+            constexpr result_t<S> operator()(S&& snd) const
+            {
+                if constexpr (requires
+                {
+                    requires tag_invocable<
+                        sync_wait_t,
+                        exec::detail::completion_scheduler_of_t<exec::set_value_t, S>,
+                        S>;
+                })
+                {
+                    using comp_schd = exec::detail::completion_scheduler_of_t<exec::set_value_t, S>;
+                    static_assert(std::is_same_v<tag_invoke_result_t<sync_wait_t, comp_schd, S>, result_t<S>>);
+                    return clu::tag_invoke(
+                        *this,
+                        exec::get_completion_scheduler<exec::set_value_t>(static_cast<S&&>(snd)),
+                        static_cast<S&&>(snd)
+                    );
+                }
+                else if constexpr (tag_invocable<sync_wait_t, S>)
+                {
+                    static_assert(std::is_same_v<tag_invoke_result_t<sync_wait_t, S>, result_t<S>>);
+                    return clu::tag_invoke(*this, static_cast<S&&>(snd));
+                }
+                else
+                {
+                    loop::run_loop ctx;
+                    variant_t<S> result;
+                    auto ops = exec::connect(static_cast<S&&>(snd), recv_t<S>(&ctx, &result));
+                    exec::start(ops);
+                    ctx.run();
+                    switch (result.index())
+                    {
+                        case 1: return std::get<1>(std::move(result));
+                        case 2: std::rethrow_exception(std::get<2>(std::move(result)));
+                        case 3: return std::nullopt;
+                        default: unreachable();
+                    }
+                }
+            }
+        };
+
+        template <typename S>
+        using into_var_snd_t = call_result_t<exec::into_variant_t, S>;
+
+        template <typename S>
+        using var_result_t = result_t<into_var_snd_t<S>>;
+
+        struct sync_wait_with_variant_t
+        {
+            template <typename S>
+                requires sync_waitable_sender<into_var_snd_t<S>>
+            constexpr var_result_t<S> operator()(S&& snd) const
+            {
+                if constexpr (requires
+                {
+                    requires tag_invocable<
+                        sync_wait_with_variant_t,
+                        exec::detail::completion_scheduler_of_t<exec::set_value_t, S>,
+                        S>;
+                })
+                {
+                    using comp_schd = exec::detail::completion_scheduler_of_t<exec::set_value_t, S>;
+                    static_assert(std::is_same_v<
+                        tag_invoke_result_t<sync_wait_with_variant_t, comp_schd, S>,
+                        var_result_t<S>>);
+                    return clu::tag_invoke(
+                        *this,
+                        exec::get_completion_scheduler<exec::set_value_t>(static_cast<S&&>(snd)),
+                        static_cast<S&&>(snd)
+                    );
+                }
+                else if constexpr (tag_invocable<sync_wait_with_variant_t, S>)
+                {
+                    static_assert(std::is_same_v<tag_invoke_result_t<sync_wait_with_variant_t, S>, var_result_t<S>>);
+                    return clu::tag_invoke(*this, static_cast<S&&>(snd));
+                }
+                else
+                    return sync_wait_t{}(exec::into_variant(static_cast<S&&>(snd)));
+            }
+        };
+    }
+
+    using detail::sync_wait::sync_wait_t;
+    using detail::sync_wait::sync_wait_with_variant_t;
+    inline constexpr sync_wait_t sync_wait{};
+    inline constexpr sync_wait_with_variant_t sync_wait_with_variant{};
 }

@@ -177,6 +177,15 @@ namespace clu::meta
         type_list<indexed_type<idx, Ts>...> enumerate_impl(Templ<Ts...>, std::index_sequence<idx...>);
     }
 
+    template <typename T>
+    struct constant_q
+    {
+        template <typename... Ts>
+        using fn = T;
+    };
+    template <typename List, typename T>
+    using constant_l = unpack_invoke<List, constant_q<T>>;
+
     template <typename List1, typename List2>
     using concatenate_l = decltype(detail::concat_impl(List1{}, List2{}));
 

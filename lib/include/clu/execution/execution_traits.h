@@ -392,17 +392,6 @@ namespace clu::exec
         template <typename... Ts>
         using collapse_types_t = typename collapse_types<Ts...>::type;
 
-        // @formatter:off
-        template <typename S, typename E = no_env>
-        using single_sender_value_type =
-            value_types_of_t<S, E, collapse_types_t, collapse_types_t>;
-
-        template <typename S, typename E = no_env>
-        concept single_sender =
-            sender<S, E> &&
-            requires { typename single_sender_value_type<S, E>; };
-        // @formatter:on
-
         template <typename T>
         using comp_sig_of_single = conditional_t<
             std::is_void_v<T>,
@@ -473,7 +462,7 @@ namespace clu::exec
                 template <typename T>
                 decltype(auto) await_transform(T&& value)
                 {
-                    if constexpr(tag_invocable<as_awaitable_t, T, promise_type&>)
+                    if constexpr (tag_invocable<as_awaitable_t, T, promise_type&>)
                         return clu::tag_invoke(as_awaitable, static_cast<T&&>(value), *this);
                     else
                         return static_cast<T&&>(value);
@@ -765,6 +754,159 @@ namespace clu::exec
 
     namespace detail
     {
+        template <typename E>
+        std::exception_ptr make_exception_ptr(E&& error) noexcept
+        {
+            if constexpr (decays_to<E, std::exception_ptr>)
+                return static_cast<E&&>(error);
+            else if constexpr (decays_to<E, std::error_code>)
+                return std::make_exception_ptr(std::system_error(error));
+            else
+                return std::make_exception_ptr(error);
+        }
+    }
+
+    namespace detail::coro_utils
+    {
+        // @formatter:off
+        template <typename S, typename E = no_env>
+        using single_sender_value_type =
+            value_types_of_t<S, E, collapse_types_t, collapse_types_t>;
+
+        template <typename S, typename E = no_env>
+        concept single_sender =
+            sender<S, E> &&
+            requires { typename single_sender_value_type<S, E>; };
+        // @formatter:on
+
+        template <typename S, typename P>
+        using result_t = with_regular_void_t<single_sender_value_type<S, env_of_t<P>>>;
+
+        template <typename S, typename P>
+        using variant_t = std::variant<monostate, result_t<S, P>, std::exception_ptr>;
+
+        template <typename S, typename P>
+        struct recv_
+        {
+            class type;
+        };
+
+        template <typename S, typename P>
+        using awaitable_receiver = typename recv_<S, P>::type;
+
+        template <typename S, typename P>
+        class recv_<S, P>::type
+        {
+        public:
+            type(variant_t<S, P>* ptr, const coro::coroutine_handle<P> handle):
+                result_(ptr), handle_(handle) {}
+
+        private:
+            variant_t<S, P>* result_;
+            coro::coroutine_handle<P> handle_;
+
+            template <typename... Ts>
+                requires std::constructible_from<result_t<S, P>, Ts...>
+            friend void tag_invoke(set_value_t, type&& self, Ts&&... args) noexcept
+            {
+                try { self.result_->template emplace<1>(static_cast<Ts&&>(args)...); }
+                catch (...) { self.result_->template emplace<2>(std::current_exception()); }
+                self.handle_.resume();
+            }
+
+            template <typename E>
+            friend void tag_invoke(set_error_t, type&& self, E&& error) noexcept
+            {
+                self.result_->template emplace<2>(detail::make_exception_ptr(static_cast<E&&>(error)));
+                self.handle_.resume();
+            }
+
+            friend void tag_invoke(set_stopped_t, type&& self) noexcept
+            {
+                coro::coroutine_handle<> cont = self.handle_.promise().unhandled_stopped();
+                cont.resume();
+            }
+
+            // @formatter:off
+            template <typename Cpo, typename... Args> requires
+                recv_qry::fwd_recv_query<Cpo> &&
+                callable<Cpo, const P&, Args...>
+            friend decltype(auto) tag_invoke(const Cpo cpo, const type& self, Args&&... args)
+                noexcept(nothrow_callable<Cpo, const P&, Args...>)
+            {
+                return cpo(std::as_const(self.handle_.promise()),
+                    static_cast<Args&&>(args)...);
+            }
+            // @formatter:on
+        };
+
+        template <typename S, typename P>
+        struct awt_
+        {
+            class type;
+        };
+
+        template <typename S, typename P>
+        using sender_awaitable = typename awt_<std::remove_cvref_t<S>, std::remove_cvref_t<P>>::type;
+
+        template <typename S, typename P>
+        class awt_<S, P>::type
+        {
+        public:
+            type(S&& s, P& p);
+
+            bool await_ready() const noexcept { return false; }
+            void await_suspend(coro::coroutine_handle<P>) noexcept { exec::start(state_); }
+            auto await_resume()
+            {
+                if (result_.index() == 2)
+                    std::rethrow_exception(std::get<2>(result_));
+                if constexpr (!std::is_void_v<value_t>)
+                    return static_cast<value_t&&>(std::get<1>(result_));
+            }
+
+        private:
+            using value_t = single_sender_value_type<S, env_of_t<P>>;
+
+            variant_t<S, P> result_{};
+            connect_result_t<S, awaitable_receiver<S, P>> state_;
+        };
+
+        // @formatter:off
+        template <typename S, typename P>
+        concept awaitable_sender =
+            single_sender<S, env_of_t<P>> &&
+            sender_to<S, awaitable_receiver<S, P>> && // see below
+            requires(P& p)
+            {
+                { p.unhandled_stopped() } -> std::convertible_to<coro::coroutine_handle<>>;
+            };
+        // @formatter:on
+
+        struct as_awaitable_t
+        {
+            template <typename T, typename P>
+                requires std::is_lvalue_reference_v<P>
+            decltype(auto) operator()(T&& value, P&& prms) const
+            {
+                if constexpr (tag_invocable<as_awaitable_t, T, P>)
+                {
+                    static_assert(awaitable<tag_invoke_result_t<as_awaitable_t, T, P>>,
+                        "customizations to as_awaitable should return an awaitable");
+                    return clu::tag_invoke(*this, static_cast<T&&>(value), prms);
+                }
+                else if constexpr (awaitable<T> || !awaitable_sender<T, P>)
+                    return static_cast<T&&>(value);
+                else
+                    return sender_awaitable<T, P>(static_cast<T&&>(value), prms);
+            }
+        };
+    }
+
+    inline constexpr as_awaitable_t as_awaitable{};
+
+    namespace detail
+    {
         template <typename... Args>
         using default_set_value = completion_signatures<set_value_t(Args ...)>;
 
@@ -808,13 +950,6 @@ namespace clu::exec
     using make_completion_signatures = decltype(detail::make_comp_sigs_impl<
             Sndr, Env, AddlSigs, meta::quote<SetValue>, meta::quote1<SetError>, SetStopped>
         (priority_tag<1>{}));
-
-    namespace detail::coro_utils
-    {
-        struct as_awaitable_t { }; // TODO
-    }
-
-    inline constexpr as_awaitable_t as_awaitable{};
 
     namespace detail::gnrl_qry
     {

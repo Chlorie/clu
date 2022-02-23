@@ -154,9 +154,8 @@ namespace clu::exec
 
                 ops_base* dequeue(std::unique_lock<std::mutex>& lock)
                 {
-                    if (!head_ && state_ == state_t::finishing)
-                        return nullptr;
-                    cv_.wait(lock, [this] { return head_ != nullptr; });
+                    cv_.wait(lock, [this] { return head_ != nullptr || state_ == state_t::finishing; });
+                    if (!head_) return nullptr;
                     ops_base* ptr = head_;
                     head_ = head_->next;
                     if (!head_) tail_ = nullptr;

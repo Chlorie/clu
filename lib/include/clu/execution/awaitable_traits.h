@@ -78,10 +78,12 @@ namespace clu::exec
         ));
     }
 
+    // @formatter:off
     template <typename A, typename P = void>
     concept awaitable =
-    requires { typename detail::await_transform_type<A, P>; } &&
-    detail::unconditionally_awaitable<detail::await_transform_type<A, P>>;
+        requires { typename detail::await_transform_type<A, P>; } &&
+        detail::unconditionally_awaitable<detail::await_transform_type<A, P>>;
+    // @formatter:on
 
     template <typename A, typename P = void>
     using awaiter_type_t = get_awaiter_t::awaiter_type<detail::await_transform_type<A, P>>;
