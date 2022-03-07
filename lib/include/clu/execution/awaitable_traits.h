@@ -90,5 +90,3 @@ namespace clu::exec
     template <typename A, typename P = void>
     using await_result_t = decltype(std::declval<awaiter_type_t<A, P>>().await_resume());
 }
-
-#include "../undef_macros.h"

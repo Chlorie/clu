@@ -204,17 +204,17 @@ namespace clu::exec
         {
             cont_ = h;
             if constexpr (requires(P2& other) { other.unhandled_stopped(); })
-                done_handler_ = [](void* p) noexcept -> coro::coroutine_handle<>
+                stopped_handler_ = [](void* p) noexcept -> coro::coroutine_handle<>
                 {
                     return coro::coroutine_handle<P2>::from_address(p)
                           .promise().unhandled_stopped();
                 };
             else
-                done_handler_ = default_stopped_handler;
+                stopped_handler_ = default_stopped_handler;
         }
 
         coro::coroutine_handle<> continuation() const noexcept { return cont_; }
-        coro::coroutine_handle<> unhandled_stopped() const noexcept { return done_handler_(cont_.address()); }
+        coro::coroutine_handle<> unhandled_stopped() const noexcept { return stopped_handler_(cont_.address()); }
 
         template <typename T>
         decltype(auto) await_transform(T&& value)
@@ -227,8 +227,6 @@ namespace clu::exec
         [[noreturn]] static coro::coroutine_handle<> default_stopped_handler(void*) noexcept { std::terminate(); }
 
         coro::coroutine_handle<> cont_{};
-        coro::coroutine_handle<> (*done_handler_)(void*) noexcept = default_stopped_handler;
+        coro::coroutine_handle<> (*stopped_handler_)(void*) noexcept = default_stopped_handler;
     };
 }
-
-#include "../undef_macros.h"

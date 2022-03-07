@@ -284,7 +284,7 @@ namespace clu::exec
                     return tag_invoke(*this, cpo) ? true : false;
                 }
                 else
-                    return false;
+                    return !recvs::completion_cpo<Cpo>;
             }
         };
 
@@ -427,6 +427,8 @@ namespace clu::exec
         class ops_task
         {
         public:
+            CLU_IMMOVABLE_TYPE(ops_task);
+
             class promise_type
             {
             public:
@@ -713,11 +715,12 @@ namespace clu::exec
             template <receiver R>
             friend auto tag_invoke(connect_t, type, R&& recv)
             {
-                using ops_t = read_ops_<Cpo, std::remove_cvref_t<R>>;
+                using ops_t = typename read_ops_<Cpo, std::remove_cvref_t<R>>::type;
                 return ops_t{ static_cast<R&&>(recv) };
             }
 
-            friend empty_env tag_invoke(get_completion_signatures_t, type, auto) { return {}; }
+            template <typename Env>
+            friend dependent_completion_signatures<Env> tag_invoke(get_completion_signatures_t, type, Env) { return {}; }
 
             template <typename Env> requires
                 (!std::same_as<Env, no_env>) &&
@@ -737,7 +740,7 @@ namespace clu::exec
         struct read_t
         {
             template <typename Cpo>
-            auto operator()(Cpo) const noexcept
+            constexpr auto operator()(Cpo) const noexcept
             {
                 using snd_t = typename read_snd_<Cpo>::type;
                 return snd_t{};
@@ -792,7 +795,7 @@ namespace clu::exec
         };
 
         template <typename S, typename P>
-        using awaitable_receiver = typename recv_<S, P>::type;
+        using awaitable_receiver = typename recv_<S, std::remove_cvref_t<P>>::type;
 
         template <typename S, typename P>
         class recv_<S, P>::type
@@ -853,7 +856,10 @@ namespace clu::exec
         class awt_<S, P>::type
         {
         public:
-            type(S&& s, P& p);
+            type(S&& snd, P& promise): state_(exec::connect(
+                static_cast<S&&>(snd),
+                awaitable_receiver<S, P>(&result_, coro::coroutine_handle<P>::from_promise(promise))
+            )) {}
 
             bool await_ready() const noexcept { return false; }
             void await_suspend(coro::coroutine_handle<P>) noexcept { exec::start(state_); }
@@ -967,7 +973,7 @@ namespace clu::exec
                 return tag_invoke(*this, r);
             }
 
-            auto operator()() const noexcept { return exec::read(*this); }
+            constexpr auto operator()() const noexcept { return exec::read(*this); }
         };
 
         struct get_delegatee_scheduler_t
@@ -984,7 +990,7 @@ namespace clu::exec
                 return tag_invoke(*this, r);
             }
 
-            auto operator()() const noexcept { return exec::read(*this); }
+            constexpr auto operator()() const noexcept { return exec::read(*this); }
         };
 
         struct get_allocator_t
@@ -1001,7 +1007,7 @@ namespace clu::exec
                 return tag_invoke(*this, r);
             }
 
-            auto operator()() const noexcept { return exec::read(*this); }
+            constexpr auto operator()() const noexcept { return exec::read(*this); }
         };
 
         struct get_stop_token_t
@@ -1022,7 +1028,7 @@ namespace clu::exec
                     return never_stop_token{};
             }
 
-            auto operator()() const noexcept { return exec::read(*this); }
+            constexpr auto operator()() const noexcept { return exec::read(*this); }
         };
     }
 

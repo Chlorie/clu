@@ -51,6 +51,9 @@ namespace clu::exec
                 template <forwarding<R> R2>
                 type(run_loop* loop, R2&& recv) noexcept(std::is_nothrow_constructible_v<R, R2>):
                     ops_base(loop), recv_(static_cast<R2&&>(recv)) {}
+                
+                ~type() noexcept = default;
+                CLU_IMMOVABLE_TYPE(type);
 
                 void execute() override
                 {
@@ -59,9 +62,7 @@ namespace clu::exec
                     else
                         exec::set_value(std::move(recv_));
                 }
-
-                ~type() noexcept = default;
-
+                
             private:
                 R recv_;
 
@@ -86,7 +87,7 @@ namespace clu::exec
                 // @formatter:off
                 template <typename R>
                 friend auto tag_invoke(connect_t, const snd_t& snd, R&& recv)
-                noexcept(std::is_nothrow_constructible_v<std::remove_cvref_t<R>, R>)
+                    noexcept(std::is_nothrow_constructible_v<std::remove_cvref_t<R>, R>)
                 {
                     return ops_t<R>(snd.loop_, static_cast<R&&>(recv));
                 }
@@ -183,6 +184,8 @@ namespace clu::exec
                 template <typename R2>
                 explicit type(R2&& recv):
                     recv_(static_cast<R2&&>(recv)) {}
+
+                CLU_IMMOVABLE_TYPE(type);
 
             private:
                 R recv_;

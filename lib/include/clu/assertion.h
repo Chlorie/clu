@@ -53,5 +53,3 @@ namespace clu
     (void)(!!(expr) || (::clu::detail::assertion_failure(#expr, msg, __FILE__, __LINE__), 0))
 
 #endif
-
-#include "undef_macros.h"

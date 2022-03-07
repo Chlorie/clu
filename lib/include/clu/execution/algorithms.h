@@ -30,6 +30,32 @@ namespace clu::exec
             std::invoke_result_t<F, Args...>,
             nothrow_invocable<F, Args...>>;
 
+        // @formatter:off
+        template <typename Cpo, typename SetCpo, typename S, typename... Args>
+        concept customized_sender_algorithm =
+            tag_invocable<Cpo, completion_scheduler_of_t<SetCpo, S>, S, Args...> ||
+            tag_invocable<Cpo, S, Args...>;
+        // @formatter:on
+
+        template <typename Cpo, typename SetCpo, typename S, typename... Args>
+        auto invoke_customized_sender_algorithm(Cpo, S&& snd, Args&&... args)
+        {
+            if constexpr (requires { requires tag_invocable<Cpo, completion_scheduler_of_t<SetCpo, S>, S, Args...>; })
+            {
+                using schd_t = completion_scheduler_of_t<SetCpo, S>;
+                static_assert(sender<tag_invoke_result_t<Cpo, schd_t, S, Args...>>,
+                    "customizations for sender algorithms should return senders");
+                return clu::tag_invoke(Cpo{}, exec::get_completion_scheduler<SetCpo>(snd),
+                    static_cast<S&&>(snd), static_cast<Args&&>(args)...);
+            }
+            else // if constexpr (tag_invocable<Cpo, S, Args...>)
+            {
+                static_assert(sender<tag_invoke_result_t<Cpo, S, Args...>>,
+                    "customizations for sender algorithms should return senders");
+                return clu::tag_invoke(Cpo{}, static_cast<S&&>(snd), static_cast<Args&&>(args)...);
+            }
+        }
+
         namespace just
         {
             template <typename R, typename Cpo, typename... Ts>
@@ -42,6 +68,8 @@ namespace clu::exec
             class ops_<R, Cpo, Ts...>::type
             {
             public:
+                CLU_IMMOVABLE_TYPE(type);
+
                 template <typename Tup>
                 type(R&& recv, Tup&& values):
                     recv_(static_cast<R&&>(recv)), values_(static_cast<Tup&&>(values)) {}
@@ -74,7 +102,7 @@ namespace clu::exec
             {
             public:
                 template <typename... Us>
-                explicit type(Us&&... args): values_(static_cast<Us&&>(args)...) {}
+                constexpr explicit type(Us&&... args): values_(static_cast<Us&&>(args)...) {}
 
             private:
                 [[no_unique_address]] std::tuple<Ts...> values_;
@@ -114,7 +142,7 @@ namespace clu::exec
 
             struct just_stopped_t
             {
-                auto operator()() const noexcept { return snd_t<set_stopped_t>(); }
+                constexpr auto operator()() const noexcept { return snd_t<set_stopped_t>(); }
             };
         }
 
@@ -297,23 +325,9 @@ namespace clu::exec
                 template <sender S, typename F>
                 constexpr auto operator()(S&& snd, F&& func) const
                 {
-                    if constexpr (requires { requires tag_invocable<UponCpo, completion_scheduler_of_t<SetCpo, S>, S, F>; })
-                    {
-                        static_assert(sender<tag_invoke_result_t<UponCpo, completion_scheduler_of_t<SetCpo, S>, S, F>>,
-                            "customizations for then/upon_error/upon_stopped should return a sender");
-                        return clu::tag_invoke(
-                            UponCpo{},
-                            exec::get_completion_scheduler<SetCpo>(static_cast<S&&>(snd)),
-                            static_cast<S&&>(snd),
-                            static_cast<F&&>(func)
-                        );
-                    }
-                    else if constexpr (tag_invocable<UponCpo, S, F>)
-                    {
-                        static_assert(sender<tag_invoke_result_t<UponCpo, S, F>>,
-                            "customizations for then/upon_error/upon_stopped should return a sender");
-                        return clu::tag_invoke(UponCpo{}, static_cast<S&&>(snd), static_cast<F&&>(func));
-                    }
+                    if constexpr (customized_sender_algorithm<UponCpo, SetCpo, S, F>)
+                        return detail::invoke_customized_sender_algorithm<UponCpo, SetCpo>(
+                            static_cast<S&&>(snd), static_cast<F&&>(func));
                     else
                         return snd_t<S, SetCpo, F>(static_cast<S&&>(snd), static_cast<F&&>(func));
                 }
@@ -328,6 +342,30 @@ namespace clu::exec
             struct then_t : upon_t<then_t, set_value_t> {};
             struct upon_error_t : upon_t<upon_error_t, set_error_t> {};
             struct upon_stopped_t : upon_t<upon_stopped_t, set_stopped_t> {};
+        }
+
+        namespace let
+        {
+            template <typename LetCpo, typename SetCpo>
+            struct let_t
+            {
+                template <sender S, typename F>
+                    requires (!std::same_as<SetCpo, set_stopped_t>) || std::invocable<F>
+                auto operator()(S&& snd, F&& func) const
+                {
+                    if constexpr (customized_sender_algorithm<LetCpo, SetCpo, S, F>)
+                        return detail::invoke_customized_sender_algorithm<LetCpo, SetCpo>(
+                            static_cast<S&&>(snd), static_cast<F&&>(func));
+                    else
+                    {
+                        // TODO
+                    }
+                }
+            };
+
+            struct let_value_t : let_t<let_value_t, set_value_t> {};
+            struct let_error_t : let_t<let_error_t, set_error_t> {};
+            struct let_stopped_t : let_t<let_stopped_t, set_stopped_t> {};
         }
 
         namespace on
@@ -371,12 +409,24 @@ namespace clu::exec
                 return env_t(static_cast<Env&&>(env), static_cast<S&&>(schd));
             }
 
+            template <typename Schd, typename Snd>
+            struct snd_
+            {
+                class type;
+            };
+
+            template <typename Schd, typename Snd>
+            using snd_t = typename snd_<Schd, Snd>::type;
+
+            template <typename Schd, typename Snd>
+            class snd_<Schd, Snd>::type { };
+
             struct on_t
             {
                 template <scheduler Schd, sender Snd>
                 auto operator()(Schd&& schd, Snd&& snd) const
                 {
-                    if constexpr(tag_invocable<on_t, Schd, Snd>)
+                    if constexpr (tag_invocable<on_t, Schd, Snd>)
                     {
                         static_assert(sender<tag_invoke_result_t<on_t, Schd, Snd>>,
                             "customization of on should return a sender");
@@ -386,6 +436,155 @@ namespace clu::exec
                     {
                         // TODO: default impl
                     }
+                }
+            };
+        }
+
+        namespace schd_from
+        {
+            template <typename Cpo, typename... Ts>
+            std::tuple<Cpo, std::decay_t<Ts>...> storage_tuple_impl(Cpo (*)(Ts ...));
+            template <typename Sig>
+            using storage_tuple_t = decltype(schd_from::storage_tuple_impl(static_cast<Sig*>(nullptr)));
+
+            template <typename Sigs>
+            class signal_storage
+            {
+            public:
+                template <typename Cpo, typename... Ts>
+                void emplace(Cpo, Ts&&... values)
+                {
+                    using tuple_t = storage_tuple_t<Cpo(Ts ...)>;
+                    var_.template emplace<tuple_t>(Cpo{}, static_cast<Ts&&>(values)...);
+                }
+
+                template <typename R>
+                void pass_to_receiver(R&& recv) noexcept
+                {
+                    std::visit([&]<typename Tup>(Tup&& tuple) noexcept
+                    {
+                        if constexpr (similar_to<Tup, std::monostate>)
+                            unreachable();
+                        else
+                            std::apply([&]<typename Cpo, typename... Ts>(Cpo, Ts&&... values) noexcept
+                            {
+                                Cpo{}(static_cast<R&&>(recv), static_cast<Ts&&>(values)...);
+                            }, static_cast<Tup&&>(tuple));
+                    }, static_cast<variant_t&&>(var_));
+                }
+
+            private:
+                using variant_t = meta::unpack_invoke<
+                    meta::push_back_l<
+                        meta::transform_l<Sigs, meta::quote1<storage_tuple_t>>,
+                        std::monostate>,
+                    meta::quote<std::variant>>;
+
+                variant_t var_{};
+            };
+
+            template <typename R>
+            struct recv_
+            {
+                class type;
+            };
+
+            template <typename R>
+            using recv_t = typename recv_<R>::type;
+
+            template <typename R>
+            class recv_<R>::type : public receiver_adaptor<type, R>
+            {
+            public:
+                using receiver_adaptor<type, R>::receiver_adaptor;
+            private:
+            };
+
+            template <typename Schd, typename Snd>
+            struct snd_
+            {
+                class type;
+            };
+
+            template <typename Schd, typename Snd>
+            using snd_t = typename snd_<Schd, Snd>::type;
+
+
+            // constructs a sender s2
+            template <typename Schd, typename Snd>
+            class snd_<Schd, Snd>::type
+            {
+            public:
+            private:
+                // when s2 connected to out_r
+                template <typename R>
+                auto tag_invoke(connect_t, type&& self, R&& recv)
+                {
+                    // ops1 contains ops2 and ops3, also what s sends
+                    // ops2 = connect(s, r)
+                    // ops3 = connect(s3, r2)
+
+                    // Constructs a receiver r such that
+                    // when a receiver completion-signal Signal(r, args...) is called,
+                    // it decay-copies args... into op_state (see below) as args'...
+                    // and constructs a receiver r2 such that:
+                    //     When execution::set_value(r2) is called, it calls Signal(out_r, std::move(args')...).
+                    //     execution::set_error(r2, e) is expression-equivalent to execution::set_error(out_r, e).
+                    //     execution::set_stopped(r2) is expression-equivalent to execution::set_stopped(out_r).
+                    // It then calls execution::schedule(sch), resulting in a sender s3.
+                    // It then calls execution::connect(s3, r2), resulting in an operation state op_state3.
+                    // It then calls execution::start(op_state3).
+                    // If any of these throws an exception, it catches it
+                    // and calls execution::set_error(out_r, current_exception()).
+                    // If any of these expressions would be ill-formed, then Signal(r, args...) is ill-formed.
+
+                    // Calls execution::connect(s, r) resulting in an operation state op_state2.
+                    // If this expression would be ill-formed, execution::connect(s2, out_r) is ill-formed.
+
+                    // Returns an operation state op_state that contains op_state2.
+                    // When execution::start(op_state) is called, calls execution::start(op_state2).
+                    // The lifetime of op_state3 ends when op_state is destroyed.
+                }
+            };
+
+            struct schedule_from_t
+            {
+                template <scheduler Schd, sender Snd>
+                auto operator()(Schd&& schd, Snd&& snd) const
+                {
+                    if constexpr (tag_invocable<schedule_from_t, Schd, Snd>)
+                    {
+                        static_assert(sender<tag_invoke_result_t<schedule_from_t, Schd, Snd>>,
+                            "customization of schedule_from should return a sender");
+                        return clu::tag_invoke(*this, static_cast<Schd&&>(schd), static_cast<Snd&&>(snd));
+                    }
+                    else
+                    {
+                        // TODO: default impl
+                    }
+                }
+            };
+        }
+
+        namespace xfer
+        {
+            struct transfer_t
+            {
+                template <sender Snd, scheduler Schd>
+                auto operator()(Snd&& snd, Schd&& schd) const
+                {
+                    if constexpr (customized_sender_algorithm<transfer_t, set_value_t, Snd, Schd>)
+                        return detail::invoke_customized_sender_algorithm<transfer_t, set_value_t>(
+                            static_cast<Snd&&>(snd), static_cast<Schd&&>(schd));
+                    else
+                        return schd_from::schedule_from_t{}(static_cast<Schd&&>(schd), static_cast<Snd&&>(snd));
+                }
+
+                template <scheduler Schd>
+                auto operator()(Schd&& schd) const noexcept
+                {
+                    return clu::make_piper(
+                        clu::bind_back(*this, static_cast<Schd&&>(schd)));
                 }
             };
         }
@@ -603,12 +802,25 @@ namespace clu::exec
     inline constexpr just_t just{};
     inline constexpr just_error_t just_error{};
     inline constexpr just_stopped_t just_stopped{};
+    inline constexpr auto stop = just_stopped();
     using detail::upon::then_t;
     using detail::upon::upon_error_t;
     using detail::upon::upon_stopped_t;
     inline constexpr then_t then{};
     inline constexpr upon_error_t upon_error{};
     inline constexpr upon_stopped_t upon_stopped{};
+    using detail::let::let_value_t;
+    using detail::let::let_error_t;
+    using detail::let::let_stopped_t;
+    inline constexpr let_value_t let_value{};
+    inline constexpr let_error_t let_error{};
+    inline constexpr let_stopped_t let_stopped{};
+    using detail::on::on_t;
+    inline constexpr on_t on{};
+    using detail::schd_from::schedule_from_t;
+    inline constexpr schedule_from_t schedule_from{};
+    using detail::xfer::transfer_t;
+    inline constexpr transfer_t transfer{};
     using detail::into_var::into_variant_t;
     inline constexpr into_variant_t into_variant{};
     using detail::start_det::start_detached_t;

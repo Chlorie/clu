@@ -4,6 +4,7 @@
 #include <mutex>
 
 #include <clu/execution.h>
+#include <clu/task.h>
 
 using namespace std::literals;
 
@@ -25,24 +26,6 @@ void print_thread_id()
     std::cout << "Thread ID: " << std::this_thread::get_id() << '\n';
 }
 
-// clu::async_mutex cout_mutex;
-// 
-// clu::cancellable_task<> trash_timer()
-// {
-//     size_t counter = 0;
-//     while (true)
-//     {
-//         const bool cancelled = co_await wait_on_detached_thread(1s);
-//         if (cancelled)
-//         {
-//             std::cout << "Cancelled\n";
-//             co_return;
-//         }
-//         auto _ = co_await cout_mutex.async_lock_scoped();
-//         std::cout << "Counting " << ++counter << "s\n";
-//     }
-// }
-
 namespace ex = clu::exec;
 
 struct to_detached_thread
@@ -51,6 +34,68 @@ struct to_detached_thread
     void await_suspend(const clu::coro::coroutine_handle<> handle) { std::thread(handle).detach(); }
     void await_resume() const noexcept {}
 };
+
+namespace wtf
+{
+    namespace get_pms
+    {
+        struct awaitable
+        {
+            template <typename P>
+            friend auto tag_invoke(ex::as_awaitable_t, awaitable, P& promise)
+            {
+                struct awaiter
+                {
+                    P& pms;
+                    bool await_ready() const noexcept { return true; }
+                    void await_suspend(clu::coro::coroutine_handle<>) const noexcept { clu::unreachable(); }
+                    P& await_resume() const noexcept { return pms; }
+                };
+                return awaiter{ promise };
+            }
+        };
+    }
+
+    inline struct get_promise_t
+    {
+        constexpr auto operator()() const noexcept { return get_pms::awaitable{}; }
+    } constexpr get_promise{};
+}
+
+template <typename Dur>
+struct wait_on_detached_thread
+{
+    Dur duration;
+
+    bool await_ready() const noexcept { return false; }
+    void await_suspend(clu::coro::coroutine_handle<> handle) const noexcept
+    {
+        std::thread([=]() mutable
+        {
+            std::this_thread::sleep_for(duration);
+            handle.resume();
+        }).detach();
+    }
+    void await_resume() const noexcept {}
+};
+
+template <typename Dur>
+wait_on_detached_thread(Dur) -> wait_on_detached_thread<Dur>;
+
+clu::task<int> f()
+{
+    co_return 42;
+}
+
+clu::task<void> g()
+{
+    for (std::size_t i = 0; i < 5; i++)
+    {
+        co_await wait_on_detached_thread(0.2s);
+        const int answer = co_await f();
+        std::cout << "The answer is " << answer << '\n';
+    }
+}
 
 auto maybe_throw(const bool do_throw)
 {
@@ -62,6 +107,7 @@ double sad_path(const std::exception_ptr&) { return 420.; }
 
 int main() // NOLINT
 {
+    clu::this_thread::sync_wait(g());
     for (const bool do_throw : { false, true })
     {
         print_thread_id(); // Main thread id

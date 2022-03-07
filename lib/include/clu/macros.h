@@ -1,9 +1,6 @@
-#ifndef CLU_MACROS_HEADER
-#define CLU_MACROS_HEADER
+#pragma once
 
-#ifdef CLU_UNDEF_MACROS_HEADER
-#   undef CLU_UNDEF_MACROS_HEADER
-#endif
+// Compiler related
 
 #ifdef __GNUC__
 #   define CLU_GCC_COMPILERS
@@ -25,8 +22,18 @@
 #   define CLU_GCC_RESTORE_WARNING
 #endif
 
+// Boilerplate generators
+
 #define CLU_SINGLE_RETURN(expr) \
     noexcept(noexcept(expr)) -> decltype(expr) { return expr; } \
     static_assert(true)
 
-#endif
+#define CLU_NON_COPYABLE_TYPE(type)       \
+    type(const type&) = delete;           \
+    type& operator=(const type&) = delete \
+
+#define CLU_IMMOVABLE_TYPE(type)           \
+    type(const type&) = delete;            \
+    type(type&&) = delete;                 \
+    type& operator=(const type&) = delete; \
+    type& operator=(type&&) = delete
