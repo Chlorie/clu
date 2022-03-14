@@ -542,11 +542,14 @@ namespace clu::exec
             (tag_connectable<S, R> || await_connectable<S, R>);
         // @formatter:on
 
+        template <typename S, typename R>
+        concept nothrow_connectable = connectable<S, R> && nothrow_tag_invocable<connect_t, S, R>;
+
         struct connect_t
         {
             template <typename S, typename R>
                 requires connectable<S, R>
-            auto operator()(S&& snd, R&& recv) const
+            auto operator()(S&& snd, R&& recv) const noexcept(nothrow_connectable<S, R>)
             {
                 if constexpr (tag_connectable<S, R>)
                 {

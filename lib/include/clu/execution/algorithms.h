@@ -15,20 +15,14 @@ namespace clu::exec
             meta::quote<completion_signatures>>;
 
         template <typename T, bool NoThrow = false>
-        using comp_sigs_of_single = filtered_comp_sigs<
+        using comp_sigs_of_single = completion_signatures<
             conditional_t<
                 std::is_void_v<T>,
                 set_value_t(),
-                set_value_t(with_regular_void_t<T>)>,
-            conditional_t<
-                NoThrow,
-                void,
-                set_error_t(std::exception_ptr)>>;
+                set_value_t(with_regular_void_t<T>)>>;
 
         template <typename F, typename... Args>
-        using comp_sigs_of_inv = comp_sigs_of_single<
-            std::invoke_result_t<F, Args...>,
-            nothrow_invocable<F, Args...>>;
+        using comp_sigs_of_inv = comp_sigs_of_single<std::invoke_result_t<F, Args...>>;
 
         // @formatter:off
         template <typename Cpo, typename SetCpo, typename S, typename... Args>
@@ -346,6 +340,25 @@ namespace clu::exec
 
         namespace let
         {
+            template <typename S, typename Cpo, typename F>
+            struct snd_
+            {
+                class type;
+            };
+
+            template <typename S, typename Cpo, typename F>
+            using snd_t = typename snd_<S, Cpo, F>::type;
+
+            template <typename S, typename Cpo, typename F>
+            class snd_<S, Cpo, F>::type
+            {
+            public:
+
+            private:
+                S snd_;
+                F func_;
+            };
+
             template <typename LetCpo, typename SetCpo>
             struct let_t
             {

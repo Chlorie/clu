@@ -14,7 +14,7 @@
 #include <clu/function_ref.h>
 #include <clu/function_traits.h>
 #include <clu/functional.h>
-// #include <clu/generator.h>
+#include <clu/generator.h>
 #include <clu/hash.h>
 #include <clu/indices.h>
 #include <clu/integer_literals.h>

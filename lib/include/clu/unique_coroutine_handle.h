@@ -9,9 +9,6 @@ namespace clu
     template <typename Pms = void>
     class unique_coroutine_handle
     {
-    private:
-        coro::coroutine_handle<Pms> handle_{};
-
     public:
         unique_coroutine_handle() = default;
         explicit unique_coroutine_handle(const coro::coroutine_handle<Pms> hdl): handle_(hdl) {}
@@ -26,10 +23,27 @@ namespace clu
             handle_ = std::exchange(other.handle_, {});
             return *this;
         }
-        void swap(unique_coroutine_handle& other) noexcept { std::swap(handle_, std::move(other.handle_)); }
+        void swap(unique_coroutine_handle& other) noexcept { std::swap(handle_, other.handle_); }
         friend void swap(unique_coroutine_handle& lhs, unique_coroutine_handle& rhs) noexcept { lhs.swap(rhs); }
 
-        coro::coroutine_handle<Pms> get() const { return handle_; }
+        coro::coroutine_handle<Pms> get() const noexcept { return handle_; }
+
+        void resume() const
+        {
+            // libc++ doesn't allow resumptions on const handles
+            // which is really absurd since the handles are copyable
+            auto h = handle_;
+            h.resume();
+        }
+        void operator()() const { resume(); }
+
+        template <typename = int> requires (!std::is_void_v<Pms>)
+        auto& promise() const noexcept { return handle_.promise(); }
+
+        bool done() const noexcept { return handle_.done(); }
+
+    private:
+        coro::coroutine_handle<Pms> handle_{};
     };
 
     template <typename Pms>

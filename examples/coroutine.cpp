@@ -2,9 +2,11 @@
 #include <string>
 #include <chrono>
 #include <mutex>
+#include <array>
 
 #include <clu/execution.h>
 #include <clu/task.h>
+#include <clu/generator.h>
 
 using namespace std::literals;
 
@@ -105,27 +107,42 @@ auto maybe_throw(const bool do_throw)
 int happy_path() { return 69; }
 double sad_path(const std::exception_ptr&) { return 420.; }
 
+clu::generator<int> gen()
+{
+    co_yield 1;
+    co_yield 2;
+    co_yield 3;
+}
+
+clu::generator<int> gen2()
+{
+    co_yield clu::elements_of(gen());
+    co_yield 4;
+}
+
 int main() // NOLINT
 {
-    clu::this_thread::sync_wait(g());
-    for (const bool do_throw : { false, true })
-    {
-        print_thread_id(); // Main thread id
-        const auto res =
-            clu::this_thread::sync_wait_with_variant(
-                to_detached_thread()
-                | ex::then(print_thread_id) // New detached thread id
-                | ex::then(maybe_throw(do_throw))
-                | ex::then(happy_path) // -> 69 if didn't throw
-                | ex::upon_error(sad_path) // -> 420 if did throw
-            );
-        if (res)
-            std::visit([](const auto& tup)
-            {
-                const auto [v] = tup;
-                std::cout << "result is " << v << '\n';
-            }, std::get<0>(*res));
-        else
-            std::cout << "cancelled lol\n";
-    }
+    for (auto&& v : gen2())
+        std::cout << v << ' ';
+    // clu::this_thread::sync_wait(g());
+    // for (const bool do_throw : { false, true })
+    // {
+    //     print_thread_id(); // Main thread id
+    //     const auto res =
+    //         clu::this_thread::sync_wait_with_variant(
+    //             to_detached_thread()
+    //             | ex::then(print_thread_id) // New detached thread id
+    //             | ex::then(maybe_throw(do_throw))
+    //             | ex::then(happy_path) // -> 69 if didn't throw
+    //             | ex::upon_error(sad_path) // -> 420 if did throw
+    //         );
+    //     if (res)
+    //         std::visit([](const auto& tup)
+    //         {
+    //             const auto [v] = tup;
+    //             std::cout << "result is " << v << '\n';
+    //         }, std::get<0>(*res));
+    //     else
+    //         std::cout << "cancelled lol\n";
+    // }
 }
