@@ -25,10 +25,13 @@ namespace clu::meta
 
     namespace detail
     {
+        // clang-format off
         template <typename T> struct add_one_t : value_tag_t<npos> {};
-        template <typename T> requires std::integral<typename T::value_type>
+        template <typename T>
+            requires std::integral<typename T::value_type>
         struct add_one_t<T> : std::integral_constant<typename T::value_type, T::value + 1> {};
-    }
+        // clang-format on
+    } // namespace detail
 
     template <template <typename...> typename Fn>
     struct quote
@@ -51,22 +54,27 @@ namespace clu::meta
         using fn = BinaryFn<T, U>;
     };
 
+    // clang-format off
     template <typename T> using id = T;
     using id_q = quote1<id>;
     template <typename T> using _t = typename T::type;
     using _t_q = quote1<_t>;
+    // clang-format on
 
-    template <typename T> inline constexpr auto _v = T::value;
+    template <typename T>
+    inline constexpr auto _v = T::value;
 
     namespace detail
     {
+        // clang-format off
         template <typename Fn, typename... Ts>
         struct invoke_impl : std::type_identity<typename Fn::template fn<Ts...>> {};
         template <typename Fn, typename T>
         struct invoke_impl<Fn, T> : std::type_identity<typename Fn::template fn<T>> {};
         template <typename Fn, typename T, typename U>
         struct invoke_impl<Fn, T, U> : std::type_identity<typename Fn::template fn<T, U>> {};
-    }
+        // clang-format on
+    } // namespace detail
 
     template <typename Fn, typename... Ts>
     using invoke = typename detail::invoke_impl<Fn, Ts...>::type;
@@ -137,11 +145,13 @@ namespace clu::meta
 
     namespace detail
     {
+        // clang-format off
         template <typename List, template <typename...> typename Fn>
         struct unpack_invoke_impl {};
         template <template <typename...> typename Templ, typename... Types, template <typename...> typename Fn>
         struct unpack_invoke_impl<Templ<Types...>, Fn> : std::type_identity<Fn<Types...>> {};
-    }
+        // clang-format on
+    } // namespace detail
 
     template <typename List, typename Fn = quote<type_list>>
     using unpack_invoke = typename detail::unpack_invoke_impl<List, Fn::template fn>::type;
@@ -149,33 +159,39 @@ namespace clu::meta
     template <typename List, typename Fn = quote<type_list>>
     inline constexpr auto unpack_invoke_v = detail::unpack_invoke_impl<List, Fn::template fn>::type::value;
 
+    // clang-format off
     template <template <typename...> typename Fn, typename... Args>
     concept valid = requires { typename Fn<Args...>; };
     template <template <typename> typename Fn, typename Arg>
     concept valid1 = requires { typename Fn<Arg>; };
+    // clang-format on
 
     namespace detail
     {
+        // clang-format off
         template <typename Fn, typename Default, typename... Args>
         struct invoke_if_valid_impl : std::type_identity_t<Default> {};
         template <typename Fn, typename Default, typename... Args>
             requires requires { typename invoke<Fn, Args...>; }
         struct invoke_if_valid_impl<Fn, Default, Args...> : std::type_identity_t<invoke<Fn, Args...>> {};
-    }
-    
+        // clang-format on
+    } // namespace detail
+
     template <typename Fn, typename Default, typename... Args>
     using invoke_if_valid = detail::invoke_if_valid_impl<Fn, Default, Args...>;
-    
+
     namespace detail
     {
+        // clang-format off
         template <
             template <typename...> typename TemplT, typename... Ts,
             template <typename...> typename TemplU, typename... Us>
         type_list<Ts..., Us...> concat_impl(TemplT<Ts...>, TemplU<Us...>);
+        // clang-format on
 
         template <template <typename...> typename Templ, typename... Ts, std::size_t... idx>
         type_list<indexed_type<idx, Ts>...> enumerate_impl(Templ<Ts...>, std::index_sequence<idx...>);
-    }
+    } // namespace detail
 
     template <typename T>
     struct constant_q
@@ -190,8 +206,7 @@ namespace clu::meta
     using concatenate_l = decltype(detail::concat_impl(List1{}, List2{}));
 
     template <typename... Ts>
-    using enumerate = decltype(detail::enumerate_impl(
-        type_list<Ts...>{}, std::make_index_sequence<sizeof...(Ts)>{}));
+    using enumerate = decltype(detail::enumerate_impl(type_list<Ts...>{}, std::make_index_sequence<sizeof...(Ts)>{}));
     using enumerate_q = quote<enumerate>;
     template <typename List>
     using enumerate_l = unpack_invoke<List, enumerate_q>;
@@ -209,10 +224,7 @@ namespace clu::meta
     struct push_back_unique_q
     {
         template <typename... Ts>
-        using fn = conditional_t<
-            same_as_any_of<T, Ts...>,
-            type_list<Ts...>,
-            type_list<Ts..., T>>;
+        using fn = conditional_t<same_as_any_of<T, Ts...>, type_list<Ts...>, type_list<Ts..., T>>;
     };
     template <typename List, typename T>
     using push_back_unique_l = unpack_invoke<List, push_back_unique_q<T>>;
@@ -243,6 +255,7 @@ namespace clu::meta
     private:
         template <typename... Ts> // MSVC 17.0 workaround
         static constexpr bool value = (invoke_v<Pred, Ts> && ...);
+
     public:
         template <typename... Ts>
         using fn = std::bool_constant<value<Ts...>>;
@@ -258,6 +271,7 @@ namespace clu::meta
     private:
         template <typename... Ts> // MSVC 17.0 workaround
         static constexpr bool value = (invoke_v<Pred, Ts> || ...);
+
     public:
         template <typename... Ts>
         using fn = std::bool_constant<value<Ts...>>;
@@ -273,6 +287,7 @@ namespace clu::meta
     private:
         template <typename... Ts> // MSVC 17.0 workaround
         static constexpr bool value = !(invoke_v<Pred, Ts> || ...);
+
     public:
         template <typename... Ts>
         using fn = std::bool_constant<value<Ts...>>;
@@ -282,16 +297,20 @@ namespace clu::meta
     template <typename List, typename Pred = id_q>
     inline constexpr bool none_of_lv = unpack_invoke_v<List, none_of_q<Pred>>;
 
+    // clang-format off
     template <typename Target>
     struct find_q
     {
         template <typename... Ts>
         struct fn : value_tag_t<npos> {};
     };
-    template <typename Target> template <typename... Rest>
+    template <typename Target>
+    template <typename... Rest>
     struct find_q<Target>::fn<Target, Rest...> : std::integral_constant<size_t, 0> {};
-    template <typename Target> template <typename First, typename... Rest>
+    template <typename Target>
+    template <typename First, typename... Rest>
     struct find_q<Target>::fn<First, Rest...> : detail::add_one_t<fn<Rest...>> {};
+    // clang-format on
     template <typename List, typename Target>
     using find_l = unpack_invoke<List, find_q<Target>>;
     template <typename List, typename Target>
@@ -303,6 +322,7 @@ namespace clu::meta
     private:
         template <typename... Ts> // MSVC 17.0 workaround
         static constexpr std::size_t value = (static_cast<std::size_t>(std::is_same_v<Target, Ts>) + ... + 0_uz);
+
     public:
         template <typename... Ts>
         using fn = std::integral_constant<std::size_t, value<Ts...>>;
@@ -318,6 +338,7 @@ namespace clu::meta
     private:
         template <typename... Ts> // MSVC 17.0 workaround
         static constexpr std::size_t value = (static_cast<std::size_t>(invoke_v<Pred, Ts>) + ... + 0_uz);
+
     public:
         template <typename... Ts>
         using fn = std::integral_constant<std::size_t, value<Ts...>>;
@@ -329,13 +350,13 @@ namespace clu::meta
 
     namespace detail
     {
+        // clang-format off
         template <typename BinaryFn, typename Res, typename... Ts>
         struct foldl_impl : std::type_identity<Res> {};
-
         template <typename BinaryFn, typename Res, typename First, typename... Rest>
-        struct foldl_impl<BinaryFn, Res, First, Rest...> :
-            foldl_impl<BinaryFn, invoke<BinaryFn, Res, First>, Rest...> {};
-    }
+        struct foldl_impl<BinaryFn, Res, First, Rest...> : foldl_impl<BinaryFn, invoke<BinaryFn, Res, First>, Rest...> {};
+        // clang-format on
+    } // namespace detail
 
     template <typename BinaryFn, typename Initial>
     struct foldl_q
@@ -374,8 +395,11 @@ namespace clu::meta
     struct filter_q
     {
     private:
+        // clang-format off
         template <typename... Ts>
         struct fn_impl : std::type_identity<type_list<>> {};
+        // clang-format on
+
     public:
         template <typename... Ts>
         using fn = typename fn_impl<Ts...>::type;
@@ -385,30 +409,23 @@ namespace clu::meta
     struct filter_q<Pred>::fn_impl<First, Rest...>
     {
         using rest_list = typename fn_impl<Rest...>::type;
-        using type = conditional_t<
-            invoke_v<Pred, First>,
-            push_front_l<rest_list, First>,
-            rest_list
-        >;
+        using type = conditional_t<invoke_v<Pred, First>, push_front_l<rest_list, First>, rest_list>;
     };
     template <typename List, typename Pred = id_q>
     using filter_l = unpack_invoke<List, filter_q<Pred>>;
 
     template <typename Target>
-    using remove_q = filter_q<
-        compose_q<
-            bind_front_q1<quote2<std::is_same>, Target>,
-            quote1<std::negation>
-        >
-    >;
+    using remove_q = filter_q<compose_q<bind_front_q1<quote2<std::is_same>, Target>, quote1<std::negation>>>;
     template <typename List, typename Target>
     using remove_l = unpack_invoke<List, remove_q<Target>>;
 
+    // clang-format off
     template <typename... Ts>
     struct is_unique : std::true_type {};
     template <typename First, typename... Rest>
-    struct is_unique<First, Rest...> :
-        std::bool_constant<!(std::is_same_v<First, Rest> || ...) && is_unique<Rest...>::value> {};
+    struct is_unique<First, Rest...>
+        : std::bool_constant<!(std::is_same_v<First, Rest> || ...) && is_unique<Rest...>::value> {};
+    // clang-format on
     using is_unique_q = quote<is_unique>;
     template <typename List>
     using is_unique_l = unpack_invoke<List, is_unique_q>;
@@ -427,7 +444,7 @@ namespace clu::meta
     inline constexpr bool set_include_lv = set_include_l<Set1, Set2>::value;
 
     template <typename Set1, typename Set2>
-    inline constexpr bool set_equal_lv = Set1::size == Set2::size && set_include_lv<Set1, Set2>;
+    inline constexpr bool set_equal_lv = (Set1::size == Set2::size) && set_include_lv<Set1, Set2>;
     template <typename Set1, typename Set2>
     using set_equal_l = std::bool_constant<set_equal_lv<Set1, Set2>>;
 
@@ -439,4 +456,4 @@ namespace clu::meta
     using set_difference_l = filter_l<Set1, negate_q<bind_front_q1<quote2<contains_l>, Set2>>>;
     template <typename Set1, typename Set2>
     using set_symmetric_difference_l = concatenate_l<set_difference_l<Set1, Set2>, set_difference_l<Set2, Set1>>;
-}
+} // namespace clu::meta

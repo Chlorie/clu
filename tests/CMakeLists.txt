@@ -10,7 +10,7 @@ add_executable(tests
     "flags.cpp"
     "forest.cpp"
     "function_ref.cpp"
-    "functional.cpp"
+    
     # "generator.cpp"
     "hash.cpp"
     "indices.cpp"

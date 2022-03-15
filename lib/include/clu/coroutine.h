@@ -1,5 +1,6 @@
 #pragma once
 
+// clang-format off
 #if __has_include(<coroutine>)
 #   include <coroutine>
 #   define CLU_CORO_NS ::std
@@ -9,10 +10,11 @@
 #else
 #   error Cannot find coroutine library header
 #endif
+// clang-format on
 
 namespace clu
 {
-	namespace coro = CLU_CORO_NS;
+    namespace coro = CLU_CORO_NS;
 }
 
 #undef CLU_CORO_NS

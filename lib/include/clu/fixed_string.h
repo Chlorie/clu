@@ -26,13 +26,13 @@ namespace clu
 
         constexpr basic_fixed_string() noexcept: data_{} {}
 
-        constexpr explicit(false) basic_fixed_string(const T (& str)[N + 1]) noexcept
+        constexpr explicit(false) basic_fixed_string(const T (&str)[N + 1]) noexcept
         {
             for (std::size_t i = 0; i <= N; i++)
                 data_[i] = str[i];
         }
 
-        constexpr basic_fixed_string& operator=(const T (& str)[N + 1]) noexcept
+        constexpr basic_fixed_string& operator=(const T (&str)[N + 1]) noexcept
         {
             for (std::size_t i = 0; i <= N; i++)
                 data_[i] = str[i];
@@ -47,10 +47,22 @@ namespace clu
         [[nodiscard]] constexpr const T* cend() const noexcept { return data_ + N; }
         [[nodiscard]] constexpr reverse_iterator rbegin() noexcept { return std::make_reverse_iterator(end()); }
         [[nodiscard]] constexpr reverse_iterator rend() noexcept { return std::make_reverse_iterator(begin()); }
-        [[nodiscard]] constexpr const_reverse_iterator rbegin() const noexcept { return std::make_reverse_iterator(end()); }
-        [[nodiscard]] constexpr const_reverse_iterator rend() const noexcept { return std::make_reverse_iterator(begin()); }
-        [[nodiscard]] constexpr const_reverse_iterator crbegin() const noexcept { return std::make_reverse_iterator(end()); }
-        [[nodiscard]] constexpr const_reverse_iterator crend() const noexcept { return std::make_reverse_iterator(begin()); }
+        [[nodiscard]] constexpr const_reverse_iterator rbegin() const noexcept
+        {
+            return std::make_reverse_iterator(end());
+        }
+        [[nodiscard]] constexpr const_reverse_iterator rend() const noexcept
+        {
+            return std::make_reverse_iterator(begin());
+        }
+        [[nodiscard]] constexpr const_reverse_iterator crbegin() const noexcept
+        {
+            return std::make_reverse_iterator(end());
+        }
+        [[nodiscard]] constexpr const_reverse_iterator crend() const noexcept
+        {
+            return std::make_reverse_iterator(begin());
+        }
         [[nodiscard]] constexpr T& front() noexcept { return data_[0]; }
         [[nodiscard]] constexpr const T& front() const noexcept { return data_[0]; }
         [[nodiscard]] constexpr T& back() noexcept { return data_[N]; }
@@ -71,28 +83,34 @@ namespace clu
             const basic_fixed_string<T, N>& lhs, const basic_fixed_string<T, M>& rhs) noexcept
         {
             basic_fixed_string<T, N + M> result{};
-            for (std::size_t i = 0; i < N; i++) result[i] = lhs[i];
-            for (std::size_t i = 0; i <= M; i++) result[i + N] = rhs[i];
+            for (std::size_t i = 0; i < N; i++)
+                result[i] = lhs[i];
+            for (std::size_t i = 0; i <= M; i++)
+                result[i + N] = rhs[i];
             return result;
         }
 
         template <std::size_t M>
         [[nodiscard]] constexpr friend basic_fixed_string<T, N + M - 1> operator+(
-            const basic_fixed_string<T, N>& lhs, const T (& rhs)[M]) noexcept
+            const basic_fixed_string<T, N>& lhs, const T (&rhs)[M]) noexcept
         {
             basic_fixed_string<T, N + M - 1> result{};
-            for (std::size_t i = 0; i < N; i++) result[i] = lhs[i];
-            for (std::size_t i = 0; i < M; i++) result[i + N] = rhs[i];
+            for (std::size_t i = 0; i < N; i++)
+                result[i] = lhs[i];
+            for (std::size_t i = 0; i < M; i++)
+                result[i + N] = rhs[i];
             return result;
         }
 
         template <std::size_t M>
         [[nodiscard]] constexpr friend basic_fixed_string<T, N + M - 1> operator+(
-            const T (& lhs)[M], const basic_fixed_string<T, N>& rhs) noexcept
+            const T (&lhs)[M], const basic_fixed_string<T, N>& rhs) noexcept
         {
             basic_fixed_string<T, N + M - 1> result{};
-            for (std::size_t i = 0; i < M - 1; i++) result[i] = lhs[i];
-            for (std::size_t i = 0; i <= N; i++) result[i + M - 1] = rhs[i];
+            for (std::size_t i = 0; i < M - 1; i++)
+                result[i] = lhs[i];
+            for (std::size_t i = 0; i <= N; i++)
+                result[i + M - 1] = rhs[i];
             return result;
         }
     };
@@ -100,18 +118,25 @@ namespace clu
     template <typename T, std::size_t N>
     basic_fixed_string(const T (&)[N]) -> basic_fixed_string<T, N - 1>;
 
-    template <std::size_t N> using fixed_string = basic_fixed_string<char, N>;
-    template <std::size_t N> using fixed_wstring = basic_fixed_string<wchar_t, N>;
-    template <std::size_t N> using fixed_u8string = basic_fixed_string<char8_t, N>;
-    template <std::size_t N> using fixed_u16string = basic_fixed_string<char16_t, N>;
-    template <std::size_t N> using fixed_u32string = basic_fixed_string<char32_t, N>;
+    template <std::size_t N>
+    using fixed_string = basic_fixed_string<char, N>;
+    template <std::size_t N>
+    using fixed_wstring = basic_fixed_string<wchar_t, N>;
+    template <std::size_t N>
+    using fixed_u8string = basic_fixed_string<char8_t, N>;
+    template <std::size_t N>
+    using fixed_u16string = basic_fixed_string<char16_t, N>;
+    template <std::size_t N>
+    using fixed_u32string = basic_fixed_string<char32_t, N>;
 
     inline namespace literals
     {
         inline namespace fixed_string_literals
         {
+            // clang-format off
             template <basic_fixed_string str>
             [[nodiscard]] constexpr auto operator""_fs() { return str; }
-        }
-    }
-}
+            // clang-format on
+        } // namespace fixed_string_literals
+    } // namespace literals
+} // namespace clu

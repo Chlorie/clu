@@ -2,20 +2,18 @@
 
 #include <chrono>
 
+#include "concepts.h"
+
 namespace clu
 {
-    inline auto local_now()
-    {
-        return std::chrono::current_zone()
-          ->to_local(std::chrono::system_clock::now());
-    }
+    inline auto local_now() { return std::chrono::current_zone()->to_local(std::chrono::system_clock::now()); }
 
     template <typename Func, typename... Args>
-        requires requires(Func f, Args... as) { static_cast<Func&&>(f)(static_cast<Args&&>(as)...); }
+        requires callable<Func, Args...>
     auto timeit(Func&& func, Args&&... args)
     {
         const auto start = std::chrono::high_resolution_clock::now();
-        static_cast<Func&&>(func)(static_cast<Args&&>(args)...);
+        (void)static_cast<Func&&>(func)(static_cast<Args&&>(args)...);
         const auto end = std::chrono::high_resolution_clock::now();
         return end - start;
     }
@@ -42,5 +40,5 @@ namespace clu
         using std::chrono::Thursday;
         using std::chrono::Friday;
         using std::chrono::Saturday;
-    }
-}
+    } // namespace chrono_constants
+} // namespace clu

@@ -20,6 +20,7 @@ namespace clu
             "value_type of the allocator type Alloc should be the same as T for clu::forest<T, Alloc>");
         static_assert(std::is_same_v<typename std::allocator_traits<Alloc>::pointer, T*>,
             "allocators that allocates fancy pointers are not supported");
+
     private:
         struct node;
         struct node_base;
@@ -71,7 +72,8 @@ namespace clu
 
             constexpr void fix_children_parents() noexcept
             {
-                if (!child) return;
+                if (!child)
+                    return;
                 node* ptr = child;
                 do
                 {
@@ -86,7 +88,8 @@ namespace clu
             T value;
             node *prev{}, *next{};
 
-            template <typename... Ts> requires std::constructible_from<T, Ts&&...>
+            template <typename... Ts>
+                requires std::constructible_from<T, Ts&&...>
             constexpr explicit node(Ts&&... args): value(std::forward<Ts>(args)...) {}
 
             constexpr bool is_last_sibling() const noexcept { return this->parent->child == next; }
@@ -96,6 +99,7 @@ namespace clu
         class iter_base
         {
             friend forest;
+
         protected:
             node_base* ptr_{};
 
@@ -117,13 +121,14 @@ namespace clu
             [[nodiscard]] constexpr auto children() const noexcept
             {
                 node_base* first = ptr_->child;
-                return child_range{ child_iterator(first, !first), child_iterator(first, true) };
+                return child_range{child_iterator(first, !first), child_iterator(first, true)};
             }
         };
 
         class const_iter_base
         {
             friend forest;
+
         protected:
             const node_base* ptr_{};
 
@@ -139,13 +144,19 @@ namespace clu
             [[nodiscard]] constexpr bool is_leaf() const noexcept { return !ptr_->child; }
             [[nodiscard]] constexpr bool is_root() const noexcept { return !ptr_->parent->parent; }
             [[nodiscard]] constexpr const_iterator parent() const noexcept { return const_iterator(ptr_->parent); }
-            [[nodiscard]] constexpr const_iterator next_sibling() const noexcept { return const_iterator(ptr_->derived()->next); }
-            [[nodiscard]] constexpr const_iterator prev_sibling() const noexcept { return const_iterator(ptr_->derived()->prev); }
+            [[nodiscard]] constexpr const_iterator next_sibling() const noexcept
+            {
+                return const_iterator(ptr_->derived()->next);
+            }
+            [[nodiscard]] constexpr const_iterator prev_sibling() const noexcept
+            {
+                return const_iterator(ptr_->derived()->prev);
+            }
 
             [[nodiscard]] constexpr auto children() const noexcept
             {
                 const node_base* first = ptr_->child;
-                return const_child_range{ const_child_iterator(first, !first), const_child_iterator(first, true) };
+                return const_child_range{const_child_iterator(first, !first), const_child_iterator(first, true)};
             }
         };
 
@@ -155,18 +166,17 @@ namespace clu
         {
             if (revisit)
             {
-                if (const auto nptr = ptr->derived();
-                    nptr->is_last_sibling())
-                    return { nptr->parent, true };
+                if (const auto nptr = ptr->derived(); nptr->is_last_sibling())
+                    return {nptr->parent, true};
                 else
-                    return { nptr->next, false };
+                    return {nptr->next, false};
             }
             else
             {
                 if (ptr->child)
-                    return { ptr->child, false };
+                    return {ptr->child, false};
                 else
-                    return { const_cast<node_base*>(ptr), true };
+                    return {const_cast<node_base*>(ptr), true};
             }
         }
 
@@ -175,17 +185,16 @@ namespace clu
             if (revisit)
             {
                 if (ptr->child)
-                    return { ptr->child, true };
+                    return {ptr->child, true};
                 else
-                    return { const_cast<node_base*>(ptr), false };
+                    return {const_cast<node_base*>(ptr), false};
             }
             else
             {
-                if (const auto nptr = ptr->derived();
-                    nptr->is_first_sibling())
-                    return { nptr->parent, false };
+                if (const auto nptr = ptr->derived(); nptr->is_first_sibling())
+                    return {nptr->parent, false};
                 else
-                    return { nptr->prev, true };
+                    return {nptr->prev, true};
             }
         }
 
@@ -193,7 +202,8 @@ namespace clu
         {
             CLU_ASSERT(ptr->parent, "trying to increment end iterator");
             auto [res, revisit] = full_next(ptr, false);
-            if (!revisit || !res->parent) return res;
+            if (!revisit || !res->parent)
+                return res;
             while (true)
             {
                 const auto [next, rev] = full_next(res, true);
@@ -206,11 +216,13 @@ namespace clu
         constexpr static node_base* pre_prev(const node_base* ptr)
         {
             auto [res, revisit] = full_prev(ptr, !ptr->parent);
-            if (!revisit) return res;
+            if (!revisit)
+                return res;
             while (true)
             {
                 const auto [prev, rev] = full_prev(res, true);
-                if (!rev) return prev;
+                if (!rev)
+                    return prev;
                 res = prev;
             }
         }
@@ -264,9 +276,10 @@ namespace clu
         public:
             constexpr full_iter_impl() = default;
             constexpr full_iter_impl(node_base* ptr, const bool revisit) noexcept: iter_base(ptr), revisit_(revisit) {}
-            constexpr explicit(false) operator const_full_iter_impl() const noexcept { return { this->ptr_, revisit_ }; }
+            constexpr explicit(false) operator const_full_iter_impl() const noexcept { return {this->ptr_, revisit_}; }
 
-            [[nodiscard]] constexpr friend bool operator==(const full_iter_impl&, const full_iter_impl&) noexcept = default;
+            [[nodiscard]] constexpr friend bool operator==(
+                const full_iter_impl&, const full_iter_impl&) noexcept = default;
             [[nodiscard]] constexpr bool is_revisit() const noexcept { return revisit_; }
 
             constexpr full_iter_impl& operator++() noexcept
@@ -289,7 +302,10 @@ namespace clu
 
         public:
             constexpr const_full_iter_impl() = default;
-            constexpr const_full_iter_impl(const node_base* ptr, const bool revisit) noexcept: const_iter_base(ptr), revisit_(revisit) {}
+            constexpr const_full_iter_impl(const node_base* ptr, const bool revisit) noexcept:
+                const_iter_base(ptr), revisit_(revisit)
+            {
+            }
 
             [[nodiscard]] constexpr bool operator==(const const_full_iter_impl&) const noexcept = default;
             [[nodiscard]] constexpr bool is_revisit() const noexcept { return revisit_; }
@@ -315,7 +331,7 @@ namespace clu
         public:
             constexpr child_iter_impl() = default;
             constexpr child_iter_impl(node_base* ptr, const bool end) noexcept: iter_base(ptr), end_(end) {}
-            constexpr explicit(false) operator const_child_iter_impl() const noexcept { return { this->ptr_, end_ }; }
+            constexpr explicit(false) operator const_child_iter_impl() const noexcept { return {this->ptr_, end_}; }
 
             [[nodiscard]] constexpr bool operator==(const child_iter_impl&) const noexcept = default;
 
@@ -341,7 +357,10 @@ namespace clu
 
         public:
             constexpr const_child_iter_impl() = default;
-            constexpr const_child_iter_impl(const node_base* ptr, const bool end) noexcept: const_iter_base(ptr), end_(end) {}
+            constexpr const_child_iter_impl(const node_base* ptr, const bool end) noexcept:
+                const_iter_base(ptr), end_(end)
+            {
+            }
 
             [[nodiscard]] constexpr bool operator==(const const_child_iter_impl&) const noexcept = default;
 
@@ -390,7 +409,8 @@ namespace clu
         template <typename F> // F: node_base* -> node*
         constexpr static void copy_children_impl(node_base& dst, const node_base& src, F copy)
         {
-            if (!src.child) return;
+            if (!src.child)
+                return;
             node* current = dst.derived();
             const node* other_current = src.derived();
             bool backtracking = false;
@@ -426,22 +446,20 @@ namespace clu
 
         constexpr full_order_iterator full_begin()
         {
-            return root_.child ?
-                       full_order_iterator(root_.child, false) :
-                       full_order_iterator(&root_, true);
+            return root_.child ? full_order_iterator(root_.child, false) : full_order_iterator(&root_, true);
         }
 
         constexpr const_full_order_iterator full_begin() const
         {
-            return root_.child ?
-                       const_full_order_iterator(root_.child, false) :
-                       const_full_order_iterator(&root_, true);
+            return root_.child ? const_full_order_iterator(root_.child, false)
+                               : const_full_order_iterator(&root_, true);
         }
 
-        constexpr void attach_siblings_after_no_check(const const_iter_base it, forest&& other,
-            const bool reset_first = false) noexcept
+        constexpr void attach_siblings_after_no_check(
+            const const_iter_base it, forest&& other, const bool reset_first = false) noexcept
         {
-            if (!other.root_.child) return;
+            if (!other.root_.child)
+                return;
             node* prev = static_cast<node*>(const_cast<node_base*>(it.ptr_));
             node_base* parent = prev->parent;
             node* next = prev->next;
@@ -459,7 +477,8 @@ namespace clu
 
         constexpr void attach_children_to_leaf(const const_iter_base it, forest&& other) noexcept
         {
-            if (!other.root_.child) return;
+            if (!other.root_.child)
+                return;
             auto* ptr = const_cast<node_base*>(it.ptr_);
             ptr->child = std::exchange(other.root_.child, nullptr);
             ptr->fix_children_parents();
@@ -478,14 +497,12 @@ namespace clu
             if (it.is_leaf())
                 attach_children_to_leaf(it, std::move(other));
             else
-                attach_siblings_after_no_check(
-                    const_iter_base(it.ptr_->child->prev), std::move(other), true);
+                attach_siblings_after_no_check(const_iter_base(it.ptr_->child->prev), std::move(other), true);
         }
 
         constexpr void attach_siblings_before_no_check(const const_iter_base it, forest&& other) noexcept
         {
-            attach_siblings_after_no_check(
-                it.prev_sibling(), std::move(other), it.ptr_->parent->child == it.ptr_);
+            attach_siblings_after_no_check(it.prev_sibling(), std::move(other), it.ptr_->parent->child == it.ptr_);
         }
 
     public:
@@ -493,17 +510,19 @@ namespace clu
         constexpr explicit forest(const Alloc& alloc) noexcept: alloc_(alloc) {}
 
         constexpr forest(const forest& other):
-            forest(other, std::allocator_traits<Alloc>::select_on_container_copy_construction(Alloc(other.alloc_))) {}
+            forest(other, std::allocator_traits<Alloc>::select_on_container_copy_construction(Alloc(other.alloc_)))
+        {
+        }
 
         constexpr forest(const forest& other, const Alloc& alloc): alloc_(alloc)
         {
-            copy_children_impl(root_, other.root_,
-                [&](node_base* ptr) { return new_node(ptr->derived()->value); });
+            copy_children_impl(root_, other.root_, [&](node_base* ptr) { return new_node(ptr->derived()->value); });
         }
 
-        constexpr forest(forest&& other) noexcept:
-            alloc_(std::move(other.alloc_)),
-            root_(clu::take(other.root_)) { root_.fix_children_parents(); }
+        constexpr forest(forest&& other) noexcept: alloc_(std::move(other.alloc_)), root_(clu::take(other.root_))
+        {
+            root_.fix_children_parents();
+        }
 
         constexpr forest(forest&& other, const Alloc& alloc)
         {
@@ -515,8 +534,8 @@ namespace clu
             else
             {
                 alloc_ = al_node(alloc);
-                copy_children_impl(root_, other.root_,
-                    [&](node_base* ptr) { return new_node(std::move(ptr->derived()->value)); });
+                copy_children_impl(
+                    root_, other.root_, [&](node_base* ptr) { return new_node(std::move(ptr->derived()->value)); });
             }
         }
 
@@ -527,8 +546,7 @@ namespace clu
             if (&other != this)
             {
                 clear();
-                copy_children_impl(root_, other.root_,
-                    [&](node_base* ptr) { return new_node(ptr->derived()->value); });
+                copy_children_impl(root_, other.root_, [&](node_base* ptr) { return new_node(ptr->derived()->value); });
             }
             return *this;
         }
@@ -540,7 +558,8 @@ namespace clu
                 clear();
                 if constexpr (al_always_equal || pocma)
                 {
-                    if constexpr (!al_always_equal) alloc_ = other.alloc_;
+                    if constexpr (!al_always_equal)
+                        alloc_ = other.alloc_;
                     root_ = clu::take(other.root_);
                     root_.fix_children_parents();
                 }
@@ -550,8 +569,8 @@ namespace clu
                     root_.fix_children_parents();
                 }
                 else
-                    copy_children_impl(root_, other.root_,
-                        [&](node_base* ptr) { return new_node(std::move(ptr->derived()->value)); });
+                    copy_children_impl(
+                        root_, other.root_, [&](node_base* ptr) { return new_node(std::move(ptr->derived()->value)); });
             }
             return *this;
         }
@@ -560,27 +579,47 @@ namespace clu
 
         [[nodiscard]] constexpr iterator begin() noexcept { return iterator(root_.child ? root_.child : &root_); }
         [[nodiscard]] constexpr iterator end() noexcept { return iterator(&root_); }
-        [[nodiscard]] constexpr const_iterator begin() const noexcept { return const_iterator(root_.child ? root_.child : &root_); }
+        [[nodiscard]] constexpr const_iterator begin() const noexcept
+        {
+            return const_iterator(root_.child ? root_.child : &root_);
+        }
         [[nodiscard]] constexpr const_iterator end() const noexcept { return const_iterator(&root_); }
         [[nodiscard]] constexpr const_iterator cbegin() const noexcept { return begin(); }
         [[nodiscard]] constexpr const_iterator cend() const noexcept { return end(); }
         [[nodiscard]] constexpr reverse_iterator rbegin() noexcept { return std::make_reverse_iterator(end()); }
         [[nodiscard]] constexpr reverse_iterator rend() noexcept { return std::make_reverse_iterator(begin()); }
-        [[nodiscard]] constexpr const_reverse_iterator rbegin() const noexcept { return std::make_reverse_iterator(end()); }
-        [[nodiscard]] constexpr const_reverse_iterator rend() const noexcept { return std::make_reverse_iterator(begin()); }
-        [[nodiscard]] constexpr const_reverse_iterator crbegin() const noexcept { return std::make_reverse_iterator(end()); }
-        [[nodiscard]] constexpr const_reverse_iterator crend() const noexcept { return std::make_reverse_iterator(begin()); }
+        [[nodiscard]] constexpr const_reverse_iterator rbegin() const noexcept
+        {
+            return std::make_reverse_iterator(end());
+        }
+        [[nodiscard]] constexpr const_reverse_iterator rend() const noexcept
+        {
+            return std::make_reverse_iterator(begin());
+        }
+        [[nodiscard]] constexpr const_reverse_iterator crbegin() const noexcept
+        {
+            return std::make_reverse_iterator(end());
+        }
+        [[nodiscard]] constexpr const_reverse_iterator crend() const noexcept
+        {
+            return std::make_reverse_iterator(begin());
+        }
 
-        [[nodiscard]] constexpr full_order_range full_order_traverse() noexcept { return { full_begin(), { &root_, true } }; }
-        [[nodiscard]] constexpr const_full_order_range full_order_traverse() const noexcept { return { full_begin(), { &root_, true } }; }
+        [[nodiscard]] constexpr full_order_range full_order_traverse() noexcept
+        {
+            return {full_begin(), {&root_, true}};
+        }
+        [[nodiscard]] constexpr const_full_order_range full_order_traverse() const noexcept
+        {
+            return {full_begin(), {&root_, true}};
+        }
 
         [[nodiscard]] constexpr bool empty() const noexcept { return !root_.child; }
 
         template <typename... Ts>
         constexpr iterator emplace_child_back(const const_iter_base it, Ts&&... args)
         {
-            if (auto* parent = const_cast<node_base*>(it.ptr_);
-                !parent->child)
+            if (auto* parent = const_cast<node_base*>(it.ptr_); !parent->child)
             {
                 node* child = new_node(std::forward<Ts>(args)...);
                 parent->child = child;
@@ -598,14 +637,19 @@ namespace clu
                 return iterator(last);
             }
         }
-        constexpr iterator insert_child_back(const const_iter_base it, const T& value) { return emplace_child_back(it, value); }
-        constexpr iterator insert_child_back(const const_iter_base it, T&& value) { return emplace_child_back(it, std::move(value)); }
+        constexpr iterator insert_child_back(const const_iter_base it, const T& value)
+        {
+            return emplace_child_back(it, value);
+        }
+        constexpr iterator insert_child_back(const const_iter_base it, T&& value)
+        {
+            return emplace_child_back(it, std::move(value));
+        }
 
         template <typename... Ts>
         constexpr iterator emplace_child_front(const const_iter_base it, Ts&&... args)
         {
-            if (auto* parent = const_cast<node_base*>(it.ptr_);
-                !parent->child)
+            if (auto* parent = const_cast<node_base*>(it.ptr_); !parent->child)
             {
                 node* child = new_node(std::forward<Ts>(args)...);
                 parent->child = child;
@@ -624,21 +668,32 @@ namespace clu
                 return iterator(added);
             }
         }
-        constexpr iterator insert_child_front(const const_iter_base it, const T& value) { return emplace_child_front(it, value); }
-        constexpr iterator insert_child_front(const const_iter_base it, T&& value) { return emplace_child_front(it, std::move(value)); }
+        constexpr iterator insert_child_front(const const_iter_base it, const T& value)
+        {
+            return emplace_child_front(it, value);
+        }
+        constexpr iterator insert_child_front(const const_iter_base it, T&& value)
+        {
+            return emplace_child_front(it, std::move(value));
+        }
 
         template <std::input_iterator It, std::sentinel_for<It> Se>
             requires std::convertible_to<std::iter_value_t<It>, T>
         constexpr iterator insert_children_back(const const_iter_base it, It begin, const Se end)
         {
-            if (begin == end) return iterator(const_cast<node_base*>(it.ptr_));
+            if (begin == end)
+                return iterator(const_cast<node_base*>(it.ptr_));
             iterator first = insert_child_back(it, *begin++);
             insert_siblings_after(first, begin, end);
             return first;
         }
-        template <std::ranges::input_range Rng>
-            requires std::convertible_to<std::ranges::range_value_t<Rng>, T> && (!clu::similar_to<Rng, forest>)
+
+        // clang-format off
+        template <std::ranges::input_range Rng> requires
+            (!clu::similar_to<Rng, forest>) &&
+            std::convertible_to<std::ranges::range_value_t<Rng>, T>
         constexpr iterator insert_children_back(const const_iter_base it, Rng&& range)
+        // clang-format on
         {
             return insert_children_back(it, std::ranges::begin(range), std::ranges::end(range));
         }
@@ -651,7 +706,8 @@ namespace clu
             requires std::convertible_to<std::iter_value_t<It>, T>
         constexpr iterator insert_children_front(const const_iter_base it, It begin, const Se end)
         {
-            if (begin == end) return iterator(const_cast<node_base*>(it.ptr_));
+            if (begin == end)
+                return iterator(const_cast<node_base*>(it.ptr_));
             iterator first = insert_child_front(it, *begin++);
             insert_siblings_after(first, begin, end);
             return first;
@@ -679,7 +735,10 @@ namespace clu
             added->parent = ptr->parent;
             return iterator(added);
         }
-        constexpr iterator insert_sibling_after(const const_iter_base it, const T& value) { return emplace_sibling_after(it, value); }
+        constexpr iterator insert_sibling_after(const const_iter_base it, const T& value)
+        {
+            return emplace_sibling_after(it, value);
+        }
         constexpr iterator insert_sibling_after(const const_iter_base it, T&& value)
         {
             return emplace_sibling_after(it, std::move(value));
@@ -696,10 +755,14 @@ namespace clu
             added->next = ptr;
             node_base* parent = ptr->parent;
             added->parent = parent;
-            if (parent->child == ptr) parent->child = added;
+            if (parent->child == ptr)
+                parent->child = added;
             return iterator(added);
         }
-        constexpr iterator insert_sibling_before(const const_iter_base it, const T& value) { return emplace_sibling_before(it, value); }
+        constexpr iterator insert_sibling_before(const const_iter_base it, const T& value)
+        {
+            return emplace_sibling_before(it, value);
+        }
         constexpr iterator insert_sibling_before(const const_iter_base it, T&& value)
         {
             return emplace_sibling_before(it, std::move(value));
@@ -711,7 +774,8 @@ namespace clu
         {
             // TODO: how hard would it be to filfull stronger exception guarantees for some operations?
             node* prev = static_cast<node*>(const_cast<node_base*>(it.ptr_));
-            if (begin == end) return iterator(prev);
+            if (begin == end)
+                return iterator(prev);
             node* last = prev->next;
 
             node* res_node = new_node(*begin++);
@@ -732,9 +796,12 @@ namespace clu
 
             return iterator(res_node);
         }
-        template <std::ranges::input_range Rng>
-            requires std::convertible_to<std::ranges::range_value_t<Rng>, T> && (!clu::similar_to<Rng, forest>)
+        // clang-format off
+        template <std::ranges::input_range Rng> requires
+            (!clu::similar_to<Rng, forest>) &&
+            std::convertible_to<std::ranges::range_value_t<Rng>, T>
         constexpr iterator insert_siblings_after(const const_iter_base it, Rng&& range)
+        // clang-format on
         {
             return insert_siblings_after(it, std::ranges::begin(range), std::ranges::end(range));
         }
@@ -749,7 +816,8 @@ namespace clu
         {
             CLU_ASSERT(it.ptr_ != &root_, "cannot insert siblings for the end iterator");
             node* ptr = static_cast<node*>(const_cast<node_base*>(it.ptr_));
-            if (begin == end) return iterator(ptr);
+            if (begin == end)
+                return iterator(ptr);
             if (ptr->is_first_sibling())
             {
                 const iterator first = insert_child_front(it.parent(), *begin++);
@@ -758,9 +826,12 @@ namespace clu
             }
             return insert_siblings_after(it.prev_sibling(), begin, end);
         }
-        template <std::ranges::input_range Rng>
-            requires std::convertible_to<std::ranges::range_value_t<Rng>, T> && (!clu::similar_to<Rng, forest>)
+        // clang-format off
+        template <std::ranges::input_range Rng> requires
+            (!clu::similar_to<Rng, forest>) &&
+            std::convertible_to<std::ranges::range_value_t<Rng>, T>
         constexpr iterator insert_siblings_before(const const_iter_base it, Rng&& range)
+        // clang-format on
         {
             return insert_siblings_before(it, std::ranges::begin(range), std::ranges::end(range));
         }
@@ -778,7 +849,7 @@ namespace clu
             ptr->prev->next = ptr->next;
             ptr->next->prev = ptr->prev;
             ptr->prev = ptr->next = ptr;
-            forest result{ Alloc(alloc_) };
+            forest result{Alloc(alloc_)};
             result.root_.child = ptr;
             ptr->parent = &result.root_;
             return result;
@@ -786,9 +857,10 @@ namespace clu
 
         constexpr forest detach_children(const const_iter_base it) noexcept
         {
-            if (it.is_leaf()) return forest(Alloc(alloc_));
+            if (it.is_leaf())
+                return forest(Alloc(alloc_));
             node* first = std::exchange(const_cast<node_base*>(it.ptr_)->child, nullptr);
-            forest result{ Alloc(alloc_) };
+            forest result{Alloc(alloc_)};
             result.root_.child = first;
             result.root_.fix_children_parents();
             return result;
@@ -802,8 +874,8 @@ namespace clu
             node* tree_root = result.new_node(*it);
             result.root_.child = tree_root;
             tree_root->parent = &result.root_;
-            copy_children_impl(*tree_root, *(it.ptr_),
-                [&](const node_base* ptr) { return result.new_node(ptr->derived()->value); });
+            copy_children_impl(
+                *tree_root, *(it.ptr_), [&](const node_base* ptr) { return result.new_node(ptr->derived()->value); });
             return result;
         }
 
@@ -811,8 +883,8 @@ namespace clu
         constexpr forest copy_children(const const_iter_base it, const Alloc alloc) const
         {
             forest result(alloc);
-            copy_children_impl(result.root_, *(it.ptr_),
-                [&](const node_base* ptr) { return result.new_node(ptr->derived()->value); });
+            copy_children_impl(
+                result.root_, *(it.ptr_), [&](const node_base* ptr) { return result.new_node(ptr->derived()->value); });
             return result;
         }
 
@@ -866,10 +938,12 @@ namespace clu
 
         constexpr void clear() noexcept
         {
-            if (!root_.child) return;
+            if (!root_.child)
+                return;
             constexpr auto right_bottom_most_node = [](node_base* ptr)
             {
-                while (ptr->child) ptr = ptr->child->prev;
+                while (ptr->child)
+                    ptr = ptr->child->prev;
                 return ptr->derived();
             };
             auto ptr = right_bottom_most_node(&root_);
@@ -897,7 +971,8 @@ namespace clu
 
         constexpr void swap(forest& other) noexcept(pocs || al_always_equal)
         {
-            if constexpr (pocs) std::swap(alloc_, other.alloc_);
+            if constexpr (pocs)
+                std::swap(alloc_, other.alloc_);
             std::swap(root_, other.root_);
             root_.fix_children_parents();
             other.root_.fix_children_parents();
@@ -905,6 +980,7 @@ namespace clu
 
         constexpr friend void swap(forest& lhs, forest& rhs) noexcept(pocs || al_always_equal) { lhs.swap(rhs); }
 
+        // clang-format off
         [[nodiscard]] constexpr bool is_leaf(const const_iter_base it) const noexcept { return it.ptr_->child == nullptr; }
         [[nodiscard]] constexpr bool is_root(const const_iter_base it) const noexcept { return it.ptr_->parent == &root_; }
         [[nodiscard]] constexpr iterator parent_of(const const_iter_base it) noexcept { return iter_base(it).parent(); }
@@ -917,6 +993,7 @@ namespace clu
         [[nodiscard]] constexpr const_child_range roots() const noexcept { return end().children(); }
         [[nodiscard]] constexpr child_range children_of(const const_iter_base it) noexcept { return iter_base(it).children(); }
         [[nodiscard]] constexpr const_child_range children_of(const const_iter_base it) const noexcept { return it.children(); }
+        // clang-format on
     };
 
     namespace pmr
@@ -924,4 +1001,4 @@ namespace clu
         template <typename T>
         using forest = forest<T, std::pmr::polymorphic_allocator<T>>;
     }
-}
+} // namespace clu

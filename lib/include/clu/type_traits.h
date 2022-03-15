@@ -30,14 +30,16 @@ namespace clu
         friend constexpr bool operator==(monostate, monostate) noexcept = default;
         friend constexpr auto operator<=>(monostate, monostate) noexcept = default;
     };
-    
+
     struct unit
     {
         friend constexpr bool operator==(unit, unit) noexcept = default;
     };
 
+    // clang-format off
     template <size_t I> struct priority_tag : priority_tag<I - 1> {};
     template <> struct priority_tag<0> {};
+    // clang-format on
 
     namespace detail
     {
@@ -54,7 +56,7 @@ namespace clu
             template <typename, typename False>
             using type = False;
         };
-    }
+    } // namespace detail
 
     template <bool value, typename True, typename False>
     using conditional_t = typename detail::conditional_impl<value>::template type<True, False>;
@@ -77,11 +79,13 @@ namespace clu
         using type = rref;
     };
 
-    template <typename From, typename To> using copy_cvref_t = typename copy_cvref<From, To>::type;
+    template <typename From, typename To>
+    using copy_cvref_t = typename copy_cvref<From, To>::type;
 
     template <typename T>
     using with_regular_void_t = conditional_t<std::is_void_v<T>, copy_cvref_t<T, unit>, T>;
 
+    // clang-format off
     template <typename... Ts> struct single_type {};
     template <typename T> struct single_type<T> : std::type_identity<T> {};
     template <typename... Ts> using single_type_t = typename single_type<Ts...>::type;
@@ -89,10 +93,17 @@ namespace clu
     template <typename... Ts> struct all_same : std::false_type {};
     template <> struct all_same<> : std::true_type {};
     template <typename T> struct all_same<T> : std::true_type {};
-    template <typename T, typename... Rest> struct all_same<T, Rest...> : std::bool_constant<(std::is_same_v<T, Rest> && ...)> {};
+    template <typename T, typename... Rest>
+    struct all_same<T, Rest...> : std::bool_constant<(std::is_same_v<T, Rest> && ...)> {};
+    // clang-format on
 
-    template <typename... Ts> inline constexpr bool all_same_v = all_same<Ts...>::value;
+    template <typename... Ts>
+    inline constexpr bool all_same_v = all_same<Ts...>::value;
 
-    template <typename T> inline constexpr bool no_cvref_v = std::is_same_v<T, std::remove_cvref_t<T>>;
-    template <typename T> struct no_cvref : std::bool_constant<no_cvref_v<T>> {};
-}
+    template <typename T>
+    inline constexpr bool no_cvref_v = std::is_same_v<T, std::remove_cvref_t<T>>;
+    template <typename T>
+    struct no_cvref : std::bool_constant<no_cvref_v<T>>
+    {
+    };
+} // namespace clu

@@ -19,6 +19,7 @@ namespace clu::exec
             public:
                 virtual void execute() = 0;
                 ops_base* next = nullptr;
+
             protected:
                 run_loop* loop_ = nullptr;
                 explicit ops_base(run_loop* loop) noexcept: loop_(loop) {}
@@ -33,6 +34,7 @@ namespace clu::exec
             public:
                 explicit schd_t(run_loop* loop) noexcept: loop_(loop) {}
                 friend bool operator==(schd_t, schd_t) noexcept = default;
+
             private:
                 run_loop* loop_;
                 friend auto tag_invoke(schedule_t, schd_t schd) noexcept;
@@ -50,8 +52,10 @@ namespace clu::exec
             public:
                 template <forwarding<R> R2>
                 type(run_loop* loop, R2&& recv) noexcept(std::is_nothrow_constructible_v<R, R2>):
-                    ops_base(loop), recv_(static_cast<R2&&>(recv)) {}
-                
+                    ops_base(loop), recv_(static_cast<R2&&>(recv))
+                {
+                }
+
                 ~type() noexcept = default;
                 CLU_IMMOVABLE_TYPE(type);
 
@@ -62,14 +66,20 @@ namespace clu::exec
                     else
                         exec::set_value(std::move(recv_));
                 }
-                
+
             private:
                 R recv_;
 
                 friend void tag_invoke(start_t, type& state) noexcept
                 {
-                    try { state.enqueue(); }
-                    catch (...) { exec::set_error(std::move(state.recv_), std::current_exception()); }
+                    try
+                    {
+                        state.enqueue();
+                    }
+                    catch (...)
+                    {
+                        exec::set_error(std::move(state.recv_), std::current_exception());
+                    }
                 }
             };
 
@@ -86,21 +96,24 @@ namespace clu::exec
 
                 // @formatter:off
                 template <typename R>
-                friend auto tag_invoke(connect_t, const snd_t& snd, R&& recv)
-                    noexcept(std::is_nothrow_constructible_v<std::remove_cvref_t<R>, R>)
+                friend auto tag_invoke(connect_t, const snd_t& snd, R&& recv) noexcept(
+                    std::is_nothrow_constructible_v<std::remove_cvref_t<R>, R>)
                 {
                     return ops_t<R>(snd.loop_, static_cast<R&&>(recv));
                 }
                 // @formatter:on
 
                 template <recvs::completion_cpo Cpo>
-                friend auto tag_invoke(get_completion_scheduler_t<Cpo>, const snd_t& snd) noexcept { return schd_t(snd.loop_); }
+                friend auto tag_invoke(get_completion_scheduler_t<Cpo>, const snd_t& snd) noexcept
+                {
+                    return schd_t(snd.loop_);
+                }
 
-                friend completion_signatures<
-                    set_value_t(),
-                    set_error_t(std::exception_ptr),
-                    set_stopped_t()
-                > tag_invoke(get_completion_signatures_t, const snd_t&, auto) noexcept { return {}; }
+                friend completion_signatures<set_value_t(), set_error_t(std::exception_ptr), set_stopped_t()>
+                tag_invoke(get_completion_signatures_t, const snd_t&, auto) noexcept
+                {
+                    return {};
+                }
             };
 
             inline auto tag_invoke(schedule_t, const schd_t schd) noexcept { return snd_t(schd.loop_); }
@@ -137,7 +150,12 @@ namespace clu::exec
                 auto get_scheduler() noexcept { return schd_t(this); }
 
             private:
-                enum class state_t { starting, running, finishing };
+                enum class state_t
+                {
+                    starting,
+                    running,
+                    finishing
+                };
 
                 std::mutex mutex_;
                 std::condition_variable cv_;
@@ -156,10 +174,12 @@ namespace clu::exec
                 ops_base* dequeue(std::unique_lock<std::mutex>& lock)
                 {
                     cv_.wait(lock, [this] { return head_ != nullptr || state_ == state_t::finishing; });
-                    if (!head_) return nullptr;
+                    if (!head_)
+                        return nullptr;
                     ops_base* ptr = head_;
                     head_ = head_->next;
-                    if (!head_) tail_ = nullptr;
+                    if (!head_)
+                        tail_ = nullptr;
                     return ptr;
                 }
 
@@ -167,7 +187,7 @@ namespace clu::exec
             };
 
             inline void ops_base::enqueue() { loop_->enqueue(this); }
-        }
+        } // namespace loop
 
         namespace inl_schd
         {
@@ -182,18 +202,16 @@ namespace clu::exec
             {
             public:
                 template <typename R2>
-                explicit type(R2&& recv):
-                    recv_(static_cast<R2&&>(recv)) {}
+                explicit type(R2&& recv): recv_(static_cast<R2&&>(recv))
+                {
+                }
 
                 CLU_IMMOVABLE_TYPE(type);
 
             private:
                 R recv_;
 
-                friend void tag_invoke(start_t, type& self) noexcept
-                {
-                    exec::set_value(static_cast<R&&>(self.recv_));
-                }
+                friend void tag_invoke(start_t, type& self) noexcept { exec::set_value(static_cast<R&&>(self.recv_)); }
             };
 
             template <typename R>
@@ -207,9 +225,11 @@ namespace clu::exec
                     return ops_t<R>(static_cast<R&&>(recv));
                 }
 
-                friend completion_signatures<
-                    set_value_t()
-                > tag_invoke(get_completion_signatures_t, const snd_t&, auto) noexcept { return {}; }
+                friend completion_signatures<set_value_t()> tag_invoke(
+                    get_completion_signatures_t, const snd_t&, auto) noexcept
+                {
+                    return {};
+                }
             };
 
             struct inline_scheduler
@@ -217,8 +237,8 @@ namespace clu::exec
                 constexpr friend bool operator==(inline_scheduler, inline_scheduler) noexcept { return true; }
                 friend snd_t tag_invoke(schedule_t, const inline_scheduler&) noexcept { return {}; }
             };
-        }
-    }
+        } // namespace inl_schd
+    } // namespace detail
 
     using detail::loop::run_loop;
     using detail::inl_schd::inline_scheduler;
@@ -246,4 +266,4 @@ namespace clu::exec
         run_loop loop_;
         std::thread thr_;
     };
-}
+} // namespace clu::exec

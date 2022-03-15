@@ -12,4 +12,4 @@ namespace clu
         value = T{};
         return old;
     }
-}
+} // namespace clu

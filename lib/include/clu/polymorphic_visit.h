@@ -12,7 +12,10 @@ namespace clu
     {
         // recursion base, no type matches
         template <typename B, typename F>
-        [[noreturn]] void polymorphic_visit_impl(B&&, F&&) { throw std::bad_cast(); }
+        [[noreturn]] void polymorphic_visit_impl(B&&, F&&)
+        {
+            throw std::bad_cast();
+        }
 
         template <typename D, typename... Ds, typename B, typename F>
         auto polymorphic_visit_impl(B&& base, F&& func) -> std::invoke_result_t<F&&, copy_cvref_t<B&&, D>>
@@ -24,15 +27,16 @@ namespace clu
             else // try the next type
                 return polymorphic_visit_impl<Ds...>(std::forward<B>(base), std::forward<F>(func));
         }
-    }
+    } // namespace detail
 
+    // clang-format off
     template <typename... Ds, typename B, typename F> requires
         (std::derived_from<Ds, std::remove_cvref_t<B>> && ...) &&
-        (std::invocable<F&&, copy_cvref_t<B&&, Ds>> && ...) &&
+        (std::invocable<F&&, copy_cvref_t<B&&, Ds>>&&...) &&
         all_same_v<std::invoke_result_t<F&&, copy_cvref_t<B&&, Ds>>...>
     decltype(auto) polymorphic_visit(B&& base, F&& func)
+    // clang-format on
     {
-        return detail::polymorphic_visit_impl<Ds...>(
-            std::forward<B>(base), std::forward<F>(func));
+        return detail::polymorphic_visit_impl<Ds...>(std::forward<B>(base), std::forward<F>(func));
     }
-}
+} // namespace clu

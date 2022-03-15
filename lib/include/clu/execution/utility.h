@@ -41,29 +41,20 @@ namespace clu::exec
             recv.get_env();
         };
 
-        // @formatter:off
+        // clang-format off
         template <typename R, typename B, typename... Args>
-        concept inherits_set_value =
-            requires { typename R::set_value; } &&
-            tag_invocable<set_value_t, B, Args...>;
-
+        concept inherits_set_value = requires { typename R::set_value; } && tag_invocable<set_value_t, B, Args...>;
         template <typename R, typename B, typename E>
-        concept inherits_set_error =
-            requires { typename R::set_error; } &&
-            tag_invocable<set_error_t, B, E>;
-
+        concept inherits_set_error = requires { typename R::set_error; } && tag_invocable<set_error_t, B, E>;
         template <typename R, typename B>
-        concept inherits_set_stopped =
-            requires { typename R::set_stopped; } &&
-            tag_invocable<set_stopped_t, B>;
-
+        concept inherits_set_stopped = requires { typename R::set_stopped; } && tag_invocable<set_stopped_t, B>;
         template <typename R, typename B>
-        concept inherits_get_env =
-            requires { typename R::get_env; } &&
-            tag_invocable<get_env_t, B>;
-        // @formatter:on
+        concept inherits_get_env = requires { typename R::get_env; } && tag_invocable<get_env_t, B>;
+        // clang-format on
 
-        struct no_base {};
+        struct no_base
+        {
+        };
 
         template <typename Derived, typename Base>
         struct receiver_adaptor_
@@ -85,19 +76,22 @@ namespace clu::exec
 
             // Not to spec: no default c'tor
 
+            // clang-format off
             template <typename B> requires
                 (!std::same_as<Base, no_base>) &&
                 std::constructible_from<Base, B>
             explicit type(B&& base): base_(static_cast<B&&>(base)) {}
+            // clang-format on
 
             Base& base() & noexcept requires has_base { return base_; }
-            const Base& base() const & noexcept requires has_base { return base_; }
+            const Base& base() const& noexcept requires has_base { return base_; }
             Base&& base() && noexcept requires has_base { return std::move(base_); }
-            const Base&& base() const && noexcept requires has_base { return std::move(base_); }
+            const Base&& base() const&& noexcept requires has_base { return std::move(base_); }
 
-        private:
+        private :
+            // clang-format off
             [[no_unique_address]] Base base_;
-
+            // clang-format on
             template <typename D>
             constexpr static decltype(auto) get_base(D&& d)
             {
@@ -114,9 +108,8 @@ namespace clu::exec
             // Requiring std::derived_from<D, Derived> and make the parameter
             // reference to D for all the tag_invoke overloads to make gcc happy
 
-            template <std::derived_from<Derived> D, typename... Args> requires
-                has_set_value<D, Args...> ||
-                inherits_set_value<D, base_type<D&&>, Args...>
+            template <std::derived_from<Derived> D, typename... Args>
+                requires has_set_value<D, Args...> || inherits_set_value<D, base_type<D&&>, Args...>
             constexpr friend void tag_invoke(set_value_t, D&& self, Args&&... args) noexcept
             {
                 if constexpr (has_set_value<Derived, Args...>)
@@ -129,86 +122,74 @@ namespace clu::exec
                     exec::set_value(get_base(static_cast<Derived&&>(self)), static_cast<Args&&>(args)...);
             }
 
-            template <typename E, std::derived_from<Derived> D> requires
-                has_set_error<D, E> ||
-                inherits_set_error<D, base_type<D&&>, E>
+            template <typename E, std::derived_from<Derived> D>
+                requires has_set_error<D, E> || inherits_set_error<D, base_type<D&&>, E>
             constexpr friend void tag_invoke(set_error_t, D&& self, E&& err) noexcept
             {
                 if constexpr (has_set_error<Derived, E>)
                 {
-                    static_assert(noexcept(std::declval<Derived>().set_error(std::declval<E>())),
-                        "set_error should be noexcept");
+                    static_assert(
+                        noexcept(std::declval<Derived>().set_error(std::declval<E>())), "set_error should be noexcept");
                     static_cast<Derived&&>(self).set_error(static_cast<E&&>(err));
                 }
                 else
                     exec::set_error(get_base(static_cast<Derived&&>(self)), static_cast<E&&>(err));
             }
 
-            template <std::derived_from<Derived> D> requires
-                has_set_stopped<D> ||
-                inherits_set_stopped<D, base_type<D&&>>
+            template <std::derived_from<Derived> D>
+                requires has_set_stopped<D> || inherits_set_stopped<D, base_type<D&&>>
             constexpr friend void tag_invoke(set_stopped_t, D&& self) noexcept
             {
                 if constexpr (has_set_stopped<Derived>)
                 {
-                    static_assert(noexcept(std::declval<Derived>().set_stopped()),
-                        "set_stopped should be noexcept");
+                    static_assert(noexcept(std::declval<Derived>().set_stopped()), "set_stopped should be noexcept");
                     static_cast<Derived&&>(self).set_stopped();
                 }
                 else
                     exec::set_stopped(get_base(static_cast<Derived&&>(self)));
             }
 
-            template <std::derived_from<Derived> D> requires
-                has_get_env<D> ||
-                inherits_get_env<D, base_type<const D&>>
+            template <std::derived_from<Derived> D>
+                requires has_get_env<D> || inherits_get_env<D, base_type<const D&>>
             constexpr friend decltype(auto) tag_invoke(get_env_t, const D& self) noexcept
             {
                 if constexpr (has_get_env<Derived>)
                 {
-                    static_assert(noexcept(self.get_env()),
-                        "get_env should be noexcept");
+                    static_assert(noexcept(self.get_env()), "get_env should be noexcept");
                     return self.get_env();
                 }
                 else
                     return exec::get_env(get_base(self));
             }
 
-            // @formatter:off
             template <recv_qry::fwd_recv_query Cpo, std::derived_from<Derived> D, typename... Args>
                 requires callable<Cpo, base_type<const D&>, Args...>
-            constexpr friend decltype(auto) tag_invoke(Cpo cpo, const D& self, Args&&... args)
-                noexcept(nothrow_callable<Cpo, base_type<const D&>, Args...>)
+            constexpr friend decltype(auto) tag_invoke(Cpo cpo, const D& self, Args&&... args) noexcept(
+                nothrow_callable<Cpo, base_type<const D&>, Args...>)
             {
-                return static_cast<Cpo&&>(cpo)(
-                    get_base(self), static_cast<Args&&>(args)...);
+                return static_cast<Cpo&&>(cpo)(get_base(self), static_cast<Args&&>(args)...);
             }
-            // @formatter:on
         };
 
         template <class_type Derived, typename Base = no_base>
         using receiver_adaptor = typename receiver_adaptor_<Derived, Base>::type;
-    }
+    } // namespace detail::recv_adpt
 
     using detail::recv_adpt::receiver_adaptor;
 
-    template <class P> requires
-        std::is_class_v<P> &&
-        std::same_as<P, std::remove_cvref_t<P>>
+    template <class P>
+        requires std::is_class_v<P> && std::same_as<P, std::remove_cvref_t<P>>
     class with_awaitable_senders
     {
     public:
         template <typename P2>
-            requires (!std::same_as<P2, void>)
+            requires(!std::same_as<P2, void>)
         void set_continuation(const coro::coroutine_handle<P2> h) noexcept
         {
             cont_ = h;
-            if constexpr (requires(P2& other) { other.unhandled_stopped(); })
+            if constexpr (requires(P2 & other) { other.unhandled_stopped(); })
                 stopped_handler_ = [](void* p) noexcept -> coro::coroutine_handle<>
-                {
-                    return coro::coroutine_handle<P2>::from_address(p)
-                          .promise().unhandled_stopped();
-                };
+                { return coro::coroutine_handle<P2>::from_address(p).promise().unhandled_stopped(); };
             else
                 stopped_handler_ = default_stopped_handler;
         }
@@ -219,8 +200,7 @@ namespace clu::exec
         template <typename T>
         decltype(auto) await_transform(T&& value)
         {
-            return exec::as_awaitable(
-                static_cast<T&&>(value), static_cast<P&>(*this));
+            return exec::as_awaitable(static_cast<T&&>(value), static_cast<P&>(*this));
         }
 
     private:
@@ -229,4 +209,4 @@ namespace clu::exec
         coro::coroutine_handle<> cont_{};
         coro::coroutine_handle<> (*stopped_handler_)(void*) noexcept = default_stopped_handler;
     };
-}
+} // namespace clu::exec

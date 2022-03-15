@@ -10,6 +10,7 @@ namespace clu
     {
     private:
         F func_;
+
     public:
         constexpr explicit scope_exit(F&& func): func_(std::move(func)) {}
         scope_exit(const scope_exit&) = delete;
@@ -18,7 +19,8 @@ namespace clu
         scope_exit& operator=(scope_exit&&) = delete;
         ~scope_exit() noexcept(noexcept(func_())) { func_(); }
     };
-    template <typename F> scope_exit(F) -> scope_exit<F>;
+    template <typename F>
+    scope_exit(F) -> scope_exit<F>;
 
     template <typename F>
     class [[nodiscard]] scope_fail final
@@ -26,6 +28,7 @@ namespace clu
     private:
         int exception_count_ = std::uncaught_exceptions();
         F func_;
+
     public:
         constexpr explicit scope_fail(F&& func): func_(std::move(func)) {}
         scope_fail(const scope_fail&) = delete;
@@ -39,7 +42,8 @@ namespace clu
                 func_();
         }
     };
-    template <typename F> scope_fail(F) -> scope_fail<F>;
+    template <typename F>
+    scope_fail(F) -> scope_fail<F>;
 
     template <typename F>
     class [[nodiscard]] scope_success final
@@ -47,6 +51,7 @@ namespace clu
     private:
         int exception_count_ = std::uncaught_exceptions();
         F func_;
+
     public:
         constexpr explicit scope_success(F&& func): func_(std::move(func)) {}
         scope_success(const scope_success&) = delete;
@@ -60,5 +65,6 @@ namespace clu
                 func_();
         }
     };
-    template <typename F> scope_success(F) -> scope_success<F>;
-}
+    template <typename F>
+    scope_success(F) -> scope_success<F>;
+} // namespace clu

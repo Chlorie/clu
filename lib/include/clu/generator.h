@@ -16,9 +16,11 @@ namespace clu
         R range;
     };
 
-    template <typename R> elements_of(R&&) -> elements_of<R&&>;
+    template <typename R>
+    elements_of(R&&) -> elements_of<R&&>;
 
-    template <typename Ref, typename Value> class generator;
+    template <typename Ref, typename Value>
+    class generator;
 
     namespace detail
     {
@@ -51,7 +53,11 @@ namespace clu
                 handle_t parent{};
                 handle_t root{};
 
-                void maybe_rethrow() const { if (exc) std::rethrow_exception(exc); }
+                void maybe_rethrow() const
+                {
+                    if (exc)
+                        std::rethrow_exception(exc);
+                }
 
                 void set_parent(generator_promise_base& pms) noexcept
                 {
@@ -116,35 +122,34 @@ namespace clu
                 return {};
             }
 
+            // clang-format off
             // When the yielded type is an rvalue and the user co_yield-s an lvalue,
             // copy the lvalue into an awaiter and yield that as an rvalue
             template <typename U = std::remove_cvref_t<T>> requires
                 std::is_rvalue_reference_v<T> &&
                 std::constructible_from<std::remove_cvref_t<T>, const U&>
             auto yield_value(const std::type_identity_t<U>& value)
+            // clang-format on
             {
-                return yield_lvalue_awaiter<U>{ value };
+                return yield_lvalue_awaiter<U>{value};
             }
 
             template <class T2, class V2>
                 requires std::same_as<typename generator<T2, V2>::yielded, T>
             auto yield_value(elements_of<generator<T2, V2>&&> other) noexcept
             {
-                return yield_generator_awaiter<T2, V2>{ std::move(other.range), {} };
+                return yield_generator_awaiter<T2, V2>{std::move(other.range), {}};
             }
 
             template <std::ranges::input_range Rng>
                 requires std::convertible_to<std::ranges::range_reference_t<Rng>, T>
             auto yield_value(elements_of<Rng> range) noexcept
             {
-                return yield_value(elements_of
+                return yield_value(elements_of{[](Rng r) -> generator<T, std::ranges::range_value_t<Rng>>
                     {
-                        [](Rng r) -> generator<T, std::ranges::range_value_t<Rng>>
-                        {
-                            for (auto&& e : static_cast<Rng>(r))
-                                co_yield static_cast<T>(static_cast<decltype(e)>(e));
-                        }(static_cast<Rng>(range.range))
-                    });
+                        for (auto&& e : static_cast<Rng>(r))
+                            co_yield static_cast<T>(static_cast<decltype(e)>(e));
+                    }(static_cast<Rng>(range.range))});
             }
 
             void return_void() const noexcept {}
@@ -180,8 +185,7 @@ namespace clu
 
             Yielded operator*() const noexcept
             {
-                return static_cast<Yielded>(
-                    *handle_.promise().inner_most_.promise().ptr_);
+                return static_cast<Yielded>(*handle_.promise().inner_most_.promise().ptr_);
             }
 
             generator_iterator& operator++() noexcept
@@ -198,13 +202,16 @@ namespace clu
             using handle_t = coro::coroutine_handle<generator_promise_base<Yielded>>;
             coro::coroutine_handle<generator_promise_base<Yielded>> handle_{};
 
-            template <typename, typename> friend class generator;
+            template <typename, typename>
+            friend class generator;
 
             template <typename P>
             explicit generator_iterator(coro::coroutine_handle<P> handle) noexcept:
-                handle_(handle_t::from_promise(handle.promise())) {}
+                handle_(handle_t::from_promise(handle.promise()))
+            {
+            }
         };
-    }
+    } // namespace detail
 
     template <typename Ref, typename Value = void>
     class generator
@@ -212,16 +219,19 @@ namespace clu
     private:
         using value_t = conditional_t<std::is_void_v<Value>, std::remove_cvref_t<Ref>, Value>;
         using reference_t = conditional_t<std::is_void_v<Value>, Ref&&, Ref>;
-        using rvalue_ref_t = conditional_t<std::is_reference_v<reference_t>,
-            std::remove_reference_t<reference_t>&&, reference_t>;
+        using rvalue_ref_t =
+            conditional_t<std::is_reference_v<reference_t>, std::remove_reference_t<reference_t>&&, reference_t>;
 
+        // clang-format off
         // Mandates:
         static_assert(no_cvref_v<value_t>);
-        static_assert(std::is_reference_v<reference_t> ||
+        static_assert(
+            std::is_reference_v<reference_t> ||
             (no_cvref_v<reference_t> && std::copy_constructible<reference_t>));
         static_assert(std::common_reference_with<reference_t&&, value_t&>);
         static_assert(std::common_reference_with<reference_t&&, rvalue_ref_t>);
         static_assert(std::common_reference_with<rvalue_ref_t, const value_t&>);
+        // clang-format on
 
     public:
         using yielded = conditional_t<std::is_reference_v<reference_t>, reference_t, const reference_t&>;
@@ -250,7 +260,7 @@ namespace clu
         unique_coroutine_handle<promise_type> handle_;
         explicit generator(const coro::coroutine_handle<promise_type> handle) noexcept: handle_(handle) {}
     };
-}
+} // namespace clu
 
 template <typename Ref, typename Value>
 inline constexpr bool std::ranges::enable_view<clu::generator<Ref, Value>> = true;

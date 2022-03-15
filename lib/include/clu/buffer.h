@@ -10,21 +10,23 @@ namespace clu
     template <typename T>
     concept alias_safe = same_as_any_of<T, unsigned char, char, std::byte>;
 
-    // @formatter:off
+    // clang-format off
     template <typename T>
-    concept buffer_safe =
+    concept buffer_safe = 
         trivially_copyable<T> ||
         (std::is_array_v<T> && trivially_copyable<std::remove_all_extents_t<T>>);
 
     template <typename T>
-    concept trivial_range = 
+    concept trivial_range =
         std::ranges::contiguous_range<T> &&
         std::ranges::sized_range<T> &&
         trivially_copyable<std::ranges::range_value_t<T>>;
-    // @formatter:on
 
     template <typename T>
-    concept mutable_trivial_range = trivial_range<T> && !std::is_const_v<std::ranges::range_value_t<T>>;
+    concept mutable_trivial_range =
+        trivial_range<T> &&
+        (!std::is_const_v<std::ranges::range_value_t<T>>);
+    // clang-format on
 
     template <alias_safe T>
     constexpr void bytewise_copy(T* out, const T* in, size_t size) noexcept
@@ -37,19 +39,6 @@ namespace clu
     class basic_buffer final
     {
         static_assert(alias_safe<std::remove_const_t<T>>);
-
-    private:
-        T* ptr_ = nullptr;
-        size_t size_ = 0;
-
-        template <typename U>
-        constexpr static T* conditional_reinterpret_cast(U* ptr) noexcept
-        {
-            if constexpr (clu::similar_to<T, U>)
-                return ptr;
-            else
-                return reinterpret_cast<T*>(ptr);
-        }
 
     public:
         using value_type = T;
@@ -64,15 +53,23 @@ namespace clu
 
         constexpr basic_buffer(T* ptr, const size_t size) noexcept: ptr_(ptr), size_(size) {}
 
+        // clang-format off
         template <typename R> requires
             (std::is_const_v<T> && trivial_range<R>) ||
             (!std::is_const_v<T> && mutable_trivial_range<R>)
         constexpr explicit(false) basic_buffer(R&& range) noexcept:
             ptr_(conditional_reinterpret_cast(std::ranges::data(range))),
-            size_(std::ranges::size(range) * sizeof(std::ranges::range_value_t<R>)) {}
+            size_(std::ranges::size(range) * sizeof(std::ranges::range_value_t<R>))
+        {
+        }
+        // clang-format on
 
-        constexpr explicit(false) basic_buffer(const mutable_type& buffer) noexcept
-            requires std::is_const_v<T>: ptr_(buffer.ptr()), size_(buffer.size()) {}
+        template <typename = int>
+            requires std::is_const_v<T>
+        constexpr explicit(false) basic_buffer(const mutable_type& buffer) noexcept:
+            ptr_(buffer.ptr()), size_(buffer.size())
+        {
+        }
 
         [[nodiscard]] constexpr T* data() const noexcept { return ptr_; }
         [[nodiscard]] constexpr size_t size() const noexcept { return size_; }
@@ -80,8 +77,11 @@ namespace clu
         constexpr void remove_prefix(const size_t size) noexcept { ptr_ += size; }
         constexpr void remove_suffix(const size_t size) noexcept { size_ -= size; }
         [[nodiscard]] constexpr T& operator[](const size_t index) const noexcept { return ptr_[index]; }
-        [[nodiscard]] constexpr basic_buffer first(const size_t size) const noexcept { return { ptr_, size }; }
-        [[nodiscard]] constexpr basic_buffer last(const size_t size) const noexcept { return { ptr_ + (size_ - size), size }; }
+        [[nodiscard]] constexpr basic_buffer first(const size_t size) const noexcept { return {ptr_, size}; }
+        [[nodiscard]] constexpr basic_buffer last(const size_t size) const noexcept
+        {
+            return {ptr_ + (size_ - size), size};
+        }
 
         constexpr basic_buffer& operator+=(const size_t size) noexcept
         {
@@ -89,9 +89,12 @@ namespace clu
             ptr_ += size;
             return *this;
         }
-        [[nodiscard]] constexpr friend basic_buffer operator+(basic_buffer buffer, const size_t size) noexcept { return buffer += size; }
+        [[nodiscard]] constexpr friend basic_buffer operator+(basic_buffer buffer, const size_t size) noexcept
+        {
+            return buffer += size;
+        }
 
-        [[nodiscard]] constexpr std::span<T> as_span() const noexcept { return { ptr_, size_ }; }
+        [[nodiscard]] constexpr std::span<T> as_span() const noexcept { return {ptr_, size_}; }
 
         template <trivially_copyable U>
         [[nodiscard]] constexpr U as() const noexcept
@@ -130,6 +133,19 @@ namespace clu
             ptr_ += copy_size;
             return copy_size;
         }
+
+    private:
+        T* ptr_ = nullptr;
+        size_t size_ = 0;
+
+        template <typename U>
+        constexpr static T* conditional_reinterpret_cast(U* ptr) noexcept
+        {
+            if constexpr (clu::similar_to<T, U>)
+                return ptr;
+            else
+                return reinterpret_cast<T*>(ptr);
+        }
     };
 
     using mutable_buffer = basic_buffer<std::byte>;
@@ -138,14 +154,15 @@ namespace clu
     template <buffer_safe T>
     [[nodiscard]] mutable_buffer trivial_buffer(T& value) noexcept
     {
-        return { reinterpret_cast<std::byte*>(std::addressof(value)), sizeof(T) };
+        return {reinterpret_cast<std::byte*>(std::addressof(value)), sizeof(T)};
     }
 
     template <buffer_safe T>
     [[nodiscard]] const_buffer trivial_buffer(const T& value) noexcept
     {
-        return { reinterpret_cast<const std::byte*>(std::addressof(value)), sizeof(T) };
+        return {reinterpret_cast<const std::byte*>(std::addressof(value)), sizeof(T)};
     }
 
-    template <typename T> void trivial_buffer(const T&&) = delete;
-}
+    template <typename T>
+    void trivial_buffer(const T&&) = delete;
+} // namespace clu

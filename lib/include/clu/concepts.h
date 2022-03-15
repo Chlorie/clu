@@ -9,27 +9,31 @@ namespace clu
     template <typename T, typename U>
     concept similar_to = std::same_as<std::remove_cvref_t<T>, std::remove_cvref_t<U>>;
 
-    // @formatter:off
+    // clang-format off
     template <typename Inv, typename Res, typename... Ts>
     concept invocable_of = std::invocable<Inv, Ts...> && std::convertible_to<std::invoke_result_t<Inv, Ts...>, Res>;
     template <typename F, typename... Args>
     concept nothrow_invocable =
         std::invocable<F, Args...> &&
         std::is_nothrow_invocable_v<F, Args...>;
-        // noexcept(std::invoke(std::declval<F>(), std::declval<Args>()...));
-    // @formatter:on
 
     template <typename F, typename... Args>
-    concept callable = requires(F func, Args ... args) { static_cast<F&&>(func)(static_cast<Args&&>(args)...); };
+    concept callable =
+        requires(F func, Args... args) { static_cast<F&&>(func)(static_cast<Args&&>(args)...); };
     template <typename F, typename... Args>
-    concept nothrow_callable = requires(F func, Args ... args) { { static_cast<F&&>(func)(static_cast<Args&&>(args)...) } noexcept; };
+    concept nothrow_callable =
+        requires(F func, Args... args) { { static_cast<F&&>(func)(static_cast<Args&&>(args)...) } noexcept; };
+    // clang-format on
+
     template <typename F, typename... Args>
     using call_result_t = decltype(std::declval<F>()(std::declval<Args>()...));
     template <typename F, typename... Args>
-    struct call_result : std::type_identity<call_result_t<F, Args...>> {};
+    struct call_result : std::type_identity<call_result_t<F, Args...>>
+    {
+    };
 
     // Some exposition-only concepts in the standard, good to have them here
-    // @formatter:off
+    // clang-format off
     template <typename B>
     concept boolean_testable =
         std::convertible_to<B, bool> &&
@@ -64,9 +68,11 @@ namespace clu
         std::move_constructible<std::decay_t<T>> &&
         std::constructible_from<std::decay_t<T>, T>;
 
-    template <typename From, typename To> concept decays_to = std::same_as<std::decay_t<From>, To>;
+    template <typename From, typename To>
+    concept decays_to = std::same_as<std::decay_t<From>, To>;
 
-    template <typename T> concept class_type = decays_to<T, T> && std::is_class_v<T>;
+    template <typename T>
+    concept class_type = decays_to<T, T> && std::is_class_v<T>;
 
     template <typename T>
     concept nullable_pointer =
@@ -75,12 +81,16 @@ namespace clu
         std::is_copy_assignable_v<T> &&
         std::equality_comparable<T> &&
         weakly_equality_comparable_with<T, std::nullptr_t>;
-    // @formatter:on
+    // clang-format on
 
     template <typename Type, template <typename...> typename Templ>
-    struct is_template_of : std::false_type {};
+    struct is_template_of : std::false_type
+    {
+    };
     template <template <typename...> typename Templ, typename... Types>
-    struct is_template_of<Templ<Types...>, Templ> : std::true_type {};
+    struct is_template_of<Templ<Types...>, Templ> : std::true_type
+    {
+    };
     template <typename Type, template <typename...> typename Templ>
     constexpr bool is_template_of_v = is_template_of<Type, Templ>::value;
 
@@ -92,42 +102,41 @@ namespace clu
     template <typename T, typename... Us>
     concept same_as_none_of = (!same_as_any_of<T, Us...>);
 
-    // @formatter:off
+    // clang-format off
     template <typename T, typename U>
     concept forwarding = 
         !std::is_rvalue_reference_v<T> &&
         std::same_as<std::remove_cvref_t<U>, U> &&
         std::same_as<std::remove_cvref_t<T>, U>;
-    // @formatter:on
+    // clang-format on
 
-    template <typename T> concept enumeration = std::is_enum_v<T>;
+    template <typename T>
+    concept enumeration = std::is_enum_v<T>;
 
-    template <typename T> concept trivially_copyable = std::copyable<T> && std::is_trivially_copyable_v<T>;
+    template <typename T>
+    concept trivially_copyable = std::copyable<T> && std::is_trivially_copyable_v<T>;
 
+    // clang-format off
     template <typename T, typename... Us>
-    concept implicitly_constructible_from = requires(Us&&... args, void (* fptr)(const T&))
-    {
-        fptr({ static_cast<Us&&>(args)... });
-    } && std::constructible_from<T, Us...>;
+    concept implicitly_constructible_from =
+        requires(Us&&... args, void (*fptr)(const T&)) { fptr({static_cast<Us&&>(args)...}); } &&
+        std::constructible_from<T, Us...>;
+    // clang-format on
 
     namespace detail
     {
-        // @formatter:off
+        // clang-format off
         template <typename Ptr>
         concept allocator_ptr =
             nullable_pointer<Ptr> &&
             std::contiguous_iterator<Ptr>;
-        // @formatter:on
 
-        template <typename T>
-        struct pointer_of : std::type_identity<typename T::value_type*> {};
+        template <typename T> struct pointer_of : std::type_identity<typename T::value_type*> {};
         template <typename T> requires requires { typename T::pointer; }
         struct pointer_of<T> : std::type_identity<typename T::pointer> {};
-        template <typename T>
-        using pointer_of_t = typename pointer_of<T>::type;
+        template <typename T> using pointer_of_t = typename pointer_of<T>::type;
 
-        template <typename Ptr>
-        struct diff_type_of : std::type_identity<std::ptrdiff_t> {};
+        template <typename Ptr> struct diff_type_of : std::type_identity<std::ptrdiff_t> {};
         template <typename Ptr> requires requires { typename Ptr::difference_type; }
         struct diff_type_of<Ptr> : std::type_identity<typename Ptr::difference_type> {};
         template <typename Ptr>
@@ -135,10 +144,10 @@ namespace clu
         template <typename Ptr> requires requires { typename Ptr::size_type; }
         struct size_type_of<Ptr> : std::type_identity<typename Ptr::size_type> {};
 
-        template <typename Ptr>
-        struct specialization_first_arg {};
+        template <typename Ptr> struct specialization_first_arg {};
         template <template <typename...> typename Templ, typename T, typename... Args>
         struct specialization_first_arg<Templ<T, Args...>> : std::type_identity<T> {};
+        // clang-format on
 
         template <typename Ptr>
         constexpr auto element_type_of_impl() noexcept
@@ -157,12 +166,12 @@ namespace clu
         template <typename Alloc>
         using size_type_of_allocator = typename size_type_of<pointer_of_t<Alloc>>::type;
 
+        // clang-format off
         template <typename T> using always_eq = typename T::is_always_eq;
         template <typename T> using pocca = typename T::propagate_on_container_copy_assignment;
         template <typename T> using pocma = typename T::propagate_on_container_move_assignment;
         template <typename T> using pocs = typename T::propagate_on_container_swap;
 
-        // @formatter:off
         template <typename T>
         concept boolean_alias =
             std::same_as<T, std::true_type> ||
@@ -188,13 +197,18 @@ namespace clu
         concept has_valid_allocator_types =
             allocator_ptr<typename std::allocator_traits<T>::pointer> &&
             allocator_ptr<typename std::allocator_traits<T>::const_pointer> &&
-            std::convertible_to<typename std::allocator_traits<T>::pointer, typename std::allocator_traits<T>::const_pointer> &&
+            std::convertible_to<typename std::allocator_traits<T>::pointer,
+                                typename std::allocator_traits<T>::const_pointer> &&
             nullable_pointer<typename std::allocator_traits<T>::void_pointer> &&
-            std::convertible_to<typename std::allocator_traits<T>::pointer, typename std::allocator_traits<T>::void_pointer> &&
+            std::convertible_to<typename std::allocator_traits<T>::pointer,
+                                typename std::allocator_traits<T>::void_pointer> &&
             nullable_pointer<typename std::allocator_traits<T>::const_void_pointer> &&
-            std::convertible_to<typename std::allocator_traits<T>::pointer, typename std::allocator_traits<T>::const_void_pointer> &&
-            std::convertible_to<typename std::allocator_traits<T>::const_pointer, typename std::allocator_traits<T>::const_void_pointer> &&
-            std::convertible_to<typename std::allocator_traits<T>::void_pointer, typename std::allocator_traits<T>::const_void_pointer> &&
+            std::convertible_to<typename std::allocator_traits<T>::pointer,
+                                typename std::allocator_traits<T>::const_void_pointer> &&
+            std::convertible_to<typename std::allocator_traits<T>::const_pointer,
+                                typename std::allocator_traits<T>::const_void_pointer> &&
+            std::convertible_to<typename std::allocator_traits<T>::void_pointer,
+                                typename std::allocator_traits<T>::const_void_pointer> &&
             std::unsigned_integral<typename std::allocator_traits<T>::size_type> &&
             std::signed_integral<typename std::allocator_traits<T>::difference_type>;
 
@@ -249,10 +263,10 @@ namespace clu
             valid_boolean_alias<T, pocca> &&
             valid_boolean_alias<T, pocma> &&
             valid_boolean_alias<T, pocs>;
-        // @formatter:on
-    }
+        // clang-format on
+    } // namespace detail
 
-    // @formatter:off
+    // clang-format off
     template <typename T>
     concept allocator =
         detail::allocator_base<T> &&
@@ -260,7 +274,5 @@ namespace clu
         detail::has_valid_allocator_ptr_operations<T> &&
         detail::has_valid_soccc<T> &&
         detail::has_valid_allocator_boolean_aliases<T>;
-    // @formatter:on
-
-    static_assert(allocator<std::allocator<int>>);
-}
+    // clang-format on
+} // namespace clu

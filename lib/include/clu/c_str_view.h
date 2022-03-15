@@ -16,7 +16,7 @@ namespace clu
     {
     private:
         static constexpr Char null = static_cast<Char>(0);
-        static constexpr Char empty_string[1]{ null };
+        static constexpr Char empty_string[1]{null};
 
         const Char* ptr_ = empty_string;
 
@@ -73,12 +73,15 @@ namespace clu
         [[nodiscard]] constexpr static size_t max_size() noexcept { return std::numeric_limits<size_t>::max(); }
         [[nodiscard]] constexpr bool empty() const noexcept { return *ptr_ == null; } ///< Check if the view is empty
 
-        constexpr void remove_prefix(const size_t n) noexcept { ptr_ += n; } ///< Remove prefix with a certain length from the view
-        constexpr void swap(basic_c_str_view& other) noexcept { std::swap(ptr_, other.ptr_); } ///< Swap two views
-        constexpr friend void swap(basic_c_str_view& lhs, basic_c_str_view& rhs) noexcept { lhs.swap(rhs); } ///< Swap two views
+        /// Remove prefix with a certain length from the view
+        constexpr void remove_prefix(const size_t n) noexcept { ptr_ += n; }
+        /// Swap two views
+        constexpr void swap(basic_c_str_view& other) noexcept { std::swap(ptr_, other.ptr_); }
+        /// Swap two views
+        constexpr friend void swap(basic_c_str_view& lhs, basic_c_str_view& rhs) noexcept { lhs.swap(rhs); }
 
         /// Convert this null-terminated view into a regular ``std::basic_string_view<Char>``.
-        [[nodiscard]] constexpr explicit operator std::basic_string_view<Char>() const noexcept { return { ptr_ }; }
+        [[nodiscard]] constexpr explicit operator std::basic_string_view<Char>() const noexcept { return {ptr_}; }
     };
 
     using c_str_view = basic_c_str_view<char>;
@@ -86,8 +89,11 @@ namespace clu
     using c_u8str_view = basic_c_str_view<char8_t>;
     using c_u16str_view = basic_c_str_view<char16_t>;
     using c_u32str_view = basic_c_str_view<char32_t>;
-}
+} // namespace clu
 
-template <typename Char> inline constexpr bool std::ranges::enable_view<clu::basic_c_str_view<Char>> = true;
-template <typename Char> inline constexpr bool std::ranges::enable_borrowed_range<clu::basic_c_str_view<Char>> = true;
-template <typename Char> inline constexpr bool std::ranges::disable_sized_range<clu::basic_c_str_view<Char>> = true;
+template <typename Char>
+inline constexpr bool std::ranges::enable_view<clu::basic_c_str_view<Char>> = true;
+template <typename Char>
+inline constexpr bool std::ranges::enable_borrowed_range<clu::basic_c_str_view<Char>> = true;
+template <typename Char>
+inline constexpr bool std::ranges::disable_sized_range<clu::basic_c_str_view<Char>> = true;

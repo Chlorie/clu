@@ -12,20 +12,19 @@ namespace clu
 
     /// Non-owning type erased wrapper for invocable objects.
     template <typename R, typename... Ts>
-    class function_ref<R(Ts ...)> final
+    class function_ref<R(Ts...)> final
     {
     private:
-        using ptr_fptr_t = R(*)(void*, Ts ...);
-        using fptr_t = R(*)(Ts ...);
+        using ptr_fptr_t = R (*)(void*, Ts...);
+        using fptr_t = R (*)(Ts...);
 
         void* ptr_ = nullptr;
         ptr_fptr_t fptr_ = nullptr;
 
         template <typename F>
-        static constexpr R call_impl(void* ptr, Ts ... args)
+        static constexpr R call_impl(void* ptr, Ts... args)
         {
-            return std::invoke(*static_cast<std::remove_cvref_t<F>*>(ptr),
-                std::forward<Ts>(args)...);
+            return std::invoke(*static_cast<std::remove_cvref_t<F>*>(ptr), std::forward<Ts>(args)...);
         }
 
         template <typename F>
@@ -52,10 +51,12 @@ namespace clu
         constexpr function_ref() noexcept = default;
         constexpr explicit(false) function_ref(std::nullptr_t) noexcept {} //< \group empty_ctors
 
-        template <typename F> requires (invocable_of<F, R, Ts...> && !similar_to<F, function_ref>)
+        template <typename F>
+            requires(invocable_of<F, R, Ts...> && !similar_to<F, function_ref>)
         explicit(false) function_ref(F&& func) noexcept { assign(std::forward<F>(func)); }
 
-        template <typename F> requires (invocable_of<F, R, Ts...> && !similar_to<F, function_ref>)
+        template <typename F>
+            requires(invocable_of<F, R, Ts...> && !similar_to<F, function_ref>)
         function_ref& operator=(F&& func) noexcept
         {
             assign(std::forward<F>(func));
@@ -64,14 +65,16 @@ namespace clu
 
         [[nodiscard]] constexpr explicit operator bool() const noexcept { return fptr_ != nullptr; }
 
-        R operator()(Ts ... args) const
+        R operator()(Ts... args) const
         {
+            // clang-format off
             if (ptr_)
                 return fptr_(ptr_, std::forward<Ts>(args)...);
             else
-            CLU_GCC_WNO_CAST_FUNCTION_TYPE
+                CLU_GCC_WNO_CAST_FUNCTION_TYPE
                 return reinterpret_cast<fptr_t>(fptr_)(std::forward<Ts>(args)...);
-            CLU_GCC_RESTORE_WARNING
+                CLU_GCC_RESTORE_WARNING
+            // clang-format on
         }
 
         constexpr void swap(function_ref& other) noexcept
@@ -84,5 +87,5 @@ namespace clu
     };
 
     template <typename R, typename... Ts>
-    function_ref(R (*)(Ts ...)) -> function_ref<R(Ts ...)>;
-}
+    function_ref(R (*)(Ts...)) -> function_ref<R(Ts...)>;
+} // namespace clu

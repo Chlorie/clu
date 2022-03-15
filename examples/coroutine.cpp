@@ -53,16 +53,16 @@ namespace wtf
                     void await_suspend(clu::coro::coroutine_handle<>) const noexcept { clu::unreachable(); }
                     P& await_resume() const noexcept { return pms; }
                 };
-                return awaiter{ promise };
+                return awaiter{promise};
             }
         };
-    }
+    } // namespace get_pms
 
     inline struct get_promise_t
     {
         constexpr auto operator()() const noexcept { return get_pms::awaitable{}; }
     } constexpr get_promise{};
-}
+} // namespace wtf
 
 template <typename Dur>
 struct wait_on_detached_thread
@@ -72,11 +72,13 @@ struct wait_on_detached_thread
     bool await_ready() const noexcept { return false; }
     void await_suspend(clu::coro::coroutine_handle<> handle) const noexcept
     {
-        std::thread([=]() mutable
-        {
-            std::this_thread::sleep_for(duration);
-            handle.resume();
-        }).detach();
+        std::thread(
+            [=]() mutable
+            {
+                std::this_thread::sleep_for(duration);
+                handle.resume();
+            })
+            .detach();
     }
     void await_resume() const noexcept {}
 };
@@ -84,10 +86,7 @@ struct wait_on_detached_thread
 template <typename Dur>
 wait_on_detached_thread(Dur) -> wait_on_detached_thread<Dur>;
 
-clu::task<int> f()
-{
-    co_return 42;
-}
+clu::task<int> f() { co_return 42; }
 
 clu::task<void> g()
 {
@@ -101,48 +100,40 @@ clu::task<void> g()
 
 auto maybe_throw(const bool do_throw)
 {
-    return [do_throw] { if (do_throw) throw std::runtime_error("wat"); };
+    return [do_throw]
+    {
+        if (do_throw)
+            throw std::runtime_error("wat");
+    };
 }
 
 int happy_path() { return 69; }
 double sad_path(const std::exception_ptr&) { return 420.; }
 
-clu::generator<int> gen()
-{
-    co_yield 1;
-    co_yield 2;
-    co_yield 3;
-}
-
-clu::generator<int> gen2()
-{
-    co_yield clu::elements_of(gen());
-    co_yield 4;
-}
-
 int main() // NOLINT
 {
-    for (auto&& v : gen2())
-        std::cout << v << ' ';
-    // clu::this_thread::sync_wait(g());
-    // for (const bool do_throw : { false, true })
-    // {
-    //     print_thread_id(); // Main thread id
-    //     const auto res =
-    //         clu::this_thread::sync_wait_with_variant(
-    //             to_detached_thread()
-    //             | ex::then(print_thread_id) // New detached thread id
-    //             | ex::then(maybe_throw(do_throw))
-    //             | ex::then(happy_path) // -> 69 if didn't throw
-    //             | ex::upon_error(sad_path) // -> 420 if did throw
-    //         );
-    //     if (res)
-    //         std::visit([](const auto& tup)
-    //         {
-    //             const auto [v] = tup;
-    //             std::cout << "result is " << v << '\n';
-    //         }, std::get<0>(*res));
-    //     else
-    //         std::cout << "cancelled lol\n";
-    // }
+    clu::this_thread::sync_wait(g() | ex::then(print_thread_id));
+    for (const bool do_throw : {false, true})
+    {
+        // clang-format off
+        print_thread_id(); // Main thread id
+        const auto res = clu::this_thread::sync_wait_with_variant(
+            to_detached_thread()
+            | ex::then(print_thread_id) // New detached thread id
+            | ex::then(maybe_throw(do_throw)) 
+            | ex::then(happy_path) // -> 69 if didn't throw
+            | ex::upon_error(sad_path) // -> 420 if did throw
+        );
+        // clang-format on
+        if (res)
+            std::visit(
+                [](const auto& tup)
+                {
+                    const auto [v] = tup;
+                    std::cout << "result is " << v << '\n';
+                },
+                std::get<0>(*res));
+        else
+            std::cout << "cancelled lol\n";
+    }
 }

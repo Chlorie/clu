@@ -21,7 +21,9 @@ namespace clu
         class first_overload_t : public invocable_wrapper<Fs>...
         {
         private:
+            // clang-format off
             struct not_callable_t {};
+            // clang-format on
 
             template <typename FirstBase, typename... Bases, typename Self, typename... Args>
             constexpr static auto call_result_impl(Self&& self, Args&&... args) noexcept
@@ -48,7 +50,8 @@ namespace clu
             }
 
             template <typename Self, typename... Args>
-            using call_result = decltype(call_result_impl<invocable_wrapper<Fs>...>(std::declval<Self>(), std::declval<Args&&>()...));
+            using call_result =
+                decltype(call_result_impl<invocable_wrapper<Fs>...>(std::declval<Self>(), std::declval<Args&&>()...));
             template <typename Self, typename... Args>
             using call_result_t = typename call_result<Self, Args...>::type;
             template <typename Self, typename... Args>
@@ -58,7 +61,8 @@ namespace clu
                 std::declval<Self>(), std::declval<Args&&>()...))::value;
 
             template <typename FirstBase, typename... Bases, typename Self, typename... Args>
-            constexpr static decltype(auto) call_impl(Self&& self, Args&&... args) noexcept(is_nothrow_callable_v<Self, Args...>)
+            constexpr static decltype(auto) call_impl(Self&& self, Args&&... args) noexcept(
+                is_nothrow_callable_v<Self, Args...>)
             {
                 using base = copy_cvref_t<Self&&, FirstBase>;
                 if constexpr (std::is_invocable_v<base, Args&&...>)
@@ -70,15 +74,16 @@ namespace clu
             }
 
         public:
-#define CLU_FIRST_OVERLOAD_CALL_DEF(cnst, ref)                                                                \
-            template <typename... Args> requires is_callable_v<cnst first_overload_t ref, Args&&...>          \
-            constexpr call_result_t<cnst first_overload_t ref, Args&&...> operator()(Args&&... args) cnst ref \
-                noexcept(is_nothrow_callable_v<cnst first_overload_t ref, Args&&...>)                         \
-            {                                                                                                 \
-                return call_impl<invocable_wrapper<Fs>...>(                                                   \
-                    static_cast<cnst first_overload_t ref>(*this),                                            \
-                    static_cast<Args&&>(args)...);                                                            \
-            } static_assert(true)
+#define CLU_FIRST_OVERLOAD_CALL_DEF(cnst, ref)                                                                         \
+    template <typename... Args>                                                                                        \
+        requires is_callable_v<cnst first_overload_t ref, Args&&...>                                                   \
+    constexpr call_result_t<cnst first_overload_t ref, Args&&...> operator()(Args&&... args)                           \
+        cnst ref noexcept(is_nothrow_callable_v<cnst first_overload_t ref, Args&&...>)                                 \
+    {                                                                                                                  \
+        return call_impl<invocable_wrapper<Fs>...>(                                                                    \
+            static_cast<cnst first_overload_t ref>(*this), static_cast<Args&&>(args)...);                              \
+    }                                                                                                                  \
+    static_assert(true)
 
             CLU_FIRST_OVERLOAD_CALL_DEF(, &);
             CLU_FIRST_OVERLOAD_CALL_DEF(, &&);
@@ -86,13 +91,12 @@ namespace clu
             CLU_FIRST_OVERLOAD_CALL_DEF(const, &&);
 #undef CLU_FIRST_OVERLOAD_CALL_DEF
         };
-    }
+    } // namespace detail
 
     template <typename... Fs>
     constexpr auto overload(Fs&&... fns)
     {
-        return detail::overload_t<std::decay_t<Fs>...>(
-            invocable_wrapper<std::decay_t<Fs>>(static_cast<Fs&&>(fns))...);
+        return detail::overload_t<std::decay_t<Fs>...>(invocable_wrapper<std::decay_t<Fs>>(static_cast<Fs&&>(fns))...);
     }
 
     template <typename... Fs>
@@ -101,4 +105,4 @@ namespace clu
         return detail::first_overload_t<std::decay_t<Fs>...>(
             invocable_wrapper<std::decay_t<Fs>>(static_cast<Fs&&>(fns))...);
     }
-}
+} // namespace clu

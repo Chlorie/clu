@@ -16,8 +16,8 @@ namespace clu
         };
 
     public:
-        manual_lifetime() noexcept {} //< No-op constructor. Space is reserved for the object without starting its lifetime.
-        ~manual_lifetime() noexcept {} //< No-op destructor. Does not destruct potentially living object.
+        manual_lifetime() noexcept {} //< No-op constructor.
+        ~manual_lifetime() noexcept {} //< No-op destructor.
         manual_lifetime(const manual_lifetime&) = delete;
         manual_lifetime(manual_lifetime&&) = delete;
         manual_lifetime& operator=(const manual_lifetime&) = delete;
@@ -26,15 +26,15 @@ namespace clu
         template <typename... Args>
         T& construct(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args&&...>)
         {
-            return *new(std::addressof(value_)) T(std::forward<Args>(args)...);
+            return *new (std::addressof(value_)) T(std::forward<Args>(args)...);
         }
 
         void destruct() noexcept { value_.~T(); } //< Destruct the controlled object.
 
         [[nodiscard]] T& get() & noexcept { return value_; }
-        [[nodiscard]] const T& get() const & noexcept { return value_; }
+        [[nodiscard]] const T& get() const& noexcept { return value_; }
         [[nodiscard]] T&& get() && noexcept { return std::move(value_); }
-        [[nodiscard]] const T&& get() const && noexcept { return std::move(value_); }
+        [[nodiscard]] const T&& get() const&& noexcept { return std::move(value_); }
     };
 
     template <typename T>
@@ -92,4 +92,4 @@ namespace clu
         void destruct() noexcept {}
         void get() const noexcept {}
     };
-}
+} // namespace clu

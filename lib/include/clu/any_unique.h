@@ -11,36 +11,44 @@ namespace clu
 
         constexpr any_unique(const any_unique&) = delete;
         constexpr any_unique(any_unique&& other) noexcept:
-            ptr_(std::exchange(other.ptr_, nullptr)),
-            deleter_(std::exchange(other.deleter_, nullptr)) {}
+            ptr_(std::exchange(other.ptr_, nullptr)), deleter_(std::exchange(other.deleter_, nullptr))
+        {
+        }
 
         constexpr any_unique& operator=(const any_unique&) = delete;
         constexpr any_unique& operator=(any_unique&& other) noexcept
         {
-            if (&other == this) return *this;
-            if (deleter_) deleter_(ptr_);
+            if (&other == this)
+                return *this;
+            if (deleter_)
+                deleter_(ptr_);
             ptr_ = std::exchange(other.ptr_, nullptr);
             deleter_ = std::exchange(other.deleter_, nullptr);
             return *this;
         }
 
         template <typename T>
-        constexpr explicit(false) any_unique(T&& value):
-            ptr_(new T(static_cast<T&&>(value))),
-            deleter_(deleter_for<T>) {}
+        constexpr explicit(false) any_unique(T&& value): ptr_(new T(static_cast<T&&>(value))), deleter_(deleter_for<T>)
+        {
+        }
 
         template <typename T, typename... Args>
         constexpr explicit any_unique(std::in_place_type_t<T>, Args&&... args):
-            ptr_(new T(static_cast<Args&&>(args)...)),
-            deleter_(deleter_for<T>) {}
+            ptr_(new T(static_cast<Args&&>(args)...)), deleter_(deleter_for<T>)
+        {
+        }
 
         template <typename T, typename U, typename... Args>
-        constexpr explicit any_unique(std::in_place_type_t<T>,
-            const std::initializer_list<U> ilist, Args&&... args):
-            ptr_(new T(ilist, static_cast<Args&&>(args)...)),
-            deleter_(deleter_for<T>) {}
+        constexpr explicit any_unique(std::in_place_type_t<T>, const std::initializer_list<U> ilist, Args&&... args):
+            ptr_(new T(ilist, static_cast<Args&&>(args)...)), deleter_(deleter_for<T>)
+        {
+        }
 
-        constexpr ~any_unique() noexcept { if (deleter_) deleter_(ptr_); }
+        constexpr ~any_unique() noexcept
+        {
+            if (deleter_)
+                deleter_(ptr_);
+        }
 
         constexpr void swap(any_unique& other) noexcept
         {
@@ -70,8 +78,7 @@ namespace clu
         }
 
         template <typename T, typename U, typename... Args>
-        std::decay_t<T>& emplace(std::in_place_type_t<T>, 
-            const std::initializer_list<U> ilist, Args&&... args)
+        std::decay_t<T>& emplace(std::in_place_type_t<T>, const std::initializer_list<U> ilist, Args&&... args)
         {
             reset();
             T* ptr = new T(ilist, static_cast<Args&&>(args)...);
@@ -82,9 +89,12 @@ namespace clu
 
     private:
         void* ptr_ = nullptr;
-        void (* deleter_)(void*) noexcept = nullptr;
+        void (*deleter_)(void*) noexcept = nullptr;
 
         template <typename T>
-        static void deleter_for(T* ptr) noexcept { delete static_cast<T*>(ptr); }
+        static void deleter_for(T* ptr) noexcept
+        {
+            delete static_cast<T*>(ptr);
+        }
     };
-}
+} // namespace clu

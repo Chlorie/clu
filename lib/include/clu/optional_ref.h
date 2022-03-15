@@ -16,13 +16,16 @@ namespace clu
         constexpr explicit(false) optional_ref(std::nullptr_t) noexcept {}
         constexpr explicit(false) optional_ref(T& reference) noexcept: ptr_(std::addressof(reference)) {}
 
-        constexpr explicit(false) optional_ref(const std::optional<std::remove_const_t<T>>& opt) noexcept
-            requires std::is_const_v<T>:
-            ptr_(opt ? std::addressof(*opt) : nullptr) {}
+        constexpr explicit(false)
+            optional_ref(const std::optional<std::remove_const_t<T>>& opt) noexcept requires std::is_const_v<T>
+            : ptr_(opt ? std::addressof(*opt) : nullptr)
+        {
+        }
 
-        constexpr explicit(false) optional_ref(std::optional<T>& opt) noexcept
-            requires (!std::is_const_v<T>):
-            ptr_(opt ? std::addressof(*opt) : nullptr) {}
+        constexpr explicit(false) optional_ref(std::optional<T>& opt) noexcept requires(!std::is_const_v<T>):
+            ptr_(opt ? std::addressof(*opt) : nullptr)
+        {
+        }
 
         constexpr optional_ref& operator=(std::nullopt_t) noexcept
         {
@@ -50,7 +53,8 @@ namespace clu
 
         [[nodiscard]] constexpr T& value() const
         {
-            if (ptr_) return *ptr_;
+            if (ptr_)
+                return *ptr_;
             throw std::bad_optional_access();
         }
 
@@ -63,5 +67,6 @@ namespace clu
         constexpr T& emplace(T& reference) { return *(ptr_ = std::addressof(reference)); }
     };
 
-    template <typename T> using optional_param = optional_ref<const T>;
-}
+    template <typename T>
+    using optional_param = optional_ref<const T>;
+} // namespace clu

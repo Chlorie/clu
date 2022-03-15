@@ -12,36 +12,47 @@ namespace clu
     template <typename T>
     concept char_type = same_as_any_of<T, char, unsigned char, signed char, char8_t, char16_t, char32_t>;
 
+    // clang-format off
     template <typename Range> requires
         std::ranges::contiguous_range<Range> &&
         std::ranges::sized_range<Range> &&
         char_type<std::ranges::range_value_t<Range>>
     [[nodiscard]] constexpr auto to_string_view(const Range& range) noexcept
-    -> std::basic_string_view<std::ranges::range_value_t<Range>>
+        -> std::basic_string_view<std::ranges::range_value_t<Range>>
+    // clang-format on
     {
         constexpr auto diff = static_cast<std::size_t>(std::is_array_v<Range>); // null terminator
-        return { std::ranges::data(range), std::ranges::size(range) - diff };
+        return {std::ranges::data(range), std::ranges::size(range) - diff};
     }
 
     template <char_type Char>
-    [[nodiscard]] constexpr std::basic_string_view<Char> to_string_view(const Char* ptr) noexcept { return ptr; }
+    [[nodiscard]] constexpr std::basic_string_view<Char> to_string_view(const Char* ptr) noexcept
+    {
+        return ptr;
+    }
 
     namespace detail
     {
         template <typename T>
-        concept sv_like = requires(const T& value) { clu::to_string_view(value); };
+        concept sv_like = requires(const T& value)
+        {
+            clu::to_string_view(value);
+        };
 
         template <typename T>
         using char_type_of_t = typename decltype(clu::to_string_view(std::declval<T>()))::value_type;
-    }
+    } // namespace detail
 
     template <detail::sv_like T>
-    [[nodiscard]] constexpr size_t strlen(const T& str) noexcept { return clu::to_string_view(str).length(); }
+    [[nodiscard]] constexpr size_t strlen(const T& str) noexcept
+    {
+        return clu::to_string_view(str).length();
+    }
 
-    template <
-        detail::sv_like SrcType, detail::sv_like FromType, detail::sv_like ToType,
-        std::output_iterator<detail::char_type_of_t<SrcType>> OutIt> requires
-        clu::all_same_v<detail::char_type_of_t<SrcType>, detail::char_type_of_t<FromType>, detail::char_type_of_t<ToType>>
+    template <detail::sv_like SrcType, detail::sv_like FromType, detail::sv_like ToType,
+        std::output_iterator<detail::char_type_of_t<SrcType>> OutIt>
+        requires clu::all_same_v<detail::char_type_of_t<SrcType>, detail::char_type_of_t<FromType>,
+            detail::char_type_of_t<ToType>>
     constexpr OutIt replace_all_copy(OutIt output, const SrcType& source, const FromType& from, const ToType& to)
     {
         auto src_sv = clu::to_string_view(source);
@@ -49,8 +60,7 @@ namespace clu
         const auto to_sv = clu::to_string_view(to);
         while (true)
         {
-            if (const std::size_t pos = src_sv.find(from_sv);
-                pos != std::string_view::npos)
+            if (const std::size_t pos = src_sv.find(from_sv); pos != std::string_view::npos)
             {
                 output = std::ranges::copy_n(src_sv.data(), static_cast<std::ptrdiff_t>(pos), output).out;
                 output = std::ranges::copy(to_sv, output).out;
@@ -61,9 +71,7 @@ namespace clu
         }
     }
 
-    template <
-        char_type Char, typename Traits, typename Alloc,
-        detail::sv_like FromType, detail::sv_like ToType>
+    template <char_type Char, typename Traits, typename Alloc, detail::sv_like FromType, detail::sv_like ToType>
         requires clu::all_same_v<Char, detail::char_type_of_t<FromType>, detail::char_type_of_t<ToType>>
     constexpr void replace_all(std::basic_string<Char, Traits, Alloc>& source, const FromType& from, const ToType& to)
     {
@@ -83,15 +91,15 @@ namespace clu
             while (true)
             {
                 pos = source.find(from_sv, pos);
-                if (pos == string::npos) return;
+                if (pos == string::npos)
+                    return;
                 std::ranges::copy(to_sv, &source[pos]);
             }
         }
         std::size_t pos = 0, write_pos = 0;
         while (true)
         {
-            if (const std::size_t new_pos = source.find(from_sv, pos);
-                new_pos != string::npos)
+            if (const std::size_t new_pos = source.find(from_sv, pos); new_pos != string::npos)
             {
                 const auto diff = new_pos - pos;
                 std::ranges::copy_n(&source[pos], static_cast<std::ptrdiff_t>(diff), &source[write_pos]);
@@ -109,4 +117,4 @@ namespace clu
             }
         }
     }
-}
+} // namespace clu

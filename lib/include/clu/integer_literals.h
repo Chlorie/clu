@@ -16,10 +16,11 @@ namespace clu
     using u64 = std::uint64_t; ///< 64-bit unsigned integer type.
     using size_t = std::size_t; ///< Unsigned size type.
     using ssize_t = std::make_signed_t<size_t>; ///< Signed integer type corresponding to `size_t`.
-}
+} // namespace clu
 
 namespace clu::inline literals::inline integer_literals
 {
+    // clang-format off
     [[nodiscard]] constexpr i8 operator""_i8(const unsigned long long value) noexcept { return static_cast<i8>(value); }
     [[nodiscard]] constexpr u8 operator""_u8(const unsigned long long value) noexcept { return static_cast<u8>(value); }
     [[nodiscard]] constexpr i16 operator""_i16(const unsigned long long value) noexcept { return static_cast<i16>(value); }
@@ -32,4 +33,5 @@ namespace clu::inline literals::inline integer_literals
     [[nodiscard]] constexpr ssize_t operator""_z(const unsigned long long value) noexcept { return static_cast<ssize_t>(value); }
 
     [[nodiscard]] constexpr std::byte operator""_b(const unsigned long long value) noexcept { return static_cast<std::byte>(value); }
-}
+    // clang-format on
+} // namespace clu::inline literals::inline integer_literals

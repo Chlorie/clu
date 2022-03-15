@@ -9,10 +9,13 @@ namespace clu
 {
     namespace detail
     {
-        template <template <typename> typename> struct check_type_alias_exists {};
-    }
+        template <template <typename> typename>
+        struct check_type_alias_exists
+        {
+        };
+    } // namespace detail
 
-    // @formatter:off
+    // clang-format off
     template <typename T>
     concept stoppable_token =
         std::copy_constructible<T> &&
@@ -46,7 +49,7 @@ namespace clu
             { T::stop_possible() } -> boolean_testable;
         } &&
         (!T::stop_possible());
-    // @formatter:on
+    // clang-format on
 
     class never_stop_token
     {
@@ -57,7 +60,8 @@ namespace clu
         };
 
     public:
-        template <typename> using callback_type = callback;
+        template <typename>
+        using callback_type = callback;
         [[nodiscard]] static constexpr bool stop_possible() noexcept { return false; }
         [[nodiscard]] static constexpr bool stop_requested() noexcept { return false; }
         [[nodiscard]] friend constexpr bool operator==(never_stop_token, never_stop_token) noexcept = default;
@@ -73,11 +77,13 @@ namespace clu
         class in_place_stop_cb_base
         {
         protected:
-            using callback_t = void(*)(in_place_stop_cb_base*) noexcept;
+            using callback_t = void (*)(in_place_stop_cb_base*) noexcept;
 
         public:
             in_place_stop_cb_base(in_place_stop_source* src, const callback_t callback) noexcept:
-                src_(src), callback_(callback) {}
+                src_(src), callback_(callback)
+            {
+            }
 
         protected:
             friend in_place_stop_source;
@@ -94,7 +100,7 @@ namespace clu
             void attach() noexcept;
             void detach() noexcept;
         };
-    }
+    } // namespace detail
 
     class in_place_stop_source
     {
@@ -121,7 +127,8 @@ namespace clu
                 bool locked = false;
                 detail::in_place_stop_cb_base* head = nullptr;
             };
-            if (stop_requested()) return result{}; // Fast path
+            if (stop_requested())
+                return result{}; // Fast path
             auto* head = callbacks_.lock_and_load();
             // Check again in case someone changed the state
             // while we're trying to acquire the lock
@@ -130,21 +137,23 @@ namespace clu
                 callbacks_.store_and_unlock(head);
                 return result{};
             }
-            return result{ true, head };
+            return result{true, head};
         }
 
     public:
         bool request_stop() noexcept
         {
             auto [locked, current] = lock_if_not_requested();
-            if (!locked) return false;
+            if (!locked)
+                return false;
             requesting_thread_ = std::this_thread::get_id();
             requested_.store(true, std::memory_order::release);
             while (current)
             {
                 // Detach the first callback
                 auto* new_head = current->next_;
-                if (new_head) new_head->prev_ = nullptr;
+                if (new_head)
+                    new_head->prev_ = nullptr;
                 current->state_.store(true, std::memory_order::release);
                 callbacks_.store_and_unlock(new_head);
                 // Now that we have released the lock, start executing the callback
@@ -175,10 +184,12 @@ namespace clu
         bool try_attach(detail::in_place_stop_cb_base* cb) noexcept
         {
             const auto [locked, head] = lock_if_not_requested();
-            if (!locked) return false;
+            if (!locked)
+                return false;
             // Add the new one before the current head
             cb->next_ = head;
-            if (head) head->prev_ = cb;
+            if (head)
+                head->prev_ = cb;
             callbacks_.store_and_unlock(cb);
             return true;
         }
@@ -229,7 +240,7 @@ namespace clu
             if (src_)
                 src_->detach(this);
         }
-    }
+    } // namespace detail
 
     class in_place_stop_token
     {
@@ -258,29 +269,26 @@ namespace clu
     inline in_place_stop_token in_place_stop_source::get_token() noexcept { return in_place_stop_token(this); }
 
     template <typename Callback>
-    class in_place_stop_callback :
-        public detail::in_place_stop_cb_base
+    class in_place_stop_callback : public detail::in_place_stop_cb_base
     {
     public:
         using callback_type = Callback;
 
-        // @formatter:off
         template <class C>
-        explicit in_place_stop_callback(const in_place_stop_token st, C&& cb)
-            noexcept(std::is_nothrow_constructible_v<Callback, C>):
+        explicit in_place_stop_callback(const in_place_stop_token st, C&& cb) noexcept(
+            std::is_nothrow_constructible_v<Callback, C>):
             in_place_stop_cb_base(st.src_, &callback_wrap),
             callback_(static_cast<C&&>(cb))
         {
             this->attach();
         }
-        // @formatter:on
 
         ~in_place_stop_callback() noexcept { this->detach(); }
 
         in_place_stop_callback(in_place_stop_callback&&) = delete;
 
     private:
-        Callback callback_; // exposition only
+        Callback callback_;
 
         static void callback_wrap(in_place_stop_cb_base* base) noexcept
         {
@@ -290,4 +298,4 @@ namespace clu
 
     template <class Callback>
     in_place_stop_callback(in_place_stop_token, Callback) -> in_place_stop_callback<Callback>;
-}
+} // namespace clu

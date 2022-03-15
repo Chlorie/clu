@@ -14,29 +14,20 @@ namespace clu
     class locked
     {
     public:
-        // @formatter:off
-        locked()
-            noexcept(std::is_nothrow_default_constructible_v<T>)
-            requires std::default_initializable<T>
+        locked() noexcept(std::is_nothrow_default_constructible_v<T>) requires std::default_initializable<T>
         {
             value_.construct();
         }
 
-        explicit locked(const T& value)
-            noexcept(std::is_nothrow_copy_constructible_v<T>)
-        {
-            value_.construct(value);
-        }
+        explicit locked(const T& value) noexcept(std::is_nothrow_copy_constructible_v<T>) { value_.construct(value); }
 
-        explicit locked(T&& value)
-            noexcept(std::is_nothrow_move_constructible_v<T>)
+        explicit locked(T&& value) noexcept(std::is_nothrow_move_constructible_v<T>)
         {
             value_.construct(static_cast<T&&>(value));
         }
 
         template <typename... Ts>
-        explicit locked(std::in_place_t, Ts&&... args)
-            noexcept(std::is_nothrow_constructible_v<T, Ts...>)
+        explicit locked(std::in_place_t, Ts&&... args) noexcept(std::is_nothrow_constructible_v<T, Ts...>)
         {
             value_.construct(static_cast<Ts&&>(args)...);
         }
@@ -83,9 +74,8 @@ namespace clu
         }
 
         friend void swap(locked& lhs, locked& rhs) noexcept(false) { lhs.swap(rhs); }
-        // @formatter:on
 
-        [[nodiscard]] T operator*() const &
+        [[nodiscard]] T operator*() const&
         {
             std::shared_lock l(mutex_);
             return value_.value;
@@ -117,21 +107,8 @@ namespace clu
         };
 
     public:
-        [[nodiscard]] locked_unique lock()
-        {
-            return {
-                std::unique_lock(mutex_),
-                value_.value
-            };
-        }
-
-        [[nodiscard]] locked_shared lock_shared() const
-        {
-            return {
-                std::shared_lock(mutex_),
-                value_.value
-            };
-        }
+        [[nodiscard]] locked_unique lock() { return {std::unique_lock(mutex_), value_.value}; }
+        [[nodiscard]] locked_shared lock_shared() const { return {std::shared_lock(mutex_), value_.value}; }
 
         [[nodiscard]] locked_unique operator->() { return lock(); }
         [[nodiscard]] locked_shared operator->() const { return lock_shared(); }
@@ -161,10 +138,9 @@ namespace clu
 
             // @formatter:off
             template <typename... Ts>
-            void construct(Ts&&... args)
-                noexcept(std::is_nothrow_constructible_v<T, Ts...>)
+            void construct(Ts&&... args) noexcept(std::is_nothrow_constructible_v<T, Ts...>)
             {
-                new(std::addressof(value)) T(static_cast<Ts&&>(args)...);
+                new (std::addressof(value)) T(static_cast<Ts&&>(args)...);
             }
             // @formatter:on
 
@@ -193,10 +169,7 @@ namespace clu
             }
         }
 
-        void unlock() noexcept
-        {
-            locked_.clear(std::memory_order::release);
-        }
+        void unlock() noexcept { locked_.clear(std::memory_order::release); }
 
     private:
         static constexpr int spin_count = 20;
@@ -208,10 +181,10 @@ namespace clu
     class locked_ptr
     {
         static_assert(alignof(T) >= 4, "Spare bits of the pointer are needed for tagging");
+
     public:
         constexpr locked_ptr() noexcept = default;
-        explicit(false) locked_ptr(T* ptr) noexcept:
-            value_(reinterpret_cast<std::uintptr_t>(ptr)) {}
+        explicit(false) locked_ptr(T* ptr) noexcept: value_(reinterpret_cast<std::uintptr_t>(ptr)) {}
 
         T* lock_and_load() noexcept
         {
@@ -223,8 +196,8 @@ namespace clu
                     {
                         // No one is holding the lock, acquire it
                         const auto locked_value = value | locked_no_notify;
-                        if (value_.compare_exchange_weak(value, locked_value,
-                            std::memory_order::acquire, std::memory_order::relaxed))
+                        if (value_.compare_exchange_weak(
+                                value, locked_value, std::memory_order::acquire, std::memory_order::relaxed))
                             return reinterpret_cast<T*>(value); // NOLINT(performance-no-int-to-ptr)
                         break;
                     }
@@ -233,8 +206,7 @@ namespace clu
                         // No one was waiting, change the state so that
                         // we could be notified
                         const auto notify_value = (value & ~mask) | locked_should_notify;
-                        if (!value_.compare_exchange_weak(value, notify_value,
-                            std::memory_order::relaxed))
+                        if (!value_.compare_exchange_weak(value, notify_value, std::memory_order::relaxed))
                             break;
                         [[fallthrough]];
                     }
@@ -251,8 +223,7 @@ namespace clu
 
         void store_and_unlock(T* ptr) noexcept
         {
-            const auto old = value_.exchange(
-                reinterpret_cast<std::uintptr_t>(ptr), std::memory_order::release);
+            const auto old = value_.exchange(reinterpret_cast<std::uintptr_t>(ptr), std::memory_order::release);
             if ((old & mask) == locked_should_notify)
                 value_.notify_all();
         }
@@ -271,4 +242,4 @@ namespace clu
 
         std::atomic_uintptr_t value_;
     };
-}
+} // namespace clu

@@ -20,4 +20,4 @@ namespace clu
             void unhandled_exception() const noexcept { std::terminate(); }
         };
     };
-}
+} // namespace clu

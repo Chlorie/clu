@@ -24,7 +24,7 @@ namespace clu
         std::abort();
 #endif
     }
-}
+} // namespace clu
 
 #else
 
@@ -34,22 +34,21 @@ namespace clu
 
     namespace detail
     {
-        [[noreturn]] inline void assertion_failure(const char* expr, const char* msg,
-            const char* file, const size_t line)
+        [[noreturn]] inline void assertion_failure(
+            const char* expr, const char* msg, const char* file, const size_t line)
         {
             std::fprintf(stderr, "Assertion %s failed in %s, line %zu: %s", expr, file, line, msg);
             std::abort();
         }
-    }
+    } // namespace detail
 
     [[noreturn]] inline void unreachable()
     {
         std::fprintf(stderr, "Supposedly unreachable code reached");
         std::abort();
     }
-}
+} // namespace clu
 
-#define CLU_ASSERT(expr, msg) \
-    (void)(!!(expr) || (::clu::detail::assertion_failure(#expr, msg, __FILE__, __LINE__), 0))
+#define CLU_ASSERT(expr, msg) (void)(!!(expr) || (::clu::detail::assertion_failure(#expr, msg, __FILE__, __LINE__), 0))
 
 #endif

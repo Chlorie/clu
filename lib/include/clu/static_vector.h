@@ -12,9 +12,11 @@
 
 namespace clu
 {
+    // clang-format off
     struct list_init_t {};
     inline constexpr list_init_t list_init{};
-    
+    // clang-format on
+
     template <typename T, size_t N>
     class static_vector
     {
@@ -32,14 +34,11 @@ namespace clu
         using const_reverse_iterator = std::reverse_iterator<const T*>;
 
     private:
-        static constexpr bool nothrow_swap =
-            std::is_nothrow_swappable_v<T> &&
-            std::is_nothrow_move_constructible_v<T> &&
-            std::is_nothrow_destructible_v<T>;
+        static constexpr bool nothrow_swap = std::is_nothrow_swappable_v<T> &&
+            std::is_nothrow_move_constructible_v<T> && std::is_nothrow_destructible_v<T>;
 
         static constexpr bool nothrow_move_assign =
-            std::is_nothrow_move_constructible_v<T> &&
-            std::is_nothrow_destructible_v<T>;
+            std::is_nothrow_move_constructible_v<T> && std::is_nothrow_destructible_v<T>;
 
         alignas(T) unsigned char storage_[N * sizeof(T)]{};
         size_t size_ = 0;
@@ -53,7 +52,8 @@ namespace clu
             if constexpr (std::forward_iterator<It>)
             {
                 const auto dist = static_cast<size_t>(std::ranges::distance(first, last));
-                if (dist > N) size_exceed_capacity();
+                if (dist > N)
+                    size_exceed_capacity();
                 std::ranges::uninitialized_copy(first, last, data(), data() + dist);
                 size_ = dist;
             }
@@ -62,8 +62,9 @@ namespace clu
                 scope_fail guard([this] { clear(); });
                 for (; first != last; ++first, ++size_)
                 {
-                    if (size_ == N) size_exceed_capacity();
-                    new(data() + size_) T(*first);
+                    if (size_ == N)
+                        size_exceed_capacity();
+                    new (data() + size_) T(*first);
                 }
             }
         }
@@ -79,8 +80,9 @@ namespace clu
 
         iterator move_one_place(const const_iterator pos)
         {
-            if (size_ == N) add_too_many();
-            new(data() + size_) T();
+            if (size_ == N)
+                add_too_many();
+            new (data() + size_) T();
             size_++;
             const iterator iter = strip_const(pos);
             std::move_backward(iter, end() - 1, end());
@@ -89,7 +91,8 @@ namespace clu
 
         iterator move_n_place(const const_iterator pos, const size_t count)
         {
-            if (size_ + count > N) add_too_many();
+            if (size_ + count > N)
+                add_too_many();
             std::uninitialized_value_construct_n(data() + size_, count);
             size_ += count;
             const iterator iter = strip_const(pos);
@@ -108,23 +111,30 @@ namespace clu
 
         static_vector(const size_t count, const T& value)
         {
-            if (count > N) size_exceed_capacity();
+            if (count > N)
+                size_exceed_capacity();
             std::uninitialized_fill_n(data(), count, value);
             size_ = count;
         }
 
         explicit static_vector(const size_t count)
         {
-            if (count > N) size_exceed_capacity();
+            if (count > N)
+                size_exceed_capacity();
             std::uninitialized_value_construct_n(data(), count);
             size_ = count;
         }
 
         template <std::input_iterator It, std::sentinel_for<It> Se>
-        static_vector(const It first, const Se last) { assign_range(first, last); }
+        static_vector(const It first, const Se last)
+        {
+            assign_range(first, last);
+        }
 
         template <std::ranges::input_range Rng>
-        explicit static_vector(Rng&& range): static_vector(range.begin(), range.end()) {}
+        explicit static_vector(Rng&& range): static_vector(range.begin(), range.end())
+        {
+        }
 
         static_vector(const static_vector& other)
         {
@@ -140,14 +150,16 @@ namespace clu
 
         static_vector(const std::initializer_list<T> init): static_vector(init.begin(), init.end()) {}
 
-        template <typename... Ts> requires (std::convertible_to<Ts&&, T> && ...)
+        template <typename... Ts>
+            requires(std::convertible_to<Ts&&, T>&&...)
         explicit static_vector(list_init_t, Ts&&... init)
         {
-            if (sizeof...(init) > N) size_exceed_capacity();
+            if (sizeof...(init) > N)
+                size_exceed_capacity();
             scope_fail guard([this] { clear(); });
             const auto construct_one = [this]<typename U>(U&& value)
             {
-                new(data() + size_) T(std::forward<U>(value));
+                new (data() + size_) T(std::forward<U>(value));
                 size_++;
             };
             (construct_one(init), ...);
@@ -173,7 +185,8 @@ namespace clu
 
         static_vector& operator=(const std::initializer_list<T> init)
         {
-            if (init.size() > N) throw std::out_of_range("initializer list too large for this static_vector");
+            if (init.size() > N)
+                throw std::out_of_range("initializer list too large for this static_vector");
             clear();
             std::uninitialized_copy(init.begin(), init.end(), data());
             size_ = init.size();
@@ -182,7 +195,8 @@ namespace clu
 
         void assign(const size_t count, const T& value)
         {
-            if (count > N) size_exceed_capacity();
+            if (count > N)
+                size_exceed_capacity();
             clear();
             std::uninitialized_fill_n(data(), count, value);
             size_ = count;
@@ -196,7 +210,10 @@ namespace clu
         }
 
         template <std::ranges::input_range Rng>
-        void assign(Rng&& range) { assign(range.begin(), range.end()); }
+        void assign(Rng&& range)
+        {
+            assign(range.begin(), range.end());
+        }
 
         void assign(const std::initializer_list<T> init) { *this = init; }
 
@@ -276,18 +293,24 @@ namespace clu
         }
 
         template <std::ranges::input_range Rng>
-        iterator insert(const const_iterator pos, Rng&& range) { return insert(pos, range.begin(), range.end()); }
-
-        iterator insert(const const_iterator pos, const std::initializer_list<T> init) { return insert(pos, init.begin(), init.end()); }
-
-        template <typename... Args> requires std::constructible_from<T, Args&&...>
-        iterator emplace(const const_iterator pos, Args&&... args)
+        iterator insert(const const_iterator pos, Rng&& range)
         {
-            const iterator iter = move_one_place(pos);
-            iter->~T();
-            new(std::addressof(*iter)) T(std::forward<Args>(args)...);
-            return iter;
+            return insert(pos, range.begin(), range.end());
         }
+
+        iterator insert(const const_iterator pos, const std::initializer_list<T> init)
+        {
+            return insert(pos, init.begin(), init.end());
+        }
+
+        template <typename... Args>
+            requires std::constructible_from<T, Args&&...> iterator emplace(const const_iterator pos, Args&&... args)
+            {
+                const iterator iter = move_one_place(pos);
+                iter->~T();
+                new (std::addressof(*iter)) T(std::forward<Args>(args)...);
+                return iter;
+            }
 
         iterator erase(const const_iterator pos)
         {
@@ -310,23 +333,26 @@ namespace clu
 
         void push_back(const T& value)
         {
-            if (size_ == N) add_too_many();
-            new(end()) T(value);
+            if (size_ == N)
+                add_too_many();
+            new (end()) T(value);
             size_++;
         }
 
         void push_back(T&& value)
         {
-            if (size_ == N) add_too_many();
-            new(end()) T(std::move(value));
+            if (size_ == N)
+                add_too_many();
+            new (end()) T(std::move(value));
             size_++;
         }
 
-        template <typename... Args> requires std::constructible_from<T, Args&&...>
-        T& emplace_back(Args&&... args)
+        template <typename... Args>
+        requires std::constructible_from<T, Args&&...> T& emplace_back(Args&&... args)
         {
-            if (size_ == N) add_too_many();
-            T* ptr = new(end()) T(std::forward<Args>(args)...);
+            if (size_ == N)
+                add_too_many();
+            T* ptr = new (end()) T(std::forward<Args>(args)...);
             size_++;
             return *ptr;
         }
@@ -369,7 +395,10 @@ namespace clu
         }
 
         [[nodiscard]] bool operator==(const static_vector& other) const { return std::ranges::equal(*this, other); }
-        [[nodiscard]] auto operator<=>(const static_vector& other) const { return std::ranges::lexicographical_compare(*this, other); }
+        [[nodiscard]] auto operator<=>(const static_vector& other) const
+        {
+            return std::ranges::lexicographical_compare(*this, other);
+        }
 
         friend void swap(static_vector& lhs, static_vector& rhs) noexcept(nothrow_swap) { lhs.swap(rhs); }
     };
@@ -391,4 +420,4 @@ namespace clu
         vec.erase(it, vec.end());
         return static_cast<size_t>(dist);
     }
-}
+} // namespace clu

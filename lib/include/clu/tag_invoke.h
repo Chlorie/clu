@@ -13,13 +13,14 @@ namespace clu
     {
         void tag_invoke();
 
+        // clang-format off
         template <typename Tag, typename... Args>
-        concept tag_invocable = requires(Tag&& tag, Args&&... args)
-        {
-            tag_invoke(static_cast<Tag&&>(tag), static_cast<Args&&>(args)...);
-        };
-
-        // @formatter:off
+        concept tag_invocable =
+            requires(Tag&& tag, Args&&... args)
+            {
+                tag_invoke(static_cast<Tag&&>(tag), static_cast<Args&&>(args)...); 
+            };
+        
         template <typename Tag, typename... Args>
         concept nothrow_tag_invocable = 
             tag_invocable<Tag, Args...> && 
@@ -27,12 +28,15 @@ namespace clu
             {
                 { tag_invoke(static_cast<Tag&&>(tag), static_cast<Args&&>(args)...) } noexcept;
             };
-        // @formatter:on
+        // clang-format on
 
         template <typename Tag, typename... Args>
         using tag_invoke_result_t = decltype(tag_invoke(std::declval<Tag>(), std::declval<Args>()...));
 
-        template <typename Tag, typename... Args> struct tag_invoke_result {};
+        template <typename Tag, typename... Args>
+        struct tag_invoke_result
+        {
+        };
         template <typename Tag, typename... Args>
             requires tag_invocable<Tag, Args...>
         struct tag_invoke_result<Tag, Args...>
@@ -42,7 +46,6 @@ namespace clu
 
         struct tag_invoke_t
         {
-            // @formatter:off
             template <typename Tag, typename... Args>
                 requires tag_invocable<Tag, Args...>
             constexpr decltype(auto) operator()(Tag&& tag, Args&&... args) const
@@ -50,9 +53,8 @@ namespace clu
             {
                 return tag_invoke(static_cast<Tag&&>(tag), static_cast<Args&&>(args)...);
             }
-            // @formatter:on
         };
-    }
+    } // namespace detail::taginv
 
     inline constexpr detail::taginv::tag_invoke_t tag_invoke{};
     using detail::taginv::tag_invocable;
@@ -60,5 +62,6 @@ namespace clu
     using detail::taginv::tag_invoke_result;
     using detail::taginv::tag_invoke_result_t;
 
-    template <auto& Tag> using tag_t = std::decay_t<decltype(Tag)>;
-}
+    template <auto& Tag>
+    using tag_t = std::decay_t<decltype(Tag)>;
+} // namespace clu

@@ -13,6 +13,7 @@ namespace clu
     class indices_view : std::ranges::view_base
     {
         static_assert(N > 0, "at least one dimension");
+
     private:
         class iter_impl;
 
@@ -26,7 +27,9 @@ namespace clu
         using const_reverse_iterator = std::reverse_iterator<iterator>;
 
     private:
-        struct sentinel {};
+        struct sentinel
+        {
+        };
 
         class iter_impl
         {
@@ -99,7 +102,9 @@ namespace clu
 
             constexpr iter_impl() noexcept = default;
             constexpr explicit iter_impl(const value_type& extents, const value_type& current = {}) noexcept:
-                extents_(extents), current_(current) {}
+                extents_(extents), current_(current)
+            {
+            }
 
             constexpr reference operator*() const noexcept { return current_; }
 
@@ -146,46 +151,44 @@ namespace clu
 
             [[nodiscard]] constexpr difference_type operator-(sentinel) const noexcept
             {
-                const value_type other{ extents_[0] };
+                const value_type other{extents_[0]};
                 return distance_at<N - 1>(other);
             }
         };
 
         value_type extents_{};
 
-        constexpr iterator end_iter() const noexcept { return iter_impl(extents_, { extents_[0] }); }
+        constexpr iterator end_iter() const noexcept { return iter_impl(extents_, {extents_[0]}); }
 
     public:
         constexpr indices_view() noexcept = default;
         constexpr explicit indices_view(const value_type& extents) noexcept: extents_(extents) {}
 
+        // clang-format off
         [[nodiscard]] constexpr iterator begin() const noexcept { return iter_impl(extents_); }
         [[nodiscard]] constexpr sentinel end() const noexcept { return {}; }
         [[nodiscard]] constexpr const_iterator cbegin() const noexcept { return iter_impl(extents_); }
         [[nodiscard]] constexpr sentinel cend() const noexcept { return {}; }
         [[nodiscard]] constexpr reverse_iterator rbegin() const noexcept { return std::make_reverse_iterator(end_iter()); }
-        [[nodiscard]] constexpr reverse_iterator rend() const noexcept { return std::make_reverse_iterator(iter_impl(extents_)); }
-        [[nodiscard]] constexpr const_reverse_iterator crbegin() const noexcept { return std::make_reverse_iterator(end_iter()); }
-        [[nodiscard]] constexpr const_reverse_iterator crend() const noexcept { return std::make_reverse_iterator(iter_impl(extents_)); }
-        
+        [[nodiscard]] constexpr reverse_iterator rend() const noexcept { return std::make_reverse_iterator(iter_impl(extents_));}
+        [[nodiscard]] constexpr const_reverse_iterator crbegin() const noexcept { return rbegin(); }
+        [[nodiscard]] constexpr const_reverse_iterator crend() const noexcept { return rend(); }
+        // clang-format on
+
         [[nodiscard]] constexpr value_type front() const noexcept { return {}; }
 
         [[nodiscard]] constexpr value_type back() const noexcept
         {
-            return [&]<std::size_t... i>(std::index_sequence<i...>) -> value_type
-            {
-                return { (extents_[i] - 1)... };
-            }(std::make_index_sequence<N>{});
+            return [&]<std::size_t... i>(std::index_sequence<i...>)->value_type { return {(extents_[i] - 1)...}; }
+            (std::make_index_sequence<N>{});
         }
 
         [[nodiscard]] constexpr value_type operator[](const size_type i) const noexcept { return begin()[i]; }
 
         [[nodiscard]] constexpr size_type size() const noexcept
         {
-            return [this]<size_t... i>(std::index_sequence<i...>)
-            {
-                return (extents_[i] * ... * 1);
-            }(std::make_index_sequence<N>{});
+            return [this]<size_t... i>(std::index_sequence<i...>) { return (extents_[i] * ... * 1); }
+            (std::make_index_sequence<N>{});
         }
         [[nodiscard]] constexpr size_type empty() const noexcept { return extents_ == value_type{}; }
         [[nodiscard]] constexpr explicit operator bool() const noexcept { return extents_ != value_type{}; }
@@ -194,12 +197,12 @@ namespace clu
         [[nodiscard]] constexpr const value_type& extents() const noexcept { return extents_; }
     };
 
-    template <std::size_t N> indices_view(std::array<std::size_t, N>) -> indices_view<N>;
+    template <std::size_t N>
+    indices_view(std::array<std::size_t, N>) -> indices_view<N>;
 
     template <std::convertible_to<std::size_t>... IdxTypes>
-    [[nodiscard]] constexpr auto indices(const IdxTypes ... extents) noexcept
+    [[nodiscard]] constexpr auto indices(const IdxTypes... extents) noexcept
     {
-        return indices_view<sizeof...(IdxTypes)>
-            ({ static_cast<std::size_t>(extents)... });
+        return indices_view<sizeof...(IdxTypes)>({static_cast<std::size_t>(extents)...});
     }
-}
+} // namespace clu

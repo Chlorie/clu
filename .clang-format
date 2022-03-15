@@ -1,0 +1,24 @@
+# Format Style Options - Created with Clang Power Tools
+---
+BasedOnStyle: WebKit
+AllowShortBlocksOnASingleLine: Always
+AllowShortCaseLabelsOnASingleLine: true
+AlwaysBreakTemplateDeclarations: Yes
+BreakBeforeBinaryOperators: None
+BreakBeforeConceptDeclarations: true
+BreakBeforeBraces: Allman
+BreakConstructorInitializers: AfterColon
+ColumnLimit: 120
+Cpp11BracedListStyle: true
+EmptyLineBeforeAccessModifier: Always
+FixNamespaceComments: true
+IndentCaseLabels: true
+IndentRequires: true
+NamespaceIndentation: All
+SortIncludes: false
+SortUsingDeclarations: false
+SpaceBeforeCpp11BracedList: false
+SpaceBeforeCtorInitializerColon: false
+SpaceInEmptyBlock: false
+TabWidth: 4
+...
