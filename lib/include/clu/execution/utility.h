@@ -80,7 +80,8 @@ namespace clu::exec
             template <typename B> requires
                 (!std::same_as<Base, no_base>) &&
                 std::constructible_from<Base, B>
-            explicit type(B&& base): base_(static_cast<B&&>(base)) {}
+            explicit type(B&& base) noexcept(std::is_nothrow_constructible_v<Base, B>):
+                base_(static_cast<B&&>(base)) {}
             // clang-format on
 
             Base& base() & noexcept requires has_base { return base_; }
@@ -93,7 +94,7 @@ namespace clu::exec
             [[no_unique_address]] Base base_;
             // clang-format on
             template <typename D>
-            constexpr static decltype(auto) get_base(D&& d)
+            constexpr static decltype(auto) get_base(D&& d) noexcept
             {
                 if constexpr (has_base)
                     return recv_adpt::c_cast<type>(static_cast<D&&>(d)).base();
@@ -167,7 +168,7 @@ namespace clu::exec
             constexpr friend decltype(auto) tag_invoke(Cpo cpo, const D& self, Args&&... args) noexcept(
                 nothrow_callable<Cpo, base_type<const D&>, Args...>)
             {
-                return static_cast<Cpo&&>(cpo)(get_base(self), static_cast<Args&&>(args)...);
+                return cpo(get_base(self), static_cast<Args&&>(args)...);
             }
         };
 

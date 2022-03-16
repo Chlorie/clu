@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iterator>
+#include <compare>
 
 #include "type_traits.h"
 #include "concepts.h"

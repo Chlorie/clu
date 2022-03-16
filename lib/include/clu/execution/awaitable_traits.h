@@ -27,10 +27,10 @@ namespace clu::exec
     namespace detail::get_awt
     {
         template <typename A>
-        constexpr static auto impl(A && a, priority_tag<2>) CLU_SINGLE_RETURN(static_cast<A&&>(a).operator co_await());
+        constexpr static auto impl(A && a, priority_tag<2>) CLU_SINGLE_RETURN_TRAILING(static_cast<A&&>(a).operator co_await());
 
         template <typename A>
-        constexpr static auto impl(A && a, priority_tag<1>) CLU_SINGLE_RETURN(operator co_await(static_cast<A&&>(a)));
+        constexpr static auto impl(A && a, priority_tag<1>) CLU_SINGLE_RETURN_TRAILING(operator co_await(static_cast<A&&>(a)));
 
         template <typename A>
         constexpr static decltype(auto) impl(A && a, priority_tag<0>) noexcept
@@ -46,7 +46,7 @@ namespace clu::exec
             template <typename A>
                 requires awaiter<awaiter_type<A>>
             constexpr auto operator()(A&& a) const
-                CLU_SINGLE_RETURN(get_awt::impl(static_cast<A&&>(a), priority_tag<2>{}));
+                CLU_SINGLE_RETURN_TRAILING(get_awt::impl(static_cast<A&&>(a), priority_tag<2>{}));
         };
     } // namespace detail::get_awt
 
@@ -58,7 +58,7 @@ namespace clu::exec
         template <typename P, typename A>
             requires requires(P& promise, A&& awaited) { promise.await_transform(static_cast<A&&>(awaited)); }
         constexpr auto operator()(P& promise, A&& awaited) const
-            CLU_SINGLE_RETURN(promise.await_transform(static_cast<A&&>(awaited)));
+            CLU_SINGLE_RETURN_TRAILING(promise.await_transform(static_cast<A&&>(awaited)));
 
         template <typename P, typename A>
         constexpr A operator()(P&, A&& awaited) const noexcept

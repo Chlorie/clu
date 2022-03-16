@@ -27,10 +27,12 @@ TEST_CASE("overload", "[overload]")
     }
     SECTION("overload selection")
     {
+        // clang-format off
         constexpr auto o = clu::overload(
             [](long) { return 1; },
             [](int) { return 2; }
         );
+        // clang-format on
         REQUIRE(o(0l) == 1);
         REQUIRE(o(0) == 2);
     }
@@ -52,10 +54,12 @@ TEST_CASE("first overload", "[overload]")
     }
     SECTION("overload selection")
     {
+        // clang-format off
         constexpr auto o = clu::first_overload(
             [](long) { return 1; },
             [](int) { return 2; }
         );
+        // clang-format on
         REQUIRE(o(0l) == 1);
         REQUIRE(o(0) == 1);
     }

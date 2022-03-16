@@ -617,7 +617,7 @@ namespace clu
         {
             return std::move(data_.value_);
         }
-        [[nodiscard]] constexpr T operator*() const noexcept requires std::is_lvalue_reference_v<T>
+        [[nodiscard]] constexpr T operator*() const& noexcept requires std::is_lvalue_reference_v<T>
         {
             return *data_.value_;
         }

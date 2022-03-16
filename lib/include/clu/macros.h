@@ -21,8 +21,12 @@
 
 // Boilerplate generators
 
-#define CLU_SINGLE_RETURN(expr)                                                                                        \
-    noexcept(noexcept(expr))->decltype(expr) { return expr; }                                                          \
+#define CLU_SINGLE_RETURN_TRAILING(...)                                                                                \
+    noexcept(noexcept(__VA_ARGS__))->decltype(__VA_ARGS__) { return __VA_ARGS__; }                                     \
+    static_assert(true)
+
+#define CLU_SINGLE_RETURN(...)                                                                                         \
+    noexcept(noexcept(__VA_ARGS__)) { return __VA_ARGS__; }                                                            \
     static_assert(true)
 
 #define CLU_NON_COPYABLE_TYPE(type)                                                                                    \

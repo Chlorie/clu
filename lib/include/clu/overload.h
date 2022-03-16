@@ -15,6 +15,13 @@ namespace clu
         struct overload_t : invocable_wrapper<Fs>...
         {
             using invocable_wrapper<Fs>::operator()...;
+
+            // clang-format off
+            template <typename... Fs2>
+                requires (decays_to<Fs2, Fs> && ...)
+            constexpr explicit overload_t(Fs2&&... func):
+                invocable_wrapper<Fs>(static_cast<Fs2&&>(func))... {}
+            // clang-format on
         };
 
         template <typename... Fs>
@@ -90,19 +97,25 @@ namespace clu
             CLU_FIRST_OVERLOAD_CALL_DEF(const, &);
             CLU_FIRST_OVERLOAD_CALL_DEF(const, &&);
 #undef CLU_FIRST_OVERLOAD_CALL_DEF
+
+            // clang-format off
+            template <typename... Fs2>
+                requires (decays_to<Fs2, Fs> && ...)
+            constexpr explicit first_overload_t(Fs2&&... func):
+                invocable_wrapper<Fs>(static_cast<Fs2&&>(func))... {}
+            // clang-format on
         };
     } // namespace detail
 
     template <typename... Fs>
     constexpr auto overload(Fs&&... fns)
     {
-        return detail::overload_t<std::decay_t<Fs>...>(invocable_wrapper<std::decay_t<Fs>>(static_cast<Fs&&>(fns))...);
+        return detail::overload_t<std::decay_t<Fs>...>(static_cast<Fs&&>(fns)...);
     }
 
     template <typename... Fs>
     constexpr auto first_overload(Fs&&... fns)
     {
-        return detail::first_overload_t<std::decay_t<Fs>...>(
-            invocable_wrapper<std::decay_t<Fs>>(static_cast<Fs&&>(fns))...);
+        return detail::first_overload_t<std::decay_t<Fs>...>(static_cast<Fs&&>(fns)...);
     }
 } // namespace clu

@@ -47,7 +47,8 @@ namespace clu
     public:
         constexpr flags() noexcept = default;
 
-        constexpr explicit(false) flags(const Enum bit) noexcept: data_(static_cast<data_type>(1) << to_underlying(bit))
+        constexpr explicit(false) flags(const Enum bit) noexcept:
+            data_(static_cast<data_type>(static_cast<data_type>(1) << to_underlying(bit)))
         {
         }
 

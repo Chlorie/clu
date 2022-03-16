@@ -106,7 +106,7 @@ namespace clu
                         return pms.nested_->parent;
                     }
                     // We are already the outermost generator, just suspend
-                    return std::noop_coroutine();
+                    return coro::noop_coroutine();
                 }
 
                 void await_resume() const noexcept {}

@@ -390,8 +390,6 @@ namespace clu::exec
         class ops_task
         {
         public:
-            CLU_IMMOVABLE_TYPE(ops_task);
-
             class promise_type
             {
             public:

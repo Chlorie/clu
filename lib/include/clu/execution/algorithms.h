@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 #include "execution_traits.h"
 #include "utility.h"
 #include "contexts.h"
@@ -58,12 +60,14 @@ namespace clu::exec
             class ops_<R, Cpo, Ts...>::type
             {
             public:
-                CLU_IMMOVABLE_TYPE(type);
-
+                // clang-format off
                 template <typename Tup>
-                type(R&& recv, Tup&& values): recv_(static_cast<R&&>(recv)), values_(static_cast<Tup&&>(values))
-                {
-                }
+                type(R&& recv, Tup&& values) noexcept(
+                    std::is_nothrow_constructible_v<R, R> &&
+                    std::is_nothrow_constructible_v<std::tuple<Ts...>, Tup>):
+                    recv_(static_cast<R&&>(recv)),
+                    values_(static_cast<Tup&&>(values)) {}
+                // clang-format on
 
             private:
                 [[no_unique_address]] R recv_;
@@ -90,19 +94,19 @@ namespace clu::exec
             class snd_<Cpo, Ts...>::type
             {
             public:
+                // clang-format off
                 template <typename... Us>
-                constexpr explicit type(Us&&... args): values_(static_cast<Us&&>(args)...)
-                {
-                }
+                constexpr explicit type(Us&&... args) noexcept(
+                    std::is_nothrow_constructible_v<std::tuple<Ts...>, Us...>):
+                    values_(static_cast<Us&&>(args)...) {}
+                // clang-format on
 
             private:
                 [[no_unique_address]] std::tuple<Ts...> values_;
 
                 template <typename R, forwarding<type> Self>
-                friend ops_t<R, Cpo, Ts...> tag_invoke(connect_t, Self&& snd, R&& recv)
-                {
-                    return {static_cast<R&&>(recv), static_cast<Self&&>(snd).values_};
-                }
+                friend auto tag_invoke(connect_t, Self&& snd, R&& recv)
+                    CLU_SINGLE_RETURN(ops_t<R, Cpo, Ts...>{static_cast<R&&>(recv), static_cast<Self&&>(snd).values_});
 
                 friend completion_signatures<Cpo(Ts...)> tag_invoke(
                     get_completion_signatures_t, const type&, auto) noexcept
@@ -140,26 +144,61 @@ namespace clu::exec
 
         namespace upon
         {
-            // clang-format off
-            template <typename R, typename Cpo, typename F> struct recv_{};
-            template <typename R, typename F> struct recv_<R, set_value_t, F> { struct type; };
-            template <typename R, typename F> struct recv_<R, set_error_t, F> { struct type; };
-            template <typename R, typename F> struct recv_<R, set_stopped_t, F> { struct type; };
-            // clang-format on
+            template <typename R, typename Cpo, typename F>
+            struct recv_
+            {
+                class type;
+            };
 
             template <typename R, typename Cpo, typename F>
             using recv_t = typename recv_<R, Cpo, F>::type;
 
             template <typename R, typename Cpo, typename F>
-            class recv_base : public receiver_adaptor<recv_t<R, Cpo, F>, R>
+            class recv_<R, Cpo, F>::type
             {
             public:
-                constexpr recv_base(R&& recv, F&& func):
-                    receiver_adaptor<recv_t<R, Cpo, F>, R>(static_cast<R&&>(recv)), func_(static_cast<F&&>(func))
+                // clang-format off
+                template <typename R2, typename F2>
+                type(R2&& recv, F2&& func) noexcept(
+                    std::is_nothrow_constructible_v<R, R2> &&
+                    std::is_nothrow_constructible_v<F, F2>):
+                    recv_(static_cast<R2&&>(recv)),
+                    func_(static_cast<F2&&>(func)) {}
+                // clang-format on
+
+            private:
+                [[no_unique_address]] R recv_;
+                [[no_unique_address]] F func_;
+
+                // Transformed
+                template <typename... Args>
+                    requires std::invocable<F, Args...> && receiver_of<R, comp_sigs_of_inv<F, Args...>>
+                friend void tag_invoke(Cpo, type&& self, Args&&... args) noexcept
                 {
+                    self.set(static_cast<Args&&>(args)...);
                 }
 
-            protected:
+                // Pass through
+                friend auto tag_invoke(get_env_t, const type& self) noexcept { return exec::get_env(self.recv_); }
+
+                template <recv_qry::fwd_recv_query Tag, typename... Args>
+                    requires callable<Tag, const R&, Args...>
+                constexpr friend decltype(auto) tag_invoke(Tag cpo, const type& self, Args&&... args) noexcept(
+                    nothrow_callable<Tag, const R&, Args...>)
+                {
+                    return cpo(self.recv_, static_cast<Args&&>(args)...);
+                }
+
+                // clang-format off
+                template <recvs::completion_cpo Tag, typename... Args> requires
+                    (!std::same_as<Tag, Cpo>) &&
+                    receiver_of<R, completion_signatures<Tag(Args...)>>
+                constexpr friend void tag_invoke(Tag cpo, type&& self, Args&&... args) noexcept
+                {
+                    cpo(static_cast<R&&>(self.recv_), static_cast<Args&&>(args)...);
+                }
+                // clang-format on
+
                 template <typename... Args>
                 constexpr void set(Args&&... args) noexcept
                 {
@@ -172,12 +211,9 @@ namespace clu::exec
                         }
                         catch (...)
                         {
-                            exec::set_error(std::move(*this).base(), std::current_exception());
+                            exec::set_error(static_cast<R&&>(recv_), std::current_exception());
                         }
                 }
-
-            private:
-                F func_;
 
                 template <typename... Args>
                 constexpr void set_impl(Args&&... args) noexcept(nothrow_invocable<F, Args...>)
@@ -185,47 +221,14 @@ namespace clu::exec
                     if constexpr (std::is_void_v<std::invoke_result_t<F, Args...>>)
                     {
                         std::invoke(std::move(func_), static_cast<Args&&>(args)...);
-                        exec::set_value(std::move(*this).base());
+                        exec::set_value(static_cast<R&&>(recv_));
                     }
                     else
                     {
                         exec::set_value(
-                            std::move(*this).base(), std::invoke(std::move(func_), static_cast<Args&&>(args)...));
+                            static_cast<R&&>(recv_), std::invoke(std::move(func_), static_cast<Args&&>(args)...));
                     }
                 }
-            };
-
-            template <typename R, typename F>
-            struct recv_<R, set_value_t, F>::type : recv_base<R, set_value_t, F>
-            {
-            public:
-                using recv_base<R, set_value_t, F>::recv_base;
-
-                template <typename... Args>
-                    requires std::invocable<F, Args...> && receiver_of<R, comp_sigs_of_inv<F, Args...>>
-                constexpr void set_value(Args&&... args) && noexcept { this->set(static_cast<Args&&>(args)...); }
-            };
-
-            template <typename R, typename F>
-            struct recv_<R, set_error_t, F>::type : recv_base<R, set_error_t, F>
-            {
-            public:
-                using recv_base<R, set_error_t, F>::recv_base;
-
-                template <typename E>
-                    requires std::invocable<F, E> && receiver_of<R, comp_sigs_of_inv<F, E>>
-                constexpr void set_error(E&& error) && noexcept { this->set(static_cast<E&&>(error)); }
-            };
-
-            template <typename R, typename F>
-            struct recv_<R, set_stopped_t, F>::type : recv_base<R, set_stopped_t, F>
-            {
-            public:
-                using recv_base<R, set_stopped_t, F>::recv_base;
-
-                template <typename = int>
-                    requires std::invocable<F> && receiver_of<R, comp_sigs_of_inv<F>>
-                constexpr void set_stopped() && noexcept { this->set(); }
             };
 
             template <typename S, typename Cpo, typename F>
@@ -268,16 +271,19 @@ namespace clu::exec
             class snd_<S, Cpo, F>::type
             {
             public:
+                // clang-format off
                 template <typename S2, typename F2>
-                constexpr type(S2&& snd, F2&& func): snd_(static_cast<S2&&>(snd)), func_(static_cast<F2&&>(func))
-                {
-                }
+                constexpr type(S2&& snd, F2&& func) noexcept(
+                    std::is_nothrow_constructible_v<S, S2> &&
+                    std::is_nothrow_constructible_v<F, F2>):
+                    snd_(static_cast<S2&&>(snd)),
+                    func_(static_cast<F2&&>(func)) {}
+                // clang-format on
 
             private:
                 [[no_unique_address]] S snd_;
                 [[no_unique_address]] F func_;
 
-                // @formatter:off
                 template <typename R>
                 constexpr friend auto tag_invoke(connect_t, type&& snd, R&& recv) noexcept(
                     conn::nothrow_connectable<S, recv_t<R, Cpo, F>>)
@@ -285,7 +291,6 @@ namespace clu::exec
                     return exec::connect(static_cast<type&&>(snd).snd_,
                         recv_t<R, Cpo, F>(static_cast<R&&>(recv), static_cast<type&&>(snd).func_));
                 }
-                // @formatter:on
 
                 using make_sig = make_sig_impl<Cpo, F>;
 
@@ -341,16 +346,21 @@ namespace clu::exec
             using recv_t = typename recv_<R, Cpo, F>::type;
 
             template <typename R, typename Cpo, typename F>
-            class recv_<R, Cpo, F>::type : public receiver_adaptor<R>
+            class recv_<R, Cpo, F>::type
             {
             public:
+                // clang-format off
                 template <typename R2, typename F2>
-                type(R2&& recv, F2&& func): receiver_adaptor<R>(static_cast<R2&&>(recv)), func_(static_cast<F2&&>(func))
-                {
-                }
+                type(R2&& recv, F2&& func) noexcept(
+                    std::is_nothrow_constructible_v<R, R2> &&
+                    std::is_nothrow_constructible_v<F, F2>):
+                    recv_(static_cast<R2&&>(recv)),
+                    func_(static_cast<F2&&>(func)) {}
+                // clang-format on
 
             private:
-                F func_;
+                [[no_unique_address]] R recv_;
+                [[no_unique_address]] F func_;
             };
 
             template <typename S, typename Cpo, typename F>
@@ -366,18 +376,23 @@ namespace clu::exec
             class snd_<S, Cpo, F>::type
             {
             public:
+                // clang-format off
                 template <typename S2, typename F2>
-                type(S2&& snd, F2&& func): snd_(static_cast<S2&&>(snd), static_cast<F2&&>(func))
-                {
-                }
+                type(S2&& snd, F2&& func) noexcept(
+                    std::is_nothrow_constructible_v<S, S2> &&
+                    std::is_nothrow_constructible_v<F, F2>):
+                    snd_(static_cast<S2&&>(snd)), func_(static_cast<F2&&>(func)) {}
+                // clang-format on
 
             private:
-                S snd_;
-                F func_;
+                [[no_unique_address]] S snd_;
+                [[no_unique_address]] F func_;
 
                 template <typename R>
                 friend auto tag_invoke(connect_t, type&& self, R&& recv)
                 {
+                    return exec::connect(static_cast<S&&>(self.snd_),
+                        recv_t<R, Cpo, F>(static_cast<R&&>(recv), static_cast<F&&>(self.func_)));
                 }
             };
 
@@ -704,10 +719,11 @@ namespace clu::exec
             class snd_<S>::type
             {
             public:
+                // clang-format off
                 template <typename S2>
-                constexpr explicit type(S2&& snd): snd_(static_cast<S2&&>(snd))
-                {
-                }
+                constexpr explicit type(S2&& snd) noexcept(std::is_nothrow_constructible_v<S, S2>):
+                    snd_(static_cast<S2&&>(snd)) {}
+                // clang-format on
 
             private:
                 [[no_unique_address]] S snd_;
@@ -957,7 +973,7 @@ namespace clu::this_thread
         struct sync_wait_t
         {
             template <sync_waitable_sender S>
-            constexpr result_t<S> operator()(S&& snd) const
+            result_t<S> operator()(S&& snd) const
             {
                 if constexpr (requires {
                                   requires tag_invocable<sync_wait_t,

@@ -6,7 +6,6 @@
 
 #include <clu/execution.h>
 #include <clu/task.h>
-#include <clu/generator.h>
 
 using namespace std::literals;
 
@@ -92,7 +91,7 @@ clu::task<void> g()
 {
     for (std::size_t i = 0; i < 5; i++)
     {
-        co_await wait_on_detached_thread(0.2s);
+        co_await wait_on_detached_thread{0.2s};
         const int answer = co_await f();
         std::cout << "The answer is " << answer << '\n';
     }
@@ -120,7 +119,7 @@ int main() // NOLINT
         const auto res = clu::this_thread::sync_wait(
             to_detached_thread()
             | ex::then(print_thread_id) // New detached thread id
-            | ex::then(maybe_throw(do_throw)) 
+            | ex::then(maybe_throw(do_throw))
             | ex::then(happy_path) // -> 69 if didn't throw
             | ex::upon_error(sad_path) // -> 420 if did throw
         );
