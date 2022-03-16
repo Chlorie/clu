@@ -1,7 +1,6 @@
 #pragma once
 
 #include "concepts.h"
-#include "type_traits.h"
 
 namespace clu
 {

@@ -108,7 +108,7 @@ auto maybe_throw(const bool do_throw)
 }
 
 int happy_path() { return 69; }
-double sad_path(const std::exception_ptr&) { return 420.; }
+int sad_path(const std::exception_ptr&) { return 420.; }
 
 int main() // NOLINT
 {
@@ -117,7 +117,7 @@ int main() // NOLINT
     {
         // clang-format off
         print_thread_id(); // Main thread id
-        const auto res = clu::this_thread::sync_wait_with_variant(
+        const auto res = clu::this_thread::sync_wait(
             to_detached_thread()
             | ex::then(print_thread_id) // New detached thread id
             | ex::then(maybe_throw(do_throw)) 
@@ -126,13 +126,10 @@ int main() // NOLINT
         );
         // clang-format on
         if (res)
-            std::visit(
-                [](const auto& tup)
-                {
-                    const auto [v] = tup;
-                    std::cout << "result is " << v << '\n';
-                },
-                std::get<0>(*res));
+        {
+            const auto [v] = *res;
+            std::cout << "result is " << v << '\n';
+        }
         else
             std::cout << "cancelled lol\n";
     }

@@ -23,17 +23,13 @@ namespace clu
     template <typename F, typename... Args>
     concept nothrow_callable =
         requires(F func, Args... args) { { static_cast<F&&>(func)(static_cast<Args&&>(args)...) } noexcept; };
-    // clang-format on
 
     template <typename F, typename... Args>
     using call_result_t = decltype(std::declval<F>()(std::declval<Args>()...));
     template <typename F, typename... Args>
-    struct call_result : std::type_identity<call_result_t<F, Args...>>
-    {
-    };
+    struct call_result : std::type_identity<call_result_t<F, Args...>> {};
 
     // Some exposition-only concepts in the standard, good to have them here
-    // clang-format off
     template <typename B>
     concept boolean_testable =
         std::convertible_to<B, bool> &&
@@ -81,21 +77,16 @@ namespace clu
         std::is_copy_assignable_v<T> &&
         std::equality_comparable<T> &&
         weakly_equality_comparable_with<T, std::nullptr_t>;
-    // clang-format on
 
     template <typename Type, template <typename...> typename Templ>
-    struct is_template_of : std::false_type
-    {
-    };
+    struct is_template_of : std::false_type {};
     template <template <typename...> typename Templ, typename... Types>
-    struct is_template_of<Templ<Types...>, Templ> : std::true_type
-    {
-    };
+    struct is_template_of<Templ<Types...>, Templ> : std::true_type {};
     template <typename Type, template <typename...> typename Templ>
     constexpr bool is_template_of_v = is_template_of<Type, Templ>::value;
-
     template <typename Type, template <typename...> typename Templ>
     concept template_of = is_template_of<Type, Templ>::value;
+    // clang-format on
 
     template <typename T, typename... Us>
     concept same_as_any_of = (std::same_as<T, Us> || ...);
@@ -105,7 +96,7 @@ namespace clu
     // clang-format off
     template <typename T, typename U>
     concept forwarding = 
-        !std::is_rvalue_reference_v<T> &&
+        (!std::is_rvalue_reference_v<T>) &&
         std::same_as<std::remove_cvref_t<U>, U> &&
         std::same_as<std::remove_cvref_t<T>, U>;
     // clang-format on
@@ -127,9 +118,7 @@ namespace clu
     {
         // clang-format off
         template <typename Ptr>
-        concept allocator_ptr =
-            nullable_pointer<Ptr> &&
-            std::contiguous_iterator<Ptr>;
+        concept allocator_ptr = std::contiguous_iterator<Ptr> && nullable_pointer<Ptr>;
 
         template <typename T> struct pointer_of : std::type_identity<typename T::value_type*> {};
         template <typename T> requires requires { typename T::pointer; }

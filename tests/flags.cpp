@@ -1,29 +1,48 @@
-#include <clu/flags.h>
 #include <catch2/catch.hpp>
+#include <clu/flags.h>
 
 using namespace clu::flag_enum_operators;
 
 TEST_CASE("flag_enum concept", "[flags]")
 {
-    enum class no_member {};
+    enum class no_member
+    {
+    };
     static_assert(!clu::flag_enum<no_member>);
-    enum class size_zero { flags_bit_size };
+    enum class size_zero
+    {
+        flags_bit_size
+    };
     static_assert(!clu::flag_enum<size_zero>);
-    enum class real_flag_enum { first, second, flags_bit_size };
+    enum class real_flag_enum
+    {
+        first,
+        second,
+        flags_bit_size
+    };
     static_assert(clu::flag_enum<real_flag_enum>);
 }
 
 TEST_CASE("flags class size", "[flags]")
 {
-    enum class one { flags_bit_size = 8 };
+    enum class one
+    {
+        flags_bit_size = 8
+    };
     static_assert(sizeof(clu::flags<one>) == 1);
-    enum class eight { flags_bit_size = 64 };
+    enum class eight
+    {
+        flags_bit_size = 64
+    };
     static_assert(sizeof(clu::flags<eight>) == 8);
 }
 
 enum class bits
 {
-    b1, b2, b3, b4,
+    b1,
+    b2,
+    b3,
+    b4,
     flags_bit_size
 };
 

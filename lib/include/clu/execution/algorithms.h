@@ -20,11 +20,12 @@ namespace clu::exec
         template <typename F, typename... Args>
         using comp_sigs_of_inv = comp_sigs_of_single<std::invoke_result_t<F, Args...>>;
 
-        // @formatter:off
+        // clang-format off
         template <typename Cpo, typename SetCpo, typename S, typename... Args>
         concept customized_sender_algorithm =
-            tag_invocable<Cpo, completion_scheduler_of_t<SetCpo, S>, S, Args...> || tag_invocable<Cpo, S, Args...>;
-        // @formatter:on
+            tag_invocable<Cpo, completion_scheduler_of_t<SetCpo, S>, S, Args...> ||
+            tag_invocable<Cpo, S, Args...>;
+        // clang-format on
 
         template <typename Cpo, typename SetCpo, typename S, typename... Args>
         auto invoke_customized_sender_algorithm(Cpo, S&& snd, Args&&... args)
@@ -330,6 +331,28 @@ namespace clu::exec
 
         namespace let
         {
+            template <typename R, typename Cpo, typename F>
+            struct recv_
+            {
+                class type;
+            };
+
+            template <typename R, typename Cpo, typename F>
+            using recv_t = typename recv_<R, Cpo, F>::type;
+
+            template <typename R, typename Cpo, typename F>
+            class recv_<R, Cpo, F>::type : public receiver_adaptor<R>
+            {
+            public:
+                template <typename R2, typename F2>
+                type(R2&& recv, F2&& func): receiver_adaptor<R>(static_cast<R2&&>(recv)), func_(static_cast<F2&&>(func))
+                {
+                }
+
+            private:
+                F func_;
+            };
+
             template <typename S, typename Cpo, typename F>
             struct snd_
             {
@@ -337,17 +360,30 @@ namespace clu::exec
             };
 
             template <typename S, typename Cpo, typename F>
-            using snd_t = typename snd_<S, Cpo, F>::type;
+            using snd_t = typename snd_<std::remove_cvref_t<S>, Cpo, std::remove_cvref_t<F>>::type;
 
             template <typename S, typename Cpo, typename F>
             class snd_<S, Cpo, F>::type
             {
             public:
+                template <typename S2, typename F2>
+                type(S2&& snd, F2&& func): snd_(static_cast<S2&&>(snd), static_cast<F2&&>(func))
+                {
+                }
 
             private:
                 S snd_;
                 F func_;
+
+                template <typename R>
+                friend auto tag_invoke(connect_t, type&& self, R&& recv)
+                {
+                }
             };
+
+            // [let(s, f), r] -> s2 = f(*s), [s2, r]
+            // should construct r2 s.t. starting (s, r2) invokes f on the result *s
+            // and then starts [f(*s), r]
 
             template <typename LetCpo, typename SetCpo>
             struct let_t
@@ -363,9 +399,7 @@ namespace clu::exec
                         return detail::invoke_customized_sender_algorithm<LetCpo, SetCpo>(
                             static_cast<S&&>(snd), static_cast<F&&>(func));
                     else
-                    {
-                        // TODO
-                    }
+                        return snd_t<S, SetCpo, F>(static_cast<S&&>(snd), static_cast<F&&>(func));
                 }
             };
 

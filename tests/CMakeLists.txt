@@ -10,7 +10,6 @@ add_executable(tests
     "flags.cpp"
     "forest.cpp"
     "function_ref.cpp"
-    
     # "generator.cpp"
     "hash.cpp"
     "indices.cpp"
@@ -25,7 +24,10 @@ add_executable(tests
     "tag_invoke.cpp"
     "take.cpp"
     "uuid.cpp"
-    "wide_integer.cpp")
+    "wide_integer.cpp"
+
+    "execution/algorithms.cpp"
+)
 target_link_libraries(tests PRIVATE
     clu
     project_options
