@@ -5,6 +5,7 @@
 #include <clu/chrono_utils.h>
 #include <clu/concepts.h>
 #include <clu/concurrency.h>
+#include <clu/copy_elider.h>
 #include <clu/execution.h>
 #include <clu/expected.h>
 #include <clu/file.h>

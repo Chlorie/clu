@@ -85,51 +85,22 @@ struct wait_on_detached_thread
 template <typename Dur>
 wait_on_detached_thread(Dur) -> wait_on_detached_thread<Dur>;
 
-clu::task<int> f() { co_return 42; }
-
-clu::task<void> g()
-{
-    for (std::size_t i = 0; i < 5; i++)
-    {
-        co_await wait_on_detached_thread{0.2s};
-        const int answer = co_await f();
-        std::cout << "The answer is " << answer << '\n';
-    }
-}
-
-auto maybe_throw(const bool do_throw)
-{
-    return [do_throw]
-    {
-        if (do_throw)
-            throw std::runtime_error("wat");
-    };
-}
-
-int happy_path() { return 69; }
-int sad_path(const std::exception_ptr&) { return 420.; }
-
 int main() // NOLINT
 {
-    clu::this_thread::sync_wait(g() | ex::then(print_thread_id));
     for (const bool do_throw : {false, true})
     {
         // clang-format off
-        print_thread_id(); // Main thread id
         const auto res = clu::this_thread::sync_wait(
-            to_detached_thread()
-            | ex::then(print_thread_id) // New detached thread id
-            | ex::then(maybe_throw(do_throw))
-            | ex::then(happy_path) // -> 69 if didn't throw
-            | ex::upon_error(sad_path) // -> 420 if did throw
+            ex::just(23)
+            | ex::let_value([do_throw](const int value) -> clu::task<int>
+            {
+                if (do_throw) throw std::runtime_error("wat");
+                co_return value * 3;
+            })
+            | ex::upon_error([](const std::exception_ptr&) { return 420; })
         );
         // clang-format on
-        if (res)
-        {
-            const auto [v] = *res;
-            std::cout << "result is " << v << '\n';
-        }
-        else
-            std::cout << "cancelled lol\n";
+        const auto [v] = *res;
+        std::cout << "result is " << v << '\n';
     }
 }

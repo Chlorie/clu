@@ -633,19 +633,19 @@ namespace clu::exec
     namespace detail::read
     {
         template <typename Cpo, typename R>
-        struct read_ops_
+        struct ops_t_
         {
             struct type;
         };
 
         template <typename Cpo>
-        struct read_snd_
+        struct snd_t_
         {
             struct type;
         };
 
         template <typename Cpo, typename R>
-        struct read_ops_<Cpo, R>::type
+        struct ops_t_<Cpo, R>::type
         {
             R recv;
 
@@ -672,12 +672,12 @@ namespace clu::exec
         };
 
         template <typename Cpo>
-        struct read_snd_<Cpo>::type
+        struct snd_t_<Cpo>::type
         {
             template <receiver R>
             friend auto tag_invoke(connect_t, type, R&& recv)
             {
-                using ops_t = typename read_ops_<Cpo, std::remove_cvref_t<R>>::type;
+                using ops_t = typename ops_t_<Cpo, std::remove_cvref_t<R>>::type;
                 return ops_t{static_cast<R&&>(recv)};
             }
 
@@ -707,7 +707,7 @@ namespace clu::exec
             template <typename Cpo>
             constexpr auto operator()(Cpo) const noexcept
             {
-                using snd_t = typename read_snd_<Cpo>::type;
+                using snd_t = typename snd_t_<Cpo>::type;
                 return snd_t{};
             }
         };
@@ -753,16 +753,16 @@ namespace clu::exec
         using variant_t = std::variant<monostate, result_t<S, P>, std::exception_ptr>;
 
         template <typename S, typename P>
-        struct recv_
+        struct recv_t_
         {
             class type;
         };
 
         template <typename S, typename P>
-        using awaitable_receiver = typename recv_<S, std::remove_cvref_t<P>>::type;
+        using awaitable_receiver = typename recv_t_<S, std::remove_cvref_t<P>>::type;
 
         template <typename S, typename P>
-        class recv_<S, P>::type
+        class recv_t_<S, P>::type
         {
         public:
             type(variant_t<S, P>* ptr, const coro::coroutine_handle<P> handle): result_(ptr), handle_(handle) {}
@@ -811,16 +811,16 @@ namespace clu::exec
         };
 
         template <typename S, typename P>
-        struct awt_
+        struct awt_t_
         {
             class type;
         };
 
         template <typename S, typename P>
-        using sender_awaitable = typename awt_<std::remove_cvref_t<S>, std::remove_cvref_t<P>>::type;
+        using sender_awaitable = typename awt_t_<std::remove_cvref_t<S>, std::remove_cvref_t<P>>::type;
 
         template <typename S, typename P>
-        class awt_<S, P>::type
+        class awt_t_<S, P>::type
         {
         public:
             type(S&& snd, P& promise):
