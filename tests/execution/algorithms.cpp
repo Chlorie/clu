@@ -3,6 +3,7 @@
 
 namespace ex = clu::exec;
 namespace tt = clu::this_thread;
+namespace meta = clu::meta;
 
 TEST_CASE("just", "[execution]")
 {
@@ -52,15 +53,27 @@ TEST_CASE("upon", "[execution]")
 {
     SECTION("then")
     {
-        // clang-format off
-        const auto res = tt::sync_wait(
-            ex::just(21) 
-            | ex::then([](const int v) { return v * 2; })
-        );
-        // clang-format on
-        REQUIRE(res);
-        const auto [v] = *res;
-        REQUIRE(v == 42);
+        SECTION("check result")
+        {
+            // clang-format off
+            const auto res = tt::sync_wait(
+                ex::just(21)
+                | ex::then([](const int v) { return v * 2; })
+            );
+            // clang-format on
+            REQUIRE(res);
+            const auto [v] = *res;
+            REQUIRE(v == 42);
+        }
+        SECTION("noexcept-ness")
+        {
+            using nothrow_sender = decltype(ex::just() | ex::then([]() noexcept {}));
+            STATIC_REQUIRE(meta::set_equal_lv<ex::completion_signatures_of_t<nothrow_sender>,
+                ex::completion_signatures<ex::set_value_t()>>);
+            using may_throw_sender = decltype(ex::just() | ex::then([] {}));
+            STATIC_REQUIRE(meta::set_equal_lv<ex::completion_signatures_of_t<may_throw_sender>,
+                ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr)>>);
+        }
     }
     SECTION("upon error")
     {
@@ -98,6 +111,11 @@ TEST_CASE("upon", "[execution]")
             REQUIRE(v == 42);
         }
     }
+}
+
+TEST_CASE("let", "[execution]")
+{
+    SECTION("let value") {}
 }
 
 // TODO: more tests!

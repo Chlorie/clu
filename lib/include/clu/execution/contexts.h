@@ -57,7 +57,6 @@ namespace clu::exec
                 }
 
                 ~type() noexcept = default;
-                CLU_IMMOVABLE_TYPE(type);
 
                 void execute() override
                 {
@@ -247,7 +246,7 @@ namespace clu::exec
     {
     public:
         single_thread_context(): thr_([this] { loop_.run(); }) {}
-        ~single_thread_context() noexcept = default;
+        ~single_thread_context() noexcept { finish(); }
         single_thread_context(const single_thread_context&) = delete;
         single_thread_context(single_thread_context&&) = delete;
         single_thread_context& operator=(const single_thread_context&) = delete;

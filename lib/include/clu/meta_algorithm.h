@@ -206,6 +206,14 @@ namespace clu::meta
     using concatenate_l = decltype(detail::concat_impl(List1{}, List2{}));
 
     template <typename... Ts>
+    using list_size = std::integral_constant<std::size_t, sizeof...(Ts)>;
+    using list_size_q = quote<list_size>;
+    template <typename List>
+    using list_size_l = unpack_invoke<List, list_size_q>;
+    template <typename List>
+    inline constexpr auto list_size_lv = unpack_invoke_v<List, list_size_q>;
+
+    template <typename... Ts>
     using enumerate = decltype(detail::enumerate_impl(type_list<Ts...>{}, std::make_index_sequence<sizeof...(Ts)>{}));
     using enumerate_q = quote<enumerate>;
     template <typename List>
@@ -444,7 +452,7 @@ namespace clu::meta
     inline constexpr bool set_include_lv = set_include_l<Set1, Set2>::value;
 
     template <typename Set1, typename Set2>
-    inline constexpr bool set_equal_lv = (Set1::size == Set2::size) && set_include_lv<Set1, Set2>;
+    inline constexpr bool set_equal_lv = (list_size_lv<Set1> == list_size_lv<Set2>)&&set_include_lv<Set1, Set2>;
     template <typename Set1, typename Set2>
     using set_equal_l = std::bool_constant<set_equal_lv<Set1, Set2>>;
 

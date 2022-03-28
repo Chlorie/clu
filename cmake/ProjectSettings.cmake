@@ -84,14 +84,14 @@ function (target_set_options TGT ACCESS)
         target_compile_options(${TGT} ${ACCESS}
             -stdlib=libc++
             -fcolor-diagnostics
-            -ftemplate-backtrace-limit=16)
+            -ftemplate-backtrace-limit=32)
         target_link_options(${TGT} ${ACCESS} -stdlib=libc++)
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         target_compile_options(${TGT}
             ${ACCESS}
             -fdiagnostics-color=always
             -fconcepts-diagnostics-depth=16
-            -ftemplate-backtrace-limit=16)
+            -ftemplate-backtrace-limit=32)
     endif ()
 endfunction ()
 

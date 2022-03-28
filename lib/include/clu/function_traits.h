@@ -49,7 +49,6 @@ namespace clu
         static constexpr bool is_vararg = true;                                                                        \
     }
 
-    // @formatter:off
     CLU_FT_SPECIALIZE(, , , false);
     CLU_FT_SPECIALIZE(const, , , false);
     CLU_FT_SPECIALIZE(volatile, , , false);
@@ -74,7 +73,6 @@ namespace clu
     CLU_FT_SPECIALIZE(const, &&, noexcept, true);
     CLU_FT_SPECIALIZE(volatile, &&, noexcept, true);
     CLU_FT_SPECIALIZE(const volatile, &&, noexcept, true);
-    // @formatter:on
 
 #undef CLU_FT_SPECIALIZE
 

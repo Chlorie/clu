@@ -224,7 +224,7 @@ namespace clu::exec
     namespace detail
     {
         template <typename R, typename Cpo, typename... Ts>
-        constexpr bool recv_of_single_sig(Cpo(*)(Ts...)) noexcept
+        constexpr bool recv_of_single_sig(Cpo (*)(Ts...)) noexcept
         {
             return nothrow_tag_invocable<Cpo, R, Ts...>;
         }
@@ -237,10 +237,10 @@ namespace clu::exec
     } // namespace detail
 
     // clang-format off
-    template <typename R, typename Sig>
+    template <typename R, typename Sigs>
     concept receiver_of =
         receiver<R> &&
-        detail::recv_of_impl<R>(Sig{});
+        detail::recv_of_impl<R>(Sigs{});
     // clang-format on
 
     namespace detail::recv_qry
@@ -600,6 +600,11 @@ namespace clu::exec
                     "return type of get_completion_scheduler should satisfy scheduler");
                 return tag_invoke(*this, snd);
             }
+
+            // clang-format off
+            constexpr friend bool tag_invoke(
+                forwarding_sender_query_t, get_completion_scheduler_t) noexcept { return true; }
+            // clang-format on
         };
     } // namespace detail::snd_qry
 

@@ -446,9 +446,9 @@ namespace clu
     inline constexpr uint64_t golden_ratio_64 = 0x9e3779b97f4a7c15ull;
 
     template <typename T>
-    void hash_combine(size_t& seed, const T& value)
+    constexpr void hash_combine(size_t& seed, const T& value)
     {
-        static constexpr size_t golden_ratio = []
+        constexpr size_t golden_ratio = []
         {
             if constexpr (sizeof(size_t) == 4)
                 return golden_ratio_32;

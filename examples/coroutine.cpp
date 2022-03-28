@@ -87,20 +87,12 @@ wait_on_detached_thread(Dur) -> wait_on_detached_thread<Dur>;
 
 int main() // NOLINT
 {
-    for (const bool do_throw : {false, true})
-    {
-        // clang-format off
-        const auto res = clu::this_thread::sync_wait(
-            ex::just(23)
-            | ex::let_value([do_throw](const int value) -> clu::task<int>
-            {
-                if (do_throw) throw std::runtime_error("wat");
-                co_return value * 3;
-            })
-            | ex::upon_error([](const std::exception_ptr&) { return 420; })
-        );
-        // clang-format on
-        const auto [v] = *res;
-        std::cout << "result is " << v << '\n';
-    }
+    ex::single_thread_context ctx;
+    // clang-format off
+    clu::this_thread::sync_wait(
+        ex::just_from(print_thread_id)      // prints main thread id
+        | ex::transfer(ctx.get_scheduler()) // transfers to the single thread context
+        | ex::then(print_thread_id)         // prints thread id of the context
+    );
+    // clang-format on
 }

@@ -29,10 +29,20 @@ namespace clu
     // clang-format on
 
     template <alias_safe T>
-    constexpr void bytewise_copy(T* out, const T* in, size_t size) noexcept
+    constexpr void memmove(T* dst, const T* src, const size_t size) noexcept
     {
-        for (; size > 0; --size)
-            *out++ = *in++;
+        if (std::is_constant_evaluated())
+        {
+            for (std::size_t i = 0; i < size; ++i)
+                if (src + i == dst) // should copy backwards
+                {
+                    std::copy_backward(src, src + size, dst + size);
+                    return;
+                }
+            std::copy(src, src + size, dst);
+        }
+        else
+            std::memmove(dst, src, size);
     }
 
     template <typename T>
@@ -59,9 +69,7 @@ namespace clu
             (!std::is_const_v<T> && mutable_trivial_range<R>)
         constexpr explicit(false) basic_buffer(R&& range) noexcept:
             ptr_(conditional_reinterpret_cast(std::ranges::data(range))),
-            size_(std::ranges::size(range) * sizeof(std::ranges::range_value_t<R>))
-        {
-        }
+            size_(std::ranges::size(range) * sizeof(std::ranges::range_value_t<R>)) {}
         // clang-format on
 
         template <typename = int>
@@ -123,7 +131,7 @@ namespace clu
         constexpr size_t copy_to(const mutable_type dest) const noexcept
         {
             const size_t copy_size = std::min(size_, dest.size());
-            clu::bytewise_copy(dest.data(), data(), copy_size);
+            clu::memmove(dest.data(), data(), copy_size);
             return copy_size;
         }
 
