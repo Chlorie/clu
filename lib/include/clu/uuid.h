@@ -32,23 +32,12 @@ namespace clu
             name_based_sha1 = 5
         };
 
-    private:
-        value_type data_{};
-
-        [[noreturn]] static void parse_error() { throw std::runtime_error("invalid uuid string"); }
-
-        constexpr static bool is_hex_char(const char ch)
-        {
-            return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F');
-        }
-
-    public:
         constexpr uuid() noexcept = default;
         constexpr explicit uuid(const value_type data): data_(data) {}
 
         constexpr explicit uuid(const u64 first, const u64 second) noexcept
         {
-            constexpr auto shift_byte = [](const uint64_t value, const int shift)
+            constexpr auto shift_byte = [](const u64 value, const int shift)
             { return static_cast<std::byte>(value >> shift); };
             // clang-format off
             data_ = {
@@ -96,29 +85,29 @@ namespace clu
             }
             if (str.size() == 32) // no dashes
             {
-                const uint64_t first = parse<uint64_t>(str.substr(0, 16), 16).value();
-                const uint64_t second = parse<uint64_t>(str.substr(16), 16).value();
+                const u64 first = parse<u64>(str.substr(0, 16), 16).value();
+                const u64 second = parse<u64>(str.substr(16), 16).value();
                 return uuid(first, second);
             }
             else if (str.size() == 36) // four dashes
             {
-                auto first = parse_consume<uint64_t>(str, 16).value();
+                auto first = parse_consume<u64>(str, 16).value();
                 if (str.size() != 28 || str[0] != '-')
                     parse_error();
                 str.remove_prefix(1);
-                first = (first << 16) | parse_consume<uint64_t>(str, 16).value();
+                first = (first << 16) | parse_consume<u64>(str, 16).value();
                 if (str.size() != 23 || str[0] != '-')
                     parse_error();
                 str.remove_prefix(1);
-                first = (first << 16) | parse_consume<uint64_t>(str, 16).value();
+                first = (first << 16) | parse_consume<u64>(str, 16).value();
                 if (str.size() != 18 || str[0] != '-')
                     parse_error();
                 str.remove_prefix(1);
-                auto second = parse_consume<uint64_t>(str, 16).value();
+                auto second = parse_consume<u64>(str, 16).value();
                 if (str.size() != 13 || str[0] != '-')
                     parse_error();
                 str.remove_prefix(1);
-                second = (second << 48) | parse_consume<uint64_t>(str, 16).value();
+                second = (second << 48) | parse_consume<u64>(str, 16).value();
                 if (!str.empty())
                     parse_error();
                 return uuid(first, second);
@@ -131,9 +120,9 @@ namespace clu
         template <typename URBG>
         [[nodiscard]] static uuid generate_random(URBG&& gen)
         {
-            std::uniform_int_distribution<uint64_t> dist;
-            const uint64_t first = (dist(gen) & ~0xf000ull) | 0x4000ull;
-            const uint64_t second = (dist(gen) & ~(3ull << 62)) | (1ull << 63);
+            std::uniform_int_distribution<u64> dist;
+            const u64 first = (dist(gen) & ~0xf000ull) | 0x4000ull;
+            const u64 second = (dist(gen) & ~(3ull << 62)) | (1ull << 63);
             return uuid(first, second);
         }
 
@@ -144,9 +133,9 @@ namespace clu
             h.update(namespace_.data());
             detail::constexpr_update_hash_sv(h, name);
             const auto& hash = h.finalize();
-            auto first = (static_cast<uint64_t>(hash[3]) << 32) | static_cast<uint64_t>(hash[2]);
+            auto first = (static_cast<u64>(hash[3]) << 32) | static_cast<u64>(hash[2]);
             first = (first & ~0xf000ull) | 0x3000ull;
-            auto second = (static_cast<uint64_t>(hash[1]) << 32) | static_cast<uint64_t>(hash[0]);
+            auto second = (static_cast<u64>(hash[1]) << 32) | static_cast<u64>(hash[0]);
             second = (second & ~(3ull << 62)) | (1ull << 63);
             return uuid(first, second);
         }
@@ -158,9 +147,9 @@ namespace clu
             h.update(namespace_.data());
             detail::constexpr_update_hash_sv(h, name);
             const auto& hash = h.finalize();
-            auto first = (static_cast<uint64_t>(hash[4]) << 32) | static_cast<uint64_t>(hash[3]);
+            auto first = (static_cast<u64>(hash[4]) << 32) | static_cast<u64>(hash[3]);
             first = (first & ~0xf000ull) | 0x5000ull;
-            auto second = (static_cast<uint64_t>(hash[2]) << 32) | static_cast<uint64_t>(hash[1]);
+            auto second = (static_cast<u64>(hash[2]) << 32) | static_cast<u64>(hash[1]);
             second = (second & ~(3ull << 62)) | (1ull << 63);
             return uuid(first, second);
         }
@@ -179,6 +168,16 @@ namespace clu
                 u8byte(12), u8byte(13), u8byte(14), u8byte(15));
             // clang-format on
         }
+
+    private:
+        value_type data_{};
+
+        [[noreturn]] static void parse_error() { throw std::runtime_error("invalid uuid string"); }
+
+        constexpr static bool is_hex_char(const char ch)
+        {
+            return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F');
+        }
     };
 
     namespace uuid_namespaces
@@ -193,7 +192,7 @@ namespace clu
     {
         inline namespace uuid_literal
         {
-            [[nodiscard]] inline uuid operator""_uuid(const char* ptr, const size_t size)
+            [[nodiscard]] inline uuid operator""_uuid(const char* ptr, const std::size_t size)
             {
                 return uuid::from_string({ptr, size});
             }
@@ -204,9 +203,9 @@ namespace clu
 template <>
 struct std::hash<clu::uuid>
 {
-    [[nodiscard]] constexpr size_t operator()(const clu::uuid id) const noexcept
+    [[nodiscard]] constexpr std::size_t operator()(const clu::uuid id) const noexcept
     {
-        size_t hash = 0;
+        std::size_t hash = 0;
         for (const auto byte : id.data())
             clu::hash_combine(hash, static_cast<uint8_t>(byte));
         return hash;

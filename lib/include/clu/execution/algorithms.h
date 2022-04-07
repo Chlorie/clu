@@ -169,12 +169,12 @@ namespace clu::exec
             {
             public:
                 // clang-format off
-                template <typename R2>
-                type(R2&& recv, F&& func) noexcept(
+                template <typename R2, typename F2>
+                type(R2&& recv, F2&& func) noexcept(
                     std::is_nothrow_constructible_v<R, R2> &&
-                    std::is_nothrow_move_constructible_v<F>):
+                    std::is_nothrow_constructible_v<F, F2>):
                     recv_(static_cast<R2&&>(recv)),
-                    func_(static_cast<F&&>(func)) {}
+                    func_(static_cast<F2&&>(func)) {}
                 // clang-format on
 
             private:
@@ -285,12 +285,13 @@ namespace clu::exec
                 [[no_unique_address]] S snd_;
                 [[no_unique_address]] F func_;
 
-                template <typename R>
-                friend auto tag_invoke(connect_t, type&& snd, R&& recv) noexcept(
+                template <forwarding<type> Self, typename R>
+                    requires sender_to<copy_cvref_t<Self, S>, recv_t<R, Cpo, F>>
+                friend auto tag_invoke(connect_t, Self&& snd, R&& recv) noexcept(
                     conn::nothrow_connectable<S, recv_t<R, Cpo, F>>)
                 {
-                    return exec::connect(static_cast<type&&>(snd).snd_,
-                        recv_t<R, Cpo, F>(static_cast<R&&>(recv), static_cast<F&&>(snd.func_)));
+                    return exec::connect(static_cast<Self&&>(snd).snd_,
+                        recv_t<R, Cpo, F>(static_cast<R&&>(recv), static_cast<Self&&>(snd).func_));
                 }
 
                 template <snd_qry::fwd_snd_query Q, typename... Args>
@@ -465,13 +466,13 @@ namespace clu::exec
             {
             public:
                 // clang-format off
-                template <typename R2>
-                type(S&& snd, R2&& recv, F&& func) noexcept(
+                template <typename R2, typename F2>
+                type(S&& snd, R2&& recv, F2&& func) noexcept(
                     conn::nothrow_connectable<S, recv_t<S, R, Cpo, F>> &&
-                    std::is_nothrow_constructible_v<R, R2&&> &&
-                    std::is_nothrow_move_constructible_v<F>):
+                    std::is_nothrow_constructible_v<R, R2> &&
+                    std::is_nothrow_constructible_v<F, F2>):
                     initial_ops_(exec::connect(static_cast<S&&>(snd), recv_t<S, R, Cpo, F>(this))),
-                    recv_(static_cast<R2&&>(recv)), func_(static_cast<F&&>(func)) {}
+                    recv_(static_cast<R2&&>(recv)), func_(static_cast<F2&&>(func)) {}
                 // clang-format on
 
             private:
@@ -541,9 +542,10 @@ namespace clu::exec
                 [[no_unique_address]] S snd_;
                 [[no_unique_address]] F func_;
 
-                template <typename R>
-                friend auto tag_invoke(connect_t, type&& self, R&& recv) CLU_SINGLE_RETURN(ops_t<S, R, Cpo, F>(
-                    static_cast<S&&>(self.snd_), static_cast<R&&>(recv), static_cast<F&&>(self.func_)));
+                template <forwarding<type> Self, typename R>
+                    requires sender_to<copy_cvref_t<Self, S>, recv_t<S, R, Cpo, F>>
+                friend auto tag_invoke(connect_t, Self&& self, R&& recv) CLU_SINGLE_RETURN(ops_t<S, R, Cpo, F>(
+                    static_cast<Self&&>(self).snd_, static_cast<R&&>(recv), static_cast<Self&&>(self).func_));
 
                 // clang-format off
                 template <typename Env>
@@ -715,14 +717,11 @@ namespace clu::exec
                     // Storage the args
                     ops_->args_.template emplace<tuple_t>(Cpo{}, static_cast<Args&&>(args)...);
                     // Schedule and connect, and then start the operation
-                    using final_ops_t = connect_result_t<schedule_result_t<Schd>, recv2_t<S, R, Schd>>;
                     const auto ce = [&]
                     {
                         auto schd_snd = exec::schedule(static_cast<Schd&&>(ops_->schd_));
                         return exec::connect(std::move(schd_snd), recv());
                     };
-                    // static_assert(std::same_as<final_ops_t, call_result_t<decltype(ce)>>);
-                    static_assert(std::is_convertible_v<copy_elider<decltype(ce)>, final_ops_t>);
                     exec::start(ops_->final_ops_.template emplace<1>(copy_elider(ce)));
                 }
 
@@ -913,7 +912,400 @@ namespace clu::exec
                     return clu::make_piper(clu::bind_back(*this, static_cast<Schd&&>(schd)));
                 }
             };
+
+            struct transfer_just_t
+            {
+                template <scheduler Schd, typename... Ts>
+                auto operator()(Schd&& schd, Ts&&... args) const
+                {
+                    if constexpr (tag_invocable<transfer_just_t, Schd, Ts...>)
+                    {
+                        static_assert(sender<tag_invoke_result_t<transfer_just_t, Schd, Ts...>>,
+                            "customization of transfer_just should return a sender");
+                        return clu::tag_invoke(*this, static_cast<Schd&&>(schd), static_cast<Ts&&>(args)...);
+                    }
+                    else
+                        return just::just_t{}(static_cast<Ts&&>(args)...) | transfer_t{}(static_cast<Schd&&>(schd));
+                }
+            };
         } // namespace xfer
+
+        namespace bulk
+        {
+            // TODO: implement
+        } // namespace bulk
+
+        namespace split
+        {
+            // TODO: implement
+        } // namespace split
+
+        namespace when_all
+        {
+            template <typename Env>
+            struct env_t_
+            {
+                class type;
+            };
+
+            template <typename Env>
+            using env_t = typename env_t_<Env>::type;
+
+            template <typename Env>
+            class env_t_<Env>::type
+            {
+            public:
+                // clang-format off
+                template <typename Env2>
+                type(Env2&& base, const in_place_stop_token token):
+                    base_(static_cast<Env2&&>(base)),
+                    token_(token) {}
+                // clang-format on
+
+            private:
+                [[no_unique_address]] Env base_;
+                in_place_stop_token token_;
+
+                template <exec_envs::fwd_env_query Cpo, typename... Ts>
+                    requires callable<Cpo, const type&, Ts...>
+                friend decltype(auto) tag_invoke(Cpo, const type& self, Ts&&... args) noexcept(
+                    nothrow_callable<Cpo, const type&, Ts...>)
+                {
+                    return Cpo{}(self.base_, static_cast<Ts&&>(args)...);
+                }
+
+                friend in_place_stop_token tag_invoke(get_stop_token_t, const type& self) noexcept
+                {
+                    return self.token_;
+                }
+            };
+
+            template <typename... Ts>
+            using one_or_zero_type = std::bool_constant<(sizeof...(Ts) < 2)>;
+            template <typename... Ts>
+            using zero_type = std::bool_constant<(sizeof...(Ts) == 0)>;
+            template <typename... Ts>
+            using sig_of_decayed_rref = set_value_t(std::decay_t<Ts>&&...);
+            template <typename R, typename... Ts>
+            inline constexpr bool can_send_value =
+                meta::none_of_q<>::value<value_types_of_t<Ts, env_t<env_of_t<R>>, decayed_tuple, zero_type>...>;
+
+            template <typename R, typename... Ts>
+            struct ops_t_
+            {
+                class type;
+            };
+
+            template <typename R, typename... Ts>
+            using ops_t = typename ops_t_<R, Ts...>::type;
+
+            template <typename R, typename S, std::size_t I, typename... Ts>
+            struct recv_t_
+            {
+                class type;
+            };
+
+            template <typename R, typename S, std::size_t I, typename... Ts>
+            using recv_t = typename recv_t_<R, S, I, Ts...>::type;
+
+            template <typename R, typename S, std::size_t I, typename... Ts>
+            class recv_t_<R, S, I, Ts...>::type
+            {
+            public:
+                explicit type(ops_t<R, Ts...>* ops) noexcept: ops_(ops) {}
+
+            private:
+                ops_t<R, Ts...>* ops_;
+
+                env_t<env_of_t<R>> get_env() const noexcept;
+                friend auto tag_invoke(get_env_t, const type& self) noexcept { return self.get_env(); }
+
+                template <recvs::completion_cpo SetCpo, typename... Args>
+                friend void tag_invoke(SetCpo, type&& self, Args&&... args) noexcept
+                {
+                    self.ops_->template set<I>(SetCpo{}, static_cast<Args&&>(args)...);
+                }
+            };
+
+            template <typename... Ts>
+            using optional_of_single = std::optional<single_type_t<Ts...>>;
+
+            enum class final_signal
+            {
+                value,
+                error,
+                stopped
+            };
+
+            template <typename R, typename... Ts, std::size_t... Is>
+            auto connect_children(std::index_sequence<Is...>, ops_t<R, Ts...>* ops, Ts&&... snds)
+            {
+                using tuple = std::tuple<connect_result_t<Ts, recv_t<R, Ts, Is, Ts...>>...>;
+                return tuple(copy_elider([&] { //
+                    return exec::connect(static_cast<Ts&&>(snds), recv_t<R, Ts, Is, Ts...>(ops));
+                })...);
+            }
+
+            template <typename R, typename... Ts>
+            using children_ops_t = decltype(when_all::connect_children<R>(
+                std::index_sequence_for<Ts...>{}, static_cast<ops_t<R, Ts...>*>(nullptr), std::declval<Ts>()...));
+
+            template <typename R, typename... Ts>
+            class ops_t_<R, Ts...>::type
+            {
+            public:
+                // clang-format off
+                template <typename R2, typename... Us>
+                explicit type(R2&& recv, Us&&... snds):
+                    recv_(static_cast<R2&&>(recv)),
+                    children_(when_all::connect_children<R>(
+                        std::index_sequence_for<Ts...>{}, this, static_cast<Us&&>(snds)...)) {}
+                // clang-format on
+
+                auto get_recv_env() noexcept
+                {
+                    return env_t<env_of_t<R>>( //
+                        exec::get_env(recv_), stop_src_.get_token());
+                }
+
+                template <std::size_t I, typename... Us>
+                void set(set_value_t, [[maybe_unused]] Us&&... values) noexcept
+                {
+                    // If the whole operation is expected to err/stop,
+                    // just don't bother storing the result
+                    if constexpr (can_send_value<R, Ts...>)
+                        // Only do things if no error/stop signals has been sent
+                        // relaxed since dependency is taken care of by the counter
+                        if (signal_.load(std::memory_order::relaxed) == final_signal::value)
+                        {
+                            try
+                            {
+                                std::get<I>(values_) = std::forward_as_tuple(static_cast<Us&&>(values)...);
+                            }
+                            catch (...)
+                            {
+                                set<I>(set_error, std::current_exception());
+                            }
+                        }
+                    increase_counter(); // Arrives
+                }
+
+                template <std::size_t I, typename E>
+                void set(set_error_t, E&& error) noexcept
+                {
+                    // Only do things if we are the first one arriving with a non-value signal
+                    if (final_signal expected = final_signal::value;
+                        signal_.compare_exchange_strong(expected, final_signal::error, std::memory_order::relaxed))
+                    {
+                        stop_src_.request_stop(); // Cancel children operations
+                        try
+                        {
+                            error_.template emplace<std::decay_t<E>>(static_cast<E&&>(error));
+                        }
+                        catch (...)
+                        {
+                            error_.template emplace<std::exception_ptr>(std::current_exception());
+                        }
+                    }
+                    increase_counter(); // Arrives
+                }
+
+                template <std::size_t I>
+                void set(set_stopped_t) noexcept
+                {
+                    // Only do things if we are the first one arriving with a non-value signal
+                    if (final_signal expected = final_signal::value;
+                        signal_.compare_exchange_strong(expected, final_signal::stopped, std::memory_order::relaxed))
+                        stop_src_.request_stop(); // Cancel children operations
+                    increase_counter(); // Arrives
+                }
+
+            private:
+                template <typename S, std::size_t I>
+                using recv_for = recv_t<R, S, I, Ts...>;
+
+                struct stop_callback
+                {
+                    in_place_stop_source& stop_src;
+                    void operator()() const noexcept { stop_src.request_stop(); }
+                };
+
+                using values_t = typename decltype(
+                    []
+                    {
+                        if constexpr (can_send_value<R, Ts...>)
+                            return type_tag<std::tuple<value_types_of_t<Ts, env_of_t<R>, //
+                                decayed_tuple, optional_of_single>...>>;
+                        else
+                            return type_tag<std::monostate>;
+                    }())::type;
+                using error_t = meta::unpack_invoke< //
+                    meta::flatten<error_types_of_t<Ts, env_of_t<R>, type_list>..., type_list<std::exception_ptr>>, //
+                    meta::quote<nullable_variant>>;
+                using callback_t = typename stop_token_of_t<R>::template callback_type<stop_callback>;
+
+                R recv_;
+                children_ops_t<R, Ts...> children_;
+                std::atomic_size_t finished_count_{};
+                std::atomic<final_signal> signal_{};
+                in_place_stop_source stop_src_;
+                std::optional<callback_t> callback_;
+                [[no_unique_address]] values_t values_;
+                error_t error_;
+
+                friend void tag_invoke(start_t, type& self) noexcept
+                {
+                    self.callback_.emplace( // Propagate stop signal
+                        exec::get_stop_token(exec::get_env(self.recv_)), //
+                        stop_callback{self.stop_src_});
+                    if (self.stop_src_.stop_requested()) // Shortcut when the operation is preemptively stopped
+                        exec::set_stopped(static_cast<R&&>(self.recv_));
+                    // Just start every child operation state
+                    std::apply([](auto&... children) { (exec::start(children), ...); }, self.children_);
+                }
+
+                void increase_counter() noexcept
+                {
+                    if (finished_count_.fetch_add(1, std::memory_order::acq_rel) + 1 == sizeof...(Ts))
+                        send_results();
+                }
+
+                // The child operations have ended, send the aggregated result to the receiver
+                void send_results() noexcept
+                {
+                    callback_.reset(); // The stop callback won't be needed
+                    switch (signal_)
+                    {
+                        case final_signal::value:
+                            if constexpr (can_send_value<R, Ts...>)
+                                send_values();
+                            else
+                                unreachable();
+                            return;
+                        case final_signal::error:
+                            std::visit(
+                                [&]<typename E>(E&& error) noexcept
+                                {
+                                    if constexpr (std::is_same_v<E, monostate>)
+                                        unreachable();
+                                    else
+                                        exec::set_error(static_cast<R&&>(recv_), static_cast<E&&>(error));
+                                },
+                                std::move(error_));
+                            return;
+                        case final_signal::stopped: exec::set_stopped(static_cast<R&&>(recv_)); return;
+                        default: unreachable();
+                    }
+                }
+
+                void send_values() noexcept
+                {
+                    std::apply(
+                        [&]<typename... Opts>(Opts&&... opts) noexcept
+                        {
+                            try
+                            {
+                                std::apply(
+                                    [&]<typename... Us>(Us&&... values) noexcept
+                                    {
+                                        exec::set_value(static_cast<R&&>(recv_), //
+                                            static_cast<Us&&>(values)...);
+                                    },
+                                    std::tuple_cat(*static_cast<Opts&&>(opts)...));
+                            }
+                            catch (...)
+                            {
+                                exec::set_error(static_cast<R&&>(recv_), std::current_exception());
+                            }
+                        },
+                        std::move(values_));
+                }
+            };
+
+            template <typename R, typename S, std::size_t I, typename... Ts>
+            env_t<env_of_t<R>> recv_t_<R, S, I, Ts...>::type::get_env() const noexcept
+            {
+                return ops_->get_recv_env();
+            }
+
+            template <typename... Ts>
+            struct snd_t_
+            {
+                class type;
+            };
+
+            template <typename... Ts>
+            using snd_t = typename snd_t_<std::decay_t<Ts>...>::type;
+
+            template <typename... Ts>
+            class snd_t_<Ts...>::type
+            {
+            public:
+                // clang-format off
+                template <typename... Us>
+                explicit type(Us&&... snds):
+                    snds_(static_cast<Us&&>(snds)...) {}
+                // clang-format on
+
+            private:
+                std::tuple<Ts...> snds_;
+
+                template <typename R>
+                friend auto tag_invoke(connect_t, type&& self, R&& recv)
+                {
+                    return std::apply([&](Ts&&... snds)
+                        { return ops_t<R, Ts...>(static_cast<R&&>(recv), static_cast<Ts&&>(snds)...); },
+                        std::move(self).snds_);
+                }
+
+                template <typename Env>
+                constexpr friend auto tag_invoke(get_completion_signatures_t, type&&, Env&&) noexcept
+                {
+                    if constexpr (meta::all_of_q<> //
+                        ::value<value_types_of_t<Ts, env_t<Env>, decayed_tuple, one_or_zero_type>...>)
+                    {
+                        using non_value_sigs = join_sigs< //
+                            make_completion_signatures<Ts, env_t<Env>, completion_signatures<>, //
+                                meta::constant_q<completion_signatures<>>::fn>...,
+                            completion_signatures<set_error_t(std::exception_ptr), set_stopped_t()>>;
+                        // At least one of the senders doesn't send values
+                        if constexpr (meta::any_of_q<> //
+                            ::value<value_types_of_t<Ts, env_t<Env>, decayed_tuple, zero_type>...>)
+                            return non_value_sigs{};
+                        else
+                        {
+                            using all_values =
+                                meta::flatten<value_types_of_t<Ts, env_t<Env>, type_list, single_type_t>...>;
+                            using value_sig = meta::unpack_invoke<all_values, meta::quote<sig_of_decayed_rref>>;
+                            return add_sig<non_value_sigs, value_sig>{};
+                        }
+                    }
+                    else
+                        return dependent_completion_signatures<Env>{};
+                }
+            };
+
+            struct when_all_t
+            {
+                template <sender... Ts>
+                auto operator()(Ts&&... snds) const
+                {
+                    if constexpr (tag_invocable<when_all_t, Ts...>)
+                    {
+                        static_assert(sender<tag_invoke_result_t<when_all_t, Ts...>>,
+                            "customization of when_all should return a sender");
+                        return clu::tag_invoke(*this, static_cast<Ts&&>(snds)...);
+                    }
+                    else
+                    {
+                        if constexpr (sizeof...(Ts) == 0)
+                            return just::just_t{}(); // sends nothing
+                        else
+                            return snd_t<Ts...>(static_cast<Ts&&>(snds)...);
+                    }
+                }
+            };
+        } // namespace when_all
 
         namespace into_var
         {
@@ -1141,6 +1533,8 @@ namespace clu::exec
     using detail::schd_from::schedule_from_t;
     using detail::on::on_t;
     using detail::xfer::transfer_t;
+    using detail::xfer::transfer_just_t;
+    using detail::when_all::when_all_t;
     using detail::into_var::into_variant_t;
     using detail::start_det::start_detached_t;
     using detail::execute::execute_t;
@@ -1148,7 +1542,7 @@ namespace clu::exec
     inline constexpr just_t just{};
     inline constexpr just_error_t just_error{};
     inline constexpr just_stopped_t just_stopped{};
-    inline constexpr auto stop = just_stopped();
+    inline constexpr just_stopped_t stop{};
     inline constexpr then_t then{};
     inline constexpr upon_error_t upon_error{};
     inline constexpr upon_stopped_t upon_stopped{};
@@ -1158,6 +1552,8 @@ namespace clu::exec
     inline constexpr on_t on{};
     inline constexpr schedule_from_t schedule_from{};
     inline constexpr transfer_t transfer{};
+    inline constexpr transfer_just_t transfer_just{};
+    inline constexpr when_all_t when_all{};
     inline constexpr into_variant_t into_variant{};
     inline constexpr start_detached_t start_detached{};
     inline constexpr execute_t execute{};
@@ -1225,6 +1621,24 @@ namespace clu::exec
             return clu::make_piper(clu::bind_back(*this, static_cast<E&&>(err)));
         }
     } constexpr stopped_as_error{};
+
+    inline struct into_tuple_t
+    {
+        template <sender S>
+        auto operator()(S&& snd) const
+        {
+            // clang-format off
+            return then(
+                static_cast<S&&>(snd),
+                []<typename... Ts>(Ts&&... args) noexcept(
+                    (std::is_nothrow_constructible_v<std::decay_t<Ts>, Ts> && ...))
+                { return detail::decayed_tuple<Ts...>(static_cast<Ts&&>(args)...); }
+            );
+            // clang-format on
+        }
+
+        constexpr auto operator()() const noexcept { return make_piper(*this); }
+    } constexpr into_tuple{};
 } // namespace clu::exec
 
 namespace clu::this_thread
@@ -1386,6 +1800,7 @@ namespace clu::this_thread
 
     using detail::sync_wait::sync_wait_t;
     using detail::sync_wait::sync_wait_with_variant_t;
+
     inline constexpr sync_wait_t sync_wait{};
     inline constexpr sync_wait_with_variant_t sync_wait_with_variant{};
 } // namespace clu::this_thread

@@ -8,6 +8,10 @@
 #include <clu/task.h>
 
 using namespace std::literals;
+using namespace clu::literals;
+
+template <typename T>
+struct print;
 
 template <typename F>
 void time_call(F&& func)
@@ -28,13 +32,6 @@ void print_thread_id()
 }
 
 namespace ex = clu::exec;
-
-struct to_detached_thread
-{
-    bool await_ready() const noexcept { return false; }
-    void await_suspend(const clu::coro::coroutine_handle<> handle) { std::thread(handle).detach(); }
-    void await_resume() const noexcept {}
-};
 
 namespace wtf
 {
@@ -63,36 +60,109 @@ namespace wtf
     } constexpr get_promise{};
 } // namespace wtf
 
-template <typename Dur>
-struct wait_on_detached_thread
+namespace clutest
 {
-    Dur duration;
+    using clock = std::chrono::system_clock;
+    using duration = clock::duration;
 
-    bool await_ready() const noexcept { return false; }
-    void await_suspend(clu::coro::coroutine_handle<> handle) const noexcept
+    namespace detail::wait_detached
     {
-        std::thread(
-            [=]() mutable
-            {
-                std::this_thread::sleep_for(duration);
-                handle.resume();
-            })
-            .detach();
-    }
-    void await_resume() const noexcept {}
-};
+        template <typename R>
+        class ops_t
+        {
+        public:
+            // clang-format off
+            template <typename R2>
+            ops_t(R2&& recv, const duration dur):
+                recv_(static_cast<R2&&>(recv)), dur_(dur) {}
+            // clang-format on
 
-template <typename Dur>
-wait_on_detached_thread(Dur) -> wait_on_detached_thread<Dur>;
+        private:
+            struct stop_callback
+            {
+                ops_t& self;
+                void operator()() const noexcept { self.cv_.notify_one(); }
+            };
+
+            using stop_token_t = ex::stop_token_of_t<ex::env_of_t<R>>;
+            using callback_t = typename stop_token_t::template callback_type<stop_callback>;
+
+            [[no_unique_address]] R recv_;
+            duration dur_;
+            std::mutex mut_;
+            std::condition_variable cv_;
+            std::optional<callback_t> callback_;
+
+            void work(const stop_token_t& token) noexcept
+            {
+                {
+                    std::unique_lock lck(mut_);
+                    cv_.wait_for(lck, dur_, [=] { return token.stop_requested(); });
+                }
+                if (token.stop_requested())
+                    ex::set_stopped(static_cast<R&&>(recv_));
+                else
+                    ex::set_value(static_cast<R&&>(recv_));
+            }
+
+            friend void tag_invoke(ex::start_t, ops_t& self) noexcept
+            {
+                const auto token = ex::get_stop_token(ex::get_env(self.recv_));
+                self.callback_.emplace(token, stop_callback{self});
+                if (token.stop_requested())
+                    ex::set_stopped(static_cast<R&&>(self.recv_));
+                std::thread([&self, token] { self.work(token); }).detach();
+            }
+        };
+
+        class snd_t
+        {
+        public:
+            explicit snd_t(const duration dur) noexcept: dur_(dur) {}
+
+        private:
+            duration dur_;
+
+            template <typename R>
+            friend ops_t<std::remove_cvref_t<R>> tag_invoke(ex::connect_t, const snd_t type, R&& recv)
+            {
+                return {static_cast<R&&>(recv), type.dur_};
+            }
+
+            // clang-format off
+            constexpr friend ex::completion_signatures<ex::set_value_t(), ex::set_stopped_t()> //
+            tag_invoke(ex::get_completion_signatures_t, snd_t, auto) noexcept { return {}; }
+            // clang-format on
+        };
+    } // namespace detail::wait_detached
+
+    auto wait_on_detached_thread(const duration dur)
+    {
+        using detail::wait_detached::snd_t;
+        return snd_t(dur);
+    }
+} // namespace clutest
+
+clu::task<void> tick()
+{
+    for (auto i = 0_uz;; i++)
+    {
+        co_await clutest::wait_on_detached_thread(1s);
+        std::cout << "Hi! " << i + 1 << " seconds has passed...\n";
+    }
+}
+
+clu::task<void> canceller()
+{
+    co_await clutest::wait_on_detached_thread(3141ms);
+    std::cout << "Waited 3.141s!\n";
+    co_await ex::stop();
+}
 
 int main() // NOLINT
 {
-    ex::single_thread_context ctx;
-    // clang-format off
-    clu::this_thread::sync_wait(
-        ex::just_from(print_thread_id)      // prints main thread id
-        | ex::transfer(ctx.get_scheduler()) // transfers to the single thread context
-        | ex::then(print_thread_id)         // prints thread id of the context
-    );
-    // clang-format on
+    std::cout << "Starting the tasks...\n";
+    clu::this_thread::sync_wait(ex::when_all(tick(), canceller()));
+    std::cout << "Finished!\n";
+    return 0;
 }

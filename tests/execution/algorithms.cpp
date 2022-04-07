@@ -1,5 +1,5 @@
 #include <catch2/catch.hpp>
-#include <clu/execution/algorithms.h>
+#include "clu/execution/algorithms.h"
 
 namespace ex = clu::exec;
 namespace tt = clu::this_thread;
@@ -55,12 +55,10 @@ TEST_CASE("upon", "[execution]")
     {
         SECTION("check result")
         {
-            // clang-format off
-            const auto res = tt::sync_wait(
-                ex::just(21)
-                | ex::then([](const int v) { return v * 2; })
+            const auto res = tt::sync_wait( //
+                ex::just(21) //
+                | ex::then([](const int v) { return v * 2; }) //
             );
-            // clang-format on
             REQUIRE(res);
             const auto [v] = *res;
             REQUIRE(v == 42);
@@ -105,7 +103,7 @@ TEST_CASE("upon", "[execution]")
         }
         SECTION("transform")
         {
-            const auto res = tt::sync_wait(ex::stop | adaptor);
+            const auto res = tt::sync_wait(ex::stop() | adaptor);
             REQUIRE(res);
             const auto [v] = *res;
             REQUIRE(v == 42);
@@ -116,6 +114,56 @@ TEST_CASE("upon", "[execution]")
 TEST_CASE("let", "[execution]")
 {
     SECTION("let value") {}
+}
+
+TEST_CASE("transfer", "[execution]")
+{
+    SECTION("switch thread")
+    {
+        ex::single_thread_context ctx;
+        std::thread::id id1, id2;
+        tt::sync_wait( //
+            ex::just_from([&] { id1 = std::this_thread::get_id(); }) //
+            | ex::transfer(ctx.get_scheduler()) //
+            | ex::then([&] { id2 = std::this_thread::get_id(); }) //
+        );
+        REQUIRE(id1 == std::this_thread::get_id());
+        REQUIRE(id2 == ctx.get_id());
+    }
+}
+
+TEST_CASE("when all", "[execution]")
+{
+    SECTION("zero")
+    {
+        const auto res = tt::sync_wait(ex::when_all());
+        REQUIRE(res);
+        STATIC_REQUIRE(std::tuple_size_v<std::decay_t<decltype(*res)>> == 0);
+    }
+
+    SECTION("just concatenation")
+    {
+        const auto res = tt::sync_wait(ex::when_all( //
+            ex::just(1), //
+            ex::just(), //
+            ex::just(42., nullptr) //
+            ));
+        REQUIRE(res);
+        STATIC_REQUIRE(std::tuple_size_v<std::decay_t<decltype(*res)>> == 3);
+        const auto [i, d, n] = *res;
+        REQUIRE((i == 1 && d == 42. && n == nullptr));
+    }
+
+    SECTION("no value")
+    {
+        const auto res = tt::sync_wait_with_variant(ex::when_all( //
+            ex::just(1), //
+            ex::just_stopped() //
+            ));
+        REQUIRE_FALSE(res); // is stopped
+    }
+
+    SECTION("basic usage") {}
 }
 
 // TODO: more tests!

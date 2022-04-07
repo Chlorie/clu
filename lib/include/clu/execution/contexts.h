@@ -261,6 +261,8 @@ namespace clu::exec
                 thr_.join();
         }
 
+        std::thread::id get_id() const noexcept { return thr_.get_id(); }
+
     private:
         run_loop loop_;
         std::thread thr_;

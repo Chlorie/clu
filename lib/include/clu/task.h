@@ -69,13 +69,12 @@ namespace clu
 
             T get_result() &&
             {
-                // clang-format off
-                return std::visit(clu::overload(
-                    [](std::monostate) -> T { unreachable(); },
-                    [](T&& result) -> T { return static_cast<T&&>(result); },
-                    [](const std::exception_ptr& eptr) -> T { std::rethrow_exception(eptr); }
-                ), std::move(this->result_));
-                // clang-format on
+                return std::visit( //
+                    clu::overload( //
+                        [](std::monostate) -> T { unreachable(); }, //
+                        [](T&& result) -> T { return static_cast<T&&>(result); }, //
+                        [](const std::exception_ptr& eptr) -> T { std::rethrow_exception(eptr); }),
+                    std::move(this->result_));
             }
         };
 
@@ -87,13 +86,12 @@ namespace clu
 
             void get_result() &&
             {
-                // clang-format off
-                std::visit(overload(
-                    [](std::monostate) { unreachable(); },
-                    [](unit) {},
-                    [](const std::exception_ptr& eptr) { std::rethrow_exception(eptr); }
-                ), std::move(result_));
-                // clang-format on
+                std::visit( //
+                    overload( //
+                        [](std::monostate) { unreachable(); }, //
+                        [](unit) {}, //
+                        [](const std::exception_ptr& eptr) { std::rethrow_exception(eptr); }),
+                    std::move(result_));
             }
         };
 

@@ -51,6 +51,14 @@ namespace clu
         (!T::stop_possible());
     // clang-format on
 
+    template <typename Token, typename Callback>
+        requires stoppable_token_for<Token, std::decay_t<Callback>>
+    auto make_stop_callback(Token token, Callback&& callback)
+    {
+        using callback_type = typename Token::template callback_type<std::decay_t<Callback>>;
+        return callback_type(static_cast<Token&&>(token), static_cast<Callback&&>(callback));
+    }
+
     class never_stop_token
     {
     private:
@@ -227,7 +235,7 @@ namespace clu
     {
         inline void in_place_stop_cb_base::attach() noexcept
         {
-            if (!src_->try_attach(this))
+            if (src_ && !src_->try_attach(this))
             {
                 // Already locked, stop requested
                 src_ = nullptr;

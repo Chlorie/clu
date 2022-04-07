@@ -260,11 +260,8 @@ namespace clu::meta
     template <typename Pred = id_q>
     struct all_of_q
     {
-    private:
-        template <typename... Ts> // MSVC 17.0 workaround
+        template <typename... Ts>
         static constexpr bool value = (invoke_v<Pred, Ts> && ...);
-
-    public:
         template <typename... Ts>
         using fn = std::bool_constant<value<Ts...>>;
     };
@@ -276,11 +273,8 @@ namespace clu::meta
     template <typename Pred = id_q>
     struct any_of_q
     {
-    private:
-        template <typename... Ts> // MSVC 17.0 workaround
+        template <typename... Ts>
         static constexpr bool value = (invoke_v<Pred, Ts> || ...);
-
-    public:
         template <typename... Ts>
         using fn = std::bool_constant<value<Ts...>>;
     };
@@ -292,11 +286,8 @@ namespace clu::meta
     template <typename Pred = id_q>
     struct none_of_q
     {
-    private:
-        template <typename... Ts> // MSVC 17.0 workaround
+        template <typename... Ts>
         static constexpr bool value = !(invoke_v<Pred, Ts> || ...);
-
-    public:
         template <typename... Ts>
         using fn = std::bool_constant<value<Ts...>>;
     };
@@ -327,11 +318,8 @@ namespace clu::meta
     template <typename Target>
     struct count_q
     {
-    private:
-        template <typename... Ts> // MSVC 17.0 workaround
+        template <typename... Ts>
         static constexpr std::size_t value = (static_cast<std::size_t>(std::is_same_v<Target, Ts>) + ... + 0_uz);
-
-    public:
         template <typename... Ts>
         using fn = std::integral_constant<std::size_t, value<Ts...>>;
     };
@@ -343,11 +331,8 @@ namespace clu::meta
     template <typename Pred = id_q>
     struct count_if_q
     {
-    private:
-        template <typename... Ts> // MSVC 17.0 workaround
+        template <typename... Ts>
         static constexpr std::size_t value = (static_cast<std::size_t>(invoke_v<Pred, Ts>) + ... + 0_uz);
-
-    public:
         template <typename... Ts>
         using fn = std::integral_constant<std::size_t, value<Ts...>>;
     };

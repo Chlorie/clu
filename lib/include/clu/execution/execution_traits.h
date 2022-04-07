@@ -828,8 +828,9 @@ namespace clu::exec
         class awt_t_<S, P>::type
         {
         public:
-            type(S&& snd, P& promise):
-                state_(exec::connect(static_cast<S&&>(snd),
+            template <typename S2>
+            type(S2&& snd, P& promise):
+                state_(exec::connect(static_cast<S2&&>(snd),
                     awaitable_receiver<S, P>(&result_, coro::coroutine_handle<P>::from_promise(promise))))
             {
             }
@@ -900,8 +901,8 @@ namespace clu::exec
             using fn = join_sigs<meta::invoke<SetError, Errs>...>;
         };
 
-        template <typename Sndr, class Env, typename AddlSigs, typename SetValue, typename SetError,
-            typename SetStopped>
+        template <typename Sndr, class Env, typename AddlSigs, //
+            typename SetValue, typename SetError, typename SetStopped>
         auto make_comp_sigs_impl(priority_tag<1>)
             -> join_sigs<AddlSigs, value_types_of_t<Sndr, Env, SetValue::template fn, join_sigs>,
                 error_types_of_t<Sndr, Env, join_err_sigs<SetError>::template fn>,
@@ -917,8 +918,8 @@ namespace clu::exec
         template <typename> typename SetError = detail::default_set_error,
         detail::comp_sig::valid_completion_signatures<Env> SetStopped = completion_signatures<set_stopped_t()>>
         requires sender<Sndr, Env>
-    using make_completion_signatures = decltype(detail::make_comp_sigs_impl<Sndr, Env, AddlSigs, meta::quote<SetValue>,
-        meta::quote1<SetError>, SetStopped>(priority_tag<1>{}));
+    using make_completion_signatures = decltype(detail::make_comp_sigs_impl< //
+        Sndr, Env, AddlSigs, meta::quote<SetValue>, meta::quote1<SetError>, SetStopped>(priority_tag<1>{}));
 
     namespace detail::gnrl_qry
     {
