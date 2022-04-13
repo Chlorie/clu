@@ -54,8 +54,8 @@ namespace clu
 
 #undef CLU_COMPOUND_PIPER_CALL_IMPL
 
-            [[no_unique_address]] First first;
-            [[no_unique_address]] Second second;
+            CLU_NO_UNIQUE_ADDRESS First first;
+            CLU_NO_UNIQUE_ADDRESS Second second;
         };
     };
 
@@ -81,7 +81,8 @@ namespace clu
         cnst ref noexcept(std::is_nothrow_invocable_v<cnst Inv ref, First&&, Args...>)                                 \
     {                                                                                                                  \
         return std::apply(                                                                                             \
-            [&]<typename... As>(As && ... elems) {                                                                     \
+            [&]<typename... As>(As&&... elems)                                                                         \
+            {                                                                                                          \
                 return std::invoke(                                                                                    \
                     static_cast<cnst Inv ref>(invocable_), static_cast<First&&>(first), static_cast<As&&>(elems)...);  \
             },                                                                                                         \
@@ -97,7 +98,7 @@ namespace clu
 #undef CLU_BIND_BACK_CALL_IMPL
 
         private:
-            [[no_unique_address]] Inv invocable_;
+            CLU_NO_UNIQUE_ADDRESS Inv invocable_;
             std::tuple<Args...> args_;
         };
     } // namespace detail

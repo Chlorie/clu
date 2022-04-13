@@ -76,7 +76,7 @@ namespace clu::exec
                 using set_stopped = void;
                 using get_env = void;
 
-                // Not to spec: no default c'tor
+                type() requires(std::same_as<Base, no_base>) || std::is_default_constructible_v<Base> = default;
 
                 // clang-format off
                 template <typename B> requires
@@ -91,10 +91,9 @@ namespace clu::exec
                 Base&& base() && noexcept requires has_base { return std::move(base_); }
                 const Base&& base() const&& noexcept requires has_base { return std::move(base_); }
 
-            private :
-                // clang-format off
-                [[no_unique_address]] Base base_;
-                // clang-format on
+                // private:
+                CLU_NO_UNIQUE_ADDRESS Base base_;
+
                 template <typename D>
                 constexpr static decltype(auto) get_base(D&& d) noexcept
                 {
@@ -112,7 +111,7 @@ namespace clu::exec
                 // reference to D for all the tag_invoke overloads to make gcc happy
 
                 template <std::derived_from<Derived> D, typename... Args>
-                    requires has_set_value<D, Args...> || inherits_set_value<D, base_type<D&&>, Args...>
+                    requires has_set_value<D, Args...> || inherits_set_value<D, base_type<D>, Args...>
                 constexpr friend void tag_invoke(set_value_t, D&& self, Args&&... args) noexcept
                 {
                     if constexpr (has_set_value<Derived, Args...>)
@@ -126,7 +125,7 @@ namespace clu::exec
                 }
 
                 template <typename E, std::derived_from<Derived> D>
-                    requires has_set_error<D, E> || inherits_set_error<D, base_type<D&&>, E>
+                    requires has_set_error<D, E> || inherits_set_error<D, base_type<D>, E>
                 constexpr friend void tag_invoke(set_error_t, D&& self, E&& err) noexcept
                 {
                     if constexpr (has_set_error<Derived, E>)
@@ -140,7 +139,7 @@ namespace clu::exec
                 }
 
                 template <std::derived_from<Derived> D>
-                    requires has_set_stopped<D> || inherits_set_stopped<D, base_type<D&&>>
+                    requires has_set_stopped<D> || inherits_set_stopped<D, base_type<D>>
                 constexpr friend void tag_invoke(set_stopped_t, D&& self) noexcept
                 {
                     if constexpr (has_set_stopped<Derived>)
@@ -178,9 +177,68 @@ namespace clu::exec
             template <class_type Derived, typename Base = no_base>
             using receiver_adaptor = typename receiver_adaptor_<Derived, Base>::type;
         } // namespace recv_adpt
+
+        namespace env_adpt
+        {
+            template <typename Env, typename Qry, typename T>
+            struct env_t_
+            {
+                class type;
+            };
+
+            template <typename Env, typename Qry, typename T>
+            using adapted_env_t = typename env_t_<std::remove_cvref_t<Env>, Qry, std::remove_cvref_t<T>>::type;
+
+            template <typename Env, typename Qry, typename T>
+            class env_t_<Env, Qry, T>::type
+            {
+            public:
+                // clang-format off
+                template <typename Env2, typename T2>
+                constexpr type(Env2&& base, T2&& value) noexcept(
+                    std::is_nothrow_constructible_v<Env, Env2> &&
+                    std::is_nothrow_constructible_v<T, T2>):
+                    base_(static_cast<Env2&&>(base)),
+                    value_(static_cast<T2&&>(value)) {}
+                // clang-format on
+
+            private:
+                CLU_NO_UNIQUE_ADDRESS Env base_;
+                CLU_NO_UNIQUE_ADDRESS T value_;
+
+                // clang-format off
+                template <typename Cpo, typename... Ts> requires
+                    (!std::same_as<Cpo, Qry>) &&
+                    tag_invocable<Cpo, const Env&, Ts...>
+                constexpr friend auto tag_invoke(Cpo, const type& self, Ts&&... args)
+                    noexcept(nothrow_tag_invocable<Cpo, const Env&, Ts...>)
+                // clang-format on
+                {
+                    return clu::tag_invoke(Cpo{}, self.base_, static_cast<Ts&&>(args)...);
+                }
+
+                constexpr friend auto tag_invoke(Qry, const type& self) noexcept(
+                    std::is_nothrow_copy_constructible_v<T>)
+                {
+                    return self.value_;
+                }
+            };
+
+            template <typename Env, typename Qry, typename T>
+            constexpr auto make_env(Env&& base, Qry, T&& value) noexcept(
+                std::is_nothrow_constructible_v<adapted_env_t<Env, Qry, T>, Env, T>)
+            {
+                if constexpr (std::is_same_v<Env, no_env>)
+                    return no_env{};
+                else
+                    return adapted_env_t<Env, Qry, T>(static_cast<Env&&>(base), static_cast<T&&>(value));
+            }
+        } // namespace env_adpt
     } // namespace detail
 
     using detail::recv_adpt::receiver_adaptor;
+    using detail::env_adpt::make_env;
+    using detail::env_adpt::adapted_env_t;
 
     template <class P>
         requires std::is_class_v<P> && std::same_as<P, std::remove_cvref_t<P>>

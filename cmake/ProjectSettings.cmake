@@ -25,6 +25,11 @@ function (target_set_warnings TGT ACCESS)
         /w14547 /w14549 /w14555 /w14619 /w14640
         /w14826 /w14905 /w14906 /w14928)
 
+    set(MSVC_SUPPRESS_EXTERNAL_WARNINGS
+        # Ignore warnings from external includes
+        /experimental:external
+        /external:W0 /external:anglebrackets /external:templates-)
+
     set(CLANG_WARNINGS
         -Wall -Wextra -Wpedantic
         -Wshadow -Wnon-virtual-dtor -Wold-style-cast -Wcast-align
@@ -41,10 +46,14 @@ function (target_set_warnings TGT ACCESS)
         -Wmisleading-indentation -Wduplicated-cond
         -Wduplicated-branches -Wlogical-op)
         
-    if (MSVC) # Visual Studio
-        target_compile_options(${TGT} ${ACCESS} ${MSVC_WARNINGS}
-            /experimental:external /external:W0 /external:anglebrackets /external:templates-)
-    elseif (CMAKE_CXX_COMPILER_ID MATCHES ".*Clang") # clang
+    if (MSVC) # MSVC-like
+        if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang") # clang-cl
+            target_compile_options(${TGT} ${ACCESS} ${MSVC_WARNINGS})
+        else () # Real MSVC
+            string(REGEX REPLACE " /W[0-4]" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}") # Remove default /W3
+            target_compile_options(${TGT} ${ACCESS} ${MSVC_WARNINGS} ${MSVC_SUPPRESS_EXTERNAL_WARNINGS})
+        endif ()
+    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang") # clang
         target_compile_options(${TGT} ${ACCESS} ${CLANG_WARNINGS})
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU") # gcc
         target_compile_options(${TGT} ${ACCESS} ${GCC_WARNINGS})
@@ -78,9 +87,11 @@ function (target_set_options TGT ACCESS)
     endif ()
 
     if (MSVC) # Visual Studio
-        target_compile_options(${TGT} ${ACCESS} # Conformance settings
-            /utf-8 /permissive- /Zc:__cplusplus /Zc:externConstexpr)
-    elseif (CMAKE_CXX_COMPILER_ID MATCHES ".*Clang")
+        if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+            target_compile_options(${TGT} ${ACCESS} # Conformance settings
+                /utf-8 /permissive- /Zc:__cplusplus /Zc:externConstexpr)
+        endif ()
+    elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         target_compile_options(${TGT} ${ACCESS}
             -stdlib=libc++
             -fcolor-diagnostics

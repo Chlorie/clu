@@ -3,12 +3,18 @@
 // Compiler related
 
 #ifdef __GNUC__
-#define CLU_GCC_COMPILERS
-#elif defined(_MSC_VER)
-#define CLU_MSVC_COMPILERS
+#define CLU_GCC
 #endif
 
-#ifdef CLU_GCC_COMPILERS
+#ifdef _MSC_VER
+#define CLU_MSVC
+#endif
+
+#ifdef __clang__
+#define CLU_CLANG
+#endif
+
+#ifdef CLU_GCC
 #define CLU_GCC_WNO_OLD_STYLE_CAST _Pragma("GCC diagnostic push") _Pragma("GCC diagnostic ignored \"-Wold-style-cast\"")
 #define CLU_GCC_WNO_CAST_FUNCTION_TYPE                                                                                 \
     _Pragma("GCC diagnostic push") _Pragma("GCC diagnostic ignored \"-Wcast-function-type\"")
@@ -17,6 +23,16 @@
 #define CLU_GCC_WNO_OLD_STYLE_CAST
 #define CLU_GCC_WNO_CAST_FUNCTION_TYPE
 #define CLU_GCC_RESTORE_WARNING
+#endif
+
+// Attributes
+
+#if defined(CLU_MSVC) && !defined(CLU_CLANG) && _MSC_FULL_VER >= 192829913 // has [[msvc::no_unique_address]]
+#define CLU_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
+#elif __has_cpp_attribute(no_unique_address)
+#define CLU_NO_UNIQUE_ADDRESS [[no_unique_address]]
+#else
+#define CLU_NO_UNIQUE_ADDRESS
 #endif
 
 // Boilerplate generators

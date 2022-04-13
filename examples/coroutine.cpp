@@ -6,6 +6,7 @@
 
 #include <clu/execution.h>
 #include <clu/task.h>
+#include <clu/async_manual_reset_event.h>
 
 using namespace std::literals;
 using namespace clu::literals;
@@ -63,6 +64,7 @@ namespace wtf
 namespace clutest
 {
     using clock = std::chrono::system_clock;
+    using time_point = clock::time_point;
     using duration = clock::duration;
 
     namespace detail::wait_detached
@@ -73,8 +75,8 @@ namespace clutest
         public:
             // clang-format off
             template <typename R2>
-            ops_t(R2&& recv, const duration dur):
-                recv_(static_cast<R2&&>(recv)), dur_(dur) {}
+            ops_t(R2&& recv, const time_point tp):
+                recv_(static_cast<R2&&>(recv)), tp_(tp) {}
             // clang-format on
 
         private:
@@ -87,8 +89,8 @@ namespace clutest
             using stop_token_t = ex::stop_token_of_t<ex::env_of_t<R>>;
             using callback_t = typename stop_token_t::template callback_type<stop_callback>;
 
-            [[no_unique_address]] R recv_;
-            duration dur_;
+            CLU_NO_UNIQUE_ADDRESS R recv_;
+            time_point tp_;
             std::mutex mut_;
             std::condition_variable cv_;
             std::optional<callback_t> callback_;
@@ -97,7 +99,7 @@ namespace clutest
             {
                 {
                     std::unique_lock lck(mut_);
-                    cv_.wait_for(lck, dur_, [=] { return token.stop_requested(); });
+                    cv_.wait_until(lck, tp_, [=] { return token.stop_requested(); });
                 }
                 if (token.stop_requested())
                     ex::set_stopped(static_cast<R&&>(recv_));
@@ -118,28 +120,32 @@ namespace clutest
         class snd_t
         {
         public:
-            explicit snd_t(const duration dur) noexcept: dur_(dur) {}
+            using completion_signatures = ex::completion_signatures< //
+                ex::set_value_t(), ex::set_stopped_t()>;
+
+            explicit snd_t(const time_point tp) noexcept: tp_(tp) {}
 
         private:
-            duration dur_;
+            time_point tp_;
 
             template <typename R>
             friend ops_t<std::remove_cvref_t<R>> tag_invoke(ex::connect_t, const snd_t type, R&& recv)
             {
-                return {static_cast<R&&>(recv), type.dur_};
+                return {static_cast<R&&>(recv), type.tp_};
             }
-
-            // clang-format off
-            constexpr friend ex::completion_signatures<ex::set_value_t(), ex::set_stopped_t()> //
-            tag_invoke(ex::get_completion_signatures_t, snd_t, auto) noexcept { return {}; }
-            // clang-format on
         };
     } // namespace detail::wait_detached
+
+    auto wait_on_detached_thread(const time_point tp)
+    {
+        using detail::wait_detached::snd_t;
+        return snd_t(tp);
+    }
 
     auto wait_on_detached_thread(const duration dur)
     {
         using detail::wait_detached::snd_t;
-        return snd_t(dur);
+        return snd_t(clock::now() + dur);
     }
 } // namespace clutest
 
@@ -148,7 +154,7 @@ clu::task<void> tick()
     for (auto i = 0_uz;; i++)
     {
         co_await clutest::wait_on_detached_thread(1s);
-        std::cout << "Hi! " << i + 1 << " seconds has passed...\n";
+        std::cout << "Hi! " << i + 1 << " seconds passed...\n";
     }
 }
 

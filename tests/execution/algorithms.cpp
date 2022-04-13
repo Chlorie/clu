@@ -116,6 +116,28 @@ TEST_CASE("let", "[execution]")
     SECTION("let value") {}
 }
 
+TEST_CASE("on", "[execution]")
+{
+    ex::single_thread_context ctx;
+    const auto ctx_id = ctx.get_id();
+
+    SECTION("on correct thread")
+    {
+        std::thread::id id;
+        tt::sync_wait(ex::on(ctx.get_scheduler(), //
+            ex::just_from([&] { id = std::this_thread::get_id(); })));
+        REQUIRE(id == ctx_id);
+    }
+
+    SECTION("receiver env query")
+    {
+        tt::sync_wait(ex::on(ctx.get_scheduler(),
+            ex::get_scheduler() //
+                | ex::then([&](const ex::scheduler auto schd) //
+                      { REQUIRE(schd == ctx.get_scheduler()); })));
+    }
+}
+
 TEST_CASE("transfer", "[execution]")
 {
     SECTION("switch thread")

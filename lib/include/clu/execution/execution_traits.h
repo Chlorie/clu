@@ -925,9 +925,12 @@ namespace clu::exec
     {
         struct get_scheduler_t
         {
-            template <typename R>
-                requires(!std::same_as<R, no_env>)
-            &&tag_invocable<get_scheduler_t, R> auto operator()(const R& r) const noexcept
+            // clang-format off
+            template <typename R> requires
+                (!std::same_as<R, no_env>) &&
+                tag_invocable<get_scheduler_t, R>
+            auto operator()(const R& r) const noexcept
+            // clang-format on
             {
                 static_assert(nothrow_tag_invocable<get_scheduler_t, R>, "get_scheduler should be noexcept");
                 static_assert(scheduler<tag_invoke_result_t<get_scheduler_t, R>>,
@@ -959,17 +962,19 @@ namespace clu::exec
 
         struct get_allocator_t
         {
-            // clang-format off
-            template <typename R> requires
-                (!std::same_as<R, no_env>) &&
-                tag_invocable<get_allocator_t, R>
+            template <typename R>
+                requires(!std::same_as<R, no_env>)
             auto operator()(const R& r) const noexcept
-            // clang-format on
             {
-                static_assert(nothrow_tag_invocable<get_allocator_t, R>, "get_allocator should be noexcept");
-                static_assert(allocator<tag_invoke_result_t<get_allocator_t, R>>,
-                    "return type of get_allocator should satisfy Allocator");
-                return tag_invoke(*this, r);
+                if constexpr (tag_invocable<get_allocator_t, R>)
+                {
+                    static_assert(nothrow_tag_invocable<get_allocator_t, R>, "get_allocator should be noexcept");
+                    static_assert(allocator<tag_invoke_result_t<get_allocator_t, R>>,
+                        "return type of get_allocator should satisfy Allocator");
+                    return tag_invoke(*this, r);
+                }
+                else
+                    return std::allocator<std::byte>{};
             }
 
             constexpr auto operator()() const noexcept { return exec::read(*this); }

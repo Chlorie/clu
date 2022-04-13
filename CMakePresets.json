@@ -40,6 +40,32 @@
             "vendor": { "microsoft.com/VisualStudioSettings/CMake/1.0": { "hostOS": [ "Windows" ] } }
         },
         {
+            "name": "clang-cl-x64-debug",
+            "displayName": "clang-cl x64 Debug",
+            "description": "Use clang-cl to build on Windows.",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "clang-cl",
+                "CMAKE_CXX_COMPILER": "clang-cl",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+                "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+                "_VCPKG_INSTALLED_DIR": "${sourceDir}/out/vcpkg_installed",
+                "BUILD_TESTS": "True"
+            },
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": {
+                    "hostOS": [ "Windows" ],
+                    "intelliSenseMode": "windows-clang-x64"
+                }
+            }
+        },
+        {
             "name": "linux-gcc-debug",
             "displayName": "Linux Debug (gcc)",
             "description": "Target the Windows Subsystem for Linux (WSL) or a remote Linux system.",
@@ -81,7 +107,7 @@
                 "BUILD_TESTS": "True"
             },
             "vendor": {
-                "microsoft.com/VisualStudioSettings/CMake/1.0": { "hostOS": ["Linux"] },
+                "microsoft.com/VisualStudioSettings/CMake/1.0": { "hostOS": [ "Linux" ] },
                 "microsoft.com/VisualStudioRemoteSettings/CMake/1.0": {
                     "sourceDir": "$env{HOME}/.vs/$ms{projectDirName}"
                 }
