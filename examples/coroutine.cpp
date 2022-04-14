@@ -167,6 +167,15 @@ clu::task<void> canceller()
 
 int main() // NOLINT
 {
+    ex::single_thread_context ctx;
+    ex::any_scheduler schd = ctx.get_scheduler();
+
+    print_thread_id();
+    clu::this_thread::sync_wait( //
+        ex::schedule(schd) //
+        | ex::then(print_thread_id) //
+    );
+
     std::cout << "Starting the tasks...\n";
     clu::this_thread::sync_wait(ex::when_all(tick(), canceller()));
     std::cout << "Finished!\n";

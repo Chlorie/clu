@@ -4,6 +4,7 @@
 #include "stop_token.h"
 #include "any_unique.h"
 #include "overload.h"
+#include "execution/any_scheduler.h"
 
 namespace clu
 {
