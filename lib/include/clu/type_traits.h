@@ -3,8 +3,6 @@
 #include <type_traits>
 #include <compare>
 
-#include "integer_literals.h"
-
 namespace clu
 {
     template <typename Type>
@@ -37,7 +35,7 @@ namespace clu
     };
 
     // clang-format off
-    template <size_t I> struct priority_tag : priority_tag<I - 1> {};
+    template <std::size_t I> struct priority_tag : priority_tag<I - 1> {};
     template <> struct priority_tag<0> {};
     // clang-format on
 

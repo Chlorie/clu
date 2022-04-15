@@ -6,6 +6,7 @@
 #include "hash.h"
 #include "random.h"
 #include "parse.h"
+#include "integer_literals.h"
 
 namespace clu
 {

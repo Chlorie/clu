@@ -1,4 +1,4 @@
-#include <clu/experimental/generator.h>
+#include <clu/generator.h>
 
 clu::generator<int> ints()
 {
@@ -8,9 +8,11 @@ clu::generator<int> ints()
 
 bool is_prime(const int value)
 {
-    if (value < 2) return false;
+    if (value < 2)
+        return false;
     for (int i = 2; i * i <= value; i++)
-        if (value % i == 0) return false;
+        if (value % i == 0)
+            return false;
     return true;
 }
 
@@ -25,7 +27,8 @@ int main()
 {
     for (const int i : filter_prime(ints()))
     {
-        if (i > 100) break;
+        if (i > 100)
+            break;
         std::printf("%d ", i);
     }
 }

@@ -7,13 +7,14 @@
 
 #include "concepts.h"
 #include "unique_coroutine_handle.h"
+#include "macros.h"
 
 namespace clu
 {
     template <std::ranges::input_range R>
     struct elements_of
     {
-        R range;
+        R range{};
     };
 
     template <typename R>
@@ -39,7 +40,7 @@ namespace clu
                 U result;
                 bool await_ready() const noexcept { return false; }
                 template <typename P>
-                void await_suspend(coro::coroutine_handle<P> handle) const noexcept
+                void await_suspend(coro::coroutine_handle<P> handle) noexcept
                 {
                     generator_promise_base& pms = handle.promise();
                     pms.ptr_ = std::addressof(result);
@@ -49,7 +50,7 @@ namespace clu
 
             struct nested_info
             {
-                std::exception_ptr exc;
+                std::exception_ptr exc{};
                 handle_t parent{};
                 handle_t root{};
 
@@ -245,7 +246,7 @@ namespace clu
             }
         };
 
-        auto begin() const noexcept
+        auto begin() noexcept
         {
             using iterator = detail::generator_iterator<value_t, yielded>;
             handle_.resume();

@@ -15,7 +15,7 @@ namespace clu
     using i64 = std::int64_t; ///< 64-bit signed integer type.
     using u64 = std::uint64_t; ///< 64-bit unsigned integer type.
     using size_t = std::size_t; ///< Unsigned size type.
-    using ssize_t = std::make_signed_t<size_t>; ///< Signed integer type corresponding to `size_t`.
+    using ssize_t = std::make_signed_t<std::size_t>; ///< Signed integer type corresponding to `size_t`.
 } // namespace clu
 
 namespace clu::inline literals::inline integer_literals

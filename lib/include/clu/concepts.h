@@ -1,6 +1,7 @@
 #pragma once
 
 #include <concepts>
+#include <ranges>
 
 #include "type_traits.h"
 
@@ -110,15 +111,15 @@ namespace clu
     // clang-format off
     template <typename T, typename... Us>
     concept implicitly_constructible_from =
-        requires(Us&&... args, void (*fptr)(const T&)) { fptr({static_cast<Us&&>(args)...}); } &&
-        std::constructible_from<T, Us...>;
+        std::constructible_from<T, Us...> &&
+        requires(Us&&... args, void (*fptr)(const T&)) { fptr({static_cast<Us&&>(args)...}); };
     // clang-format on
 
     namespace detail
     {
         // clang-format off
         template <typename Ptr>
-        concept allocator_ptr = std::contiguous_iterator<Ptr> && nullable_pointer<Ptr>;
+        concept allocator_ptr = nullable_pointer<Ptr> && std::contiguous_iterator<Ptr>;
 
         template <typename T> struct pointer_of : std::type_identity<typename T::value_type*> {};
         template <typename T> requires requires { typename T::pointer; }

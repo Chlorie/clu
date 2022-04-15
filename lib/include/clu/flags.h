@@ -1,6 +1,7 @@
 #pragma once
 
 #include "concepts.h"
+#include "integer_literals.h"
 
 namespace clu
 {
