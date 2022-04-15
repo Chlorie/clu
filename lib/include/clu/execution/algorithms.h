@@ -898,12 +898,12 @@ namespace clu::exec
                     // Storage the args
                     ops_->args_.template emplace<tuple_t>(Cpo{}, static_cast<Args&&>(args)...);
                     // Schedule and connect, and then start the operation
-                    const auto ce = [&]
-                    {
-                        auto schd_snd = exec::schedule(static_cast<Schd&&>(ops_->schd_));
-                        return exec::connect(std::move(schd_snd), recv());
-                    };
-                    exec::start(ops_->final_ops_.template emplace<1>(copy_elider(ce)));
+                    exec::start(ops_->final_ops_.emplace_with(
+                        [&]
+                        {
+                            auto schd_snd = exec::schedule(static_cast<Schd&&>(ops_->schd_));
+                            return exec::connect(std::move(schd_snd), recv());
+                        }));
                 }
 
                 // Transformed
@@ -984,7 +984,7 @@ namespace clu::exec
                 recv2_t<S, R, Schd> recv_;
                 CLU_NO_UNIQUE_ADDRESS Schd schd_;
                 storage_variant_t<S, R> args_;
-                std::variant<std::monostate, final_ops_t> final_ops_; // cannot emplace with copy_elider
+                ops_optional<final_ops_t> final_ops_;
 
                 friend void tag_invoke(start_t, type& self) noexcept { exec::start(self.initial_ops_); }
             };
@@ -1186,10 +1186,9 @@ namespace clu::exec
             template <typename R, typename... Ts, std::size_t... Is>
             auto connect_children(std::index_sequence<Is...>, ops_t<R, Ts...>* ops, Ts&&... snds)
             {
-                using tuple = std::tuple<connect_result_t<Ts, recv_t<R, Ts, Is, Ts...>>...>;
-                return tuple(copy_elider([&] { //
+                return ops_tuple<connect_result_t<Ts, recv_t<R, Ts, Is, Ts...>>...>{[&] { //
                     return exec::connect(static_cast<Ts&&>(snds), recv_t<R, Ts, Is, Ts...>(ops));
-                })...);
+                }...};
             }
 
             template <typename R, typename... Ts>
@@ -1307,7 +1306,7 @@ namespace clu::exec
                     if (self.stop_src_.stop_requested()) // Shortcut when the operation is preemptively stopped
                         exec::set_stopped(static_cast<R&&>(self.recv_));
                     // Just start every child operation state
-                    std::apply([](auto&... children) { (exec::start(children), ...); }, self.children_);
+                    apply([](auto&... children) { (exec::start(children), ...); }, self.children_);
                 }
 
                 void increase_counter() noexcept

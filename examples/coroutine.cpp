@@ -101,6 +101,7 @@ namespace clutest
                     std::unique_lock lck(mut_);
                     cv_.wait_until(lck, tp_, [=] { return token.stop_requested(); });
                 }
+                callback_.reset();
                 if (token.stop_requested())
                     ex::set_stopped(static_cast<R&&>(recv_));
                 else
@@ -167,17 +168,18 @@ clu::task<void> canceller()
 
 int main() // NOLINT
 {
-    ex::single_thread_context ctx;
-    ex::any_scheduler schd = ctx.get_scheduler();
+    time_call(
+        []
+        {
+            clu::this_thread::sync_wait_with_variant( //
+                ex::when_all( //
+                    clutest::wait_on_detached_thread(200ms), //
+                    clutest::wait_on_detached_thread(100ms) | ex::let_value([] { return ex::stop(); })));
+        });
 
-    print_thread_id();
-    clu::this_thread::sync_wait( //
-        ex::schedule(schd) //
-        | ex::then(print_thread_id) //
-    );
+    // std::cout << "Starting the tasks...\n";
+    // clu::this_thread::sync_wait(ex::when_all(tick(), canceller()));
+    // std::cout << "Finished!\n";
 
-    std::cout << "Starting the tasks...\n";
-    clu::this_thread::sync_wait(ex::when_all(tick(), canceller()));
-    std::cout << "Finished!\n";
     return 0;
 }

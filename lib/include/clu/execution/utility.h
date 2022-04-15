@@ -272,4 +272,96 @@ namespace clu::exec
         coro::coroutine_handle<> cont_{};
         coro::coroutine_handle<> (*stopped_handler_)(void*) noexcept = default_stopped_handler;
     };
+
+    // Re-implement some of the algebraic types so that they support immovable types properly
+    // Most of the functionalities are just missing for convenience's sake
+    namespace detail
+    {
+        template <typename T>
+        class ops_optional
+        {
+        public:
+            ops_optional() noexcept = default;
+            ops_optional(const ops_optional&) = delete;
+            ~ops_optional() noexcept { reset(); }
+
+            // clang-format off
+            template <typename F>
+                requires std::same_as<T, call_result_t<F>>
+            explicit ops_optional(F&& func):
+                engaged_(true), value_(static_cast<F&&>(func)()) {}
+            // clang-format on
+
+            void reset() noexcept
+            {
+                if (engaged_)
+                {
+                    engaged_ = false;
+                    value_.~T();
+                }
+            }
+
+            template <typename F>
+                requires(std::same_as<T, call_result_t<F>>)
+            T& emplace_with(F&& func)
+            {
+                engaged_ = true;
+                T* ptr = new (std::addressof(value_)) T(static_cast<F&&>(func)());
+                return *ptr;
+            }
+
+            explicit operator bool() const noexcept { return engaged_; }
+            T& operator*() noexcept { return value_; }
+            const T& operator*() const noexcept { return value_; }
+
+        private:
+            bool engaged_ = false;
+            union
+            {
+                monostate dummy_{};
+                T value_;
+            };
+        };
+
+        namespace ops_tpl
+        {
+            template <std::size_t I, typename T>
+            struct leaf
+            {
+                CLU_NO_UNIQUE_ADDRESS T value;
+            };
+
+            template <typename IndType>
+            using leaf_of = leaf<IndType::index, typename IndType::type>;
+
+            template <typename... Ts>
+            class type : leaf_of<Ts>...
+            {
+            public:
+                type(const type&) = delete;
+                type(type&&) = delete;
+                ~type() noexcept = default;
+
+                // clang-format off
+                template <typename... Fn>
+                explicit type(Fn&&... func):
+                    leaf_of<Ts>{static_cast<Fn&&>(func)()}... {}
+                // clang-format on
+
+            private:
+                template <forwarding<type> Self, typename Fn>
+                friend decltype(auto) apply(Fn&& func, Self&& self)
+                {
+                    return static_cast<Fn&&>(func)( //
+                        static_cast<copy_cvref_t<Self&&, leaf_of<Ts>>>(self).value...);
+                }
+            };
+
+            template <typename... Ts, std::size_t... Is>
+            type<meta::indexed_type<Is, Ts>...> get_type(std::index_sequence<Is...>);
+        } // namespace ops_tpl
+
+        template <typename... Ts>
+        using ops_tuple = decltype(ops_tpl::get_type<Ts...>(std::index_sequence_for<Ts...>{}));
+    } // namespace detail
 } // namespace clu::exec

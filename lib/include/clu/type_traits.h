@@ -80,6 +80,12 @@ namespace clu
     template <typename From, typename To>
     using copy_cvref_t = typename copy_cvref<From, To>::type;
 
+    template <typename Like, typename T>
+    auto&& forward_like(T&& value) noexcept
+    {
+        return static_cast<copy_cvref_t<Like, T>>(value);
+    }
+
     template <typename T>
     using with_regular_void_t = conditional_t<std::is_void_v<T>, copy_cvref_t<T, unit>, T>;
 
