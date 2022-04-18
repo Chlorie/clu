@@ -3,21 +3,12 @@ Welcome to clu Reference!
 
 .. include:: roles.rst
 
-Chlorie's Utilities (clu) is a header-only library, consisting of many independent components.
+Chlorie's Utilities (clu) is a library consisting of many seemingly unrelated independent components. It started out being a header-only library, but then I decided to separate some of the implementation details into source files.
+
+The library covers a range of different use cases, from tiny utilities that the standard library does not provide (or hides as implementation details, why), to more complex data structures and algorithms that are handy to use in everyday programming.
 
 .. warning:: 
     This library is mainly created by Chlorie for personal use, so a large portion of this library is still untested and lacking documentation. Please use at your own risk.
-
-Things included in this library:
-
-- Fun things
-- Useless things
-- Silly things
-
-Things *not* included in this library:
-
-- Well-tested and readable code
-- Good documentation
 
 Have fun!
 

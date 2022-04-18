@@ -73,7 +73,8 @@ namespace clu
     {
         const auto u8byte = [&](const size_t i) { return static_cast<uint8_t>(data_[i]); };
         // clang-format off
-        return std::format("{:02x}{:02x}{:02x}{:02x}-"
+        return std::format(
+            "{:02x}{:02x}{:02x}{:02x}-"
             "{:02x}{:02x}-{:02x}{:02x}-"
             "{:02x}{:02x}-{:02x}{:02x}"
             "{:02x}{:02x}{:02x}{:02x}",

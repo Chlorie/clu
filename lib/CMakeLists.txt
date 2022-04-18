@@ -72,7 +72,6 @@ add_headers(HEADERS
     "stop_token.h"
     "string_utils.h"
     "tag_invoke.h"
-    "take.h"
     "task.h"
     "type_traits.h"
     "unique_coroutine_handle.h"

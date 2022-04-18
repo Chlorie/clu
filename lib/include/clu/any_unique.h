@@ -4,12 +4,18 @@
 
 namespace clu
 {
+    /**
+     * \brief A type erasure class that could store literally anything.
+     * \details This class type erases objects and always store them on the heap.
+     * It is almost of no use but to provide a way to manage lifetime of objects with
+     * compile-time unknown types.
+     */
     class any_unique
     {
     public:
         constexpr any_unique() noexcept = default;
 
-        constexpr any_unique(const any_unique&) = delete;
+        constexpr any_unique(const any_unique&) = delete; ///< \brief `any_unique` is not copyable.
         constexpr any_unique(any_unique&& other) noexcept:
             ptr_(std::exchange(other.ptr_, nullptr)), deleter_(std::exchange(other.deleter_, nullptr))
         {

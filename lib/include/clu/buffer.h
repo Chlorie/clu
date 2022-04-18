@@ -7,10 +7,18 @@
 
 namespace clu
 {
+    /**
+     * \brief Specifies that a type is safe to alias.
+     * \details An alias-safe type could be used as buffer elements.
+     */
     template <typename T>
     concept alias_safe = same_as_any_of<T, unsigned char, char, std::byte>;
 
     // clang-format off
+    /**
+     * \brief Specifies that a type is safe to be seen through by a buffer.
+     * \details Buffer-safe types can be read from/written into buffers.
+     */
     template <typename T>
     concept buffer_safe = 
         trivially_copyable<T> ||
@@ -28,6 +36,12 @@ namespace clu
         (!std::is_const_v<std::ranges::range_value_t<T>>);
     // clang-format on
 
+    /**
+     * \brief Copies data between addresses, safe even when the destination overlaps the source.
+     * \param dst Destination address.
+     * \param src Source address.
+     * \param size The size (counting T's, not bytes) to copy.
+     */
     template <alias_safe T>
     constexpr void memmove(T* dst, const T* src, const size_t size) noexcept
     {
@@ -45,6 +59,10 @@ namespace clu
             std::memmove(dst, src, size);
     }
 
+    /**
+     * \brief Non-owning buffer view, suitable for raw byte manipulations.
+     * \tparam T The buffer element type, must be alias-safe.
+     */
     template <typename T>
     class basic_buffer final
     {
@@ -55,12 +73,17 @@ namespace clu
         using mutable_type = basic_buffer<std::remove_const_t<T>>;
         using const_type = basic_buffer<std::add_const_t<T>>;
 
-        constexpr basic_buffer() noexcept = default;
+        constexpr basic_buffer() noexcept = default; ///< Creates an empty buffer.
         constexpr basic_buffer(const basic_buffer&) noexcept = default;
         constexpr basic_buffer(basic_buffer&&) noexcept = default;
         constexpr basic_buffer& operator=(const basic_buffer&) noexcept = default;
         constexpr basic_buffer& operator=(basic_buffer&&) noexcept = default;
 
+        /**
+         * \brief Constructs a buffer from a start pointer and a size.
+         * \param ptr Start of the buffer region.
+         * \param size Size of the buffer.
+         */
         constexpr basic_buffer(T* ptr, const size_t size) noexcept: ptr_(ptr), size_(size) {}
 
         // clang-format off
@@ -79,9 +102,9 @@ namespace clu
         {
         }
 
-        [[nodiscard]] constexpr T* data() const noexcept { return ptr_; }
-        [[nodiscard]] constexpr size_t size() const noexcept { return size_; }
-        [[nodiscard]] constexpr bool empty() const noexcept { return size_ == 0; }
+        [[nodiscard]] constexpr T* data() const noexcept { return ptr_; } ///< Gets a pointer to the buffer data.
+        [[nodiscard]] constexpr size_t size() const noexcept { return size_; } ///< Gets the size of the buffer.
+        [[nodiscard]] constexpr bool empty() const noexcept { return size_ == 0; } ///< Checks if the buffer is empty.
         constexpr void remove_prefix(const size_t size) noexcept { ptr_ += size; }
         constexpr void remove_suffix(const size_t size) noexcept { size_ -= size; }
         [[nodiscard]] constexpr T& operator[](const size_t index) const noexcept { return ptr_[index]; }
@@ -102,6 +125,9 @@ namespace clu
             return buffer += size;
         }
 
+        /**
+         * \brief Converts the buffer into a `std::span` of the element type.
+         */
         [[nodiscard]] constexpr std::span<T> as_span() const noexcept { return {ptr_, size_}; }
 
         template <trivially_copyable U>
@@ -156,8 +182,8 @@ namespace clu
         }
     };
 
-    using mutable_buffer = basic_buffer<std::byte>;
-    using const_buffer = basic_buffer<const std::byte>;
+    using mutable_buffer = basic_buffer<std::byte>; ///< Mutable buffer using `std::byte` as the element type.
+    using const_buffer = basic_buffer<const std::byte>; ///< Constant buffer using `std::byte` as the element type.
 
     template <buffer_safe T>
     [[nodiscard]] mutable_buffer trivial_buffer(T& value) noexcept

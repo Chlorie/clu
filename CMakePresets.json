@@ -16,7 +16,8 @@
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
                 "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
                 "_VCPKG_INSTALLED_DIR": "${sourceDir}/out/vcpkg_installed",
-                "BUILD_TESTS": "True"
+                "BUILD_TESTS": "True",
+                "BUILD_DOCS": "True"
             },
             "vendor": { "microsoft.com/VisualStudioSettings/CMake/1.0": { "hostOS": [ "Windows" ] } }
         },
@@ -35,7 +36,8 @@
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
                 "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
                 "_VCPKG_INSTALLED_DIR": "${sourceDir}/out/vcpkg_installed",
-                "BUILD_TESTS": "True"
+                "BUILD_TESTS": "True",
+                "BUILD_DOCS": "True"
             },
             "vendor": { "microsoft.com/VisualStudioSettings/CMake/1.0": { "hostOS": [ "Windows" ] } }
         },
@@ -56,7 +58,8 @@
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
                 "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
                 "_VCPKG_INSTALLED_DIR": "${sourceDir}/out/vcpkg_installed",
-                "BUILD_TESTS": "True"
+                "BUILD_TESTS": "True",
+                "BUILD_DOCS": "True"
             },
             "vendor": {
                 "microsoft.com/VisualStudioSettings/CMake/1.0": {
@@ -82,7 +85,8 @@
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
                 "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
                 "_VCPKG_INSTALLED_DIR": "${sourceDir}/out/vcpkg_installed",
-                "BUILD_TESTS": "True"
+                "BUILD_TESTS": "True",
+                "BUILD_DOCS": "True"
             },
             "vendor": {
                 "microsoft.com/VisualStudioSettings/CMake/1.0": {

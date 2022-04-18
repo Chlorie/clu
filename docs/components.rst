@@ -10,6 +10,8 @@ Most of the components are under the main include directory ``clu``. Some of the
 
 A list of all the headers and their contents is presented as follows:
 
+:doc:`components/any_unique`
+    Provides a type-erasure class to store objects of unknown types.
 ``assertion.h``
     Defines a macro :cc:`CLU_ASSERT(expr, msg)`, which functions roughly the same as ``assert`` from ``<cassert>``, but takes an additional message parameter.
 ``buffer.h``
@@ -22,7 +24,7 @@ A list of all the headers and their contents is presented as follows:
     Useful concepts for meta-programming.
 ``expected.h``
     A sum type storing a value or an error ``Ok | Err``, like ``Result`` in Rust. A rough implementation of |p0323|_.
-``file.h``
+:doc:`components/file`
     Contains a function ``read_all_bytes`` that reads all contents of a binary file into a :cc:`std::vector`.
 ``fixed_string.h``
     A fixed string class that can be used as class non-type template parameters.
@@ -34,8 +36,6 @@ A list of all the headers and their contents is presented as follows:
     Non-owning type-erasure types for invocables.
 ``function_traits.h``
     Type traits for function types. Provides meta-functions for extracting parameter types or result type from function signatures.
-``functional.h``
-    Monadic operations for :cc:`std::optional`.
 :doc:`components/hash`
     Hash-related utilities. Provides :cc:`constexpr` implementations of FNV-1a and SHA1 hash functions, and a ``hash_combine`` function.
 ``indices.h``
@@ -65,13 +65,11 @@ A list of all the headers and their contents is presented as follows:
 ``static_vector.h``
     :cc:`std::vector` like container allocated on the stack, with a fixed capacity.
 ``string_utils.h``
-    String replacement algorithms and compile-time :cc:`strlen` functions.
-``take.h``
-    A shorter way to write :cc:`std::exchange(value, {})`.
+    String-related utilities.
 ``type_traits.h``
     Useful type traits for meta-programming.
-``pipeable.h``
-    "Pipeable" wrappers for invocables, like those ranges adapters. (:cc:`f(first, args...)` <=> :cc:`first | f(args...)`)
+``piper.h``
+    "Pipeable" wrappers for invocables, like those ranges adapters.
 ``polymorphic_value.h``
     A smart pointer type for copyable polymorphic types. A rough implementation of `P0201R3: A polymorphic value-type for C++ <https://wg21.link/p0201r3>`_.
 ``polymorphic_visit.h``

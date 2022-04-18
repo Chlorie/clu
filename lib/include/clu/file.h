@@ -10,11 +10,11 @@
 
 namespace clu
 {
-    /// Read contents of a binary file into a `std::vector`.
-    ///
-    /// \tparam T Value type of the result vector, must be a trivial type.
-    /// \param path Path to the file to read.
-    /// \returns `std::vector` with the file content.
+    /**
+     * \brief Read contents of a binary file into a `std::vector`.
+     * \tparam T Value type of the result vector. It must be a trivial type.
+     * \param path The path to the file to read from.
+     */
     template <typename T = std::byte>
         requires std::is_trivial_v<T>
     [[nodiscard]] std::vector<T> read_all_bytes(const std::filesystem::path& path)
@@ -33,7 +33,23 @@ namespace clu
         return buffer;
     }
 
+    /**
+     * \brief Reads contents of a text file into a `std::string`.
+     * \param path The path to the file to read from.
+     */
     [[nodiscard]] CLU_API std::string read_all_text(const std::filesystem::path& path);
+
+    /**
+     * \brief Writes bytes in a given buffer into a file. The file will be overwritten.
+     * \param path The path to the file to write into.
+     * \param bytes The byte buffer.
+     */
     CLU_API void write_all_bytes(const std::filesystem::path& path, const_buffer bytes);
+
+    /**
+     * \brief Writes given text into a file. The file will be overwritten.
+     * \param path The path to the file to write into.
+     * \param text The text to write.
+     */
     CLU_API void write_all_text(const std::filesystem::path& path, std::string_view text);
 } // namespace clu
