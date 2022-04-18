@@ -82,7 +82,7 @@ namespace clu
 
     namespace detail
     {
-        class in_place_stop_cb_base
+        class CLU_API in_place_stop_cb_base
         {
         protected:
             using callback_t = void (*)(in_place_stop_cb_base*) noexcept;
@@ -104,82 +104,31 @@ namespace clu
             bool removed_during_exec_ = false;
 
             void execute() noexcept { callback_(this); }
-
             void attach() noexcept;
             void detach() noexcept;
         };
     } // namespace detail
 
-    class in_place_stop_source
+    class CLU_API in_place_stop_source
     {
     public:
         constexpr in_place_stop_source() noexcept = default;
-
         in_place_stop_source(in_place_stop_source&&) noexcept = delete;
-
-        ~in_place_stop_source() noexcept
-        {
-            CLU_ASSERT(callbacks_.unsafe_load_relaxed() == nullptr,
-                "in_place_stop_source destroyed before the callbacks are done");
-        }
+        ~in_place_stop_source() noexcept;
 
         [[nodiscard]] in_place_stop_token get_token() noexcept;
         [[nodiscard]] bool stop_possible() const noexcept { return !stop_requested(); }
         [[nodiscard]] bool stop_requested() const noexcept { return requested_.load(std::memory_order::acquire); }
-
-    private:
-        auto lock_if_not_requested() noexcept
-        {
-            struct result
-            {
-                bool locked = false;
-                detail::in_place_stop_cb_base* head = nullptr;
-            };
-            if (stop_requested())
-                return result{}; // Fast path
-            auto* head = callbacks_.lock_and_load();
-            // Check again in case someone changed the state
-            // while we're trying to acquire the lock
-            if (stop_requested())
-            {
-                callbacks_.store_and_unlock(head);
-                return result{};
-            }
-            return result{true, head};
-        }
-
-    public:
-        bool request_stop() noexcept
-        {
-            auto [locked, current] = lock_if_not_requested();
-            if (!locked)
-                return false;
-            requesting_thread_ = std::this_thread::get_id();
-            requested_.store(true, std::memory_order::release);
-            while (current)
-            {
-                // Detach the first callback
-                auto* new_head = current->next_;
-                if (new_head)
-                    new_head->prev_ = nullptr;
-                current->state_.store(true, std::memory_order::release);
-                callbacks_.store_and_unlock(new_head);
-                // Now that we have released the lock, start executing the callback
-                current->execute();
-                if (!current->removed_during_exec_) // detach() not called during execute()
-                {
-                    // Change the state and notify
-                    current->state_.store(completed, std::memory_order::release);
-                    current->state_.notify_one();
-                }
-                current = callbacks_.lock_and_load();
-            }
-            callbacks_.store_and_unlock(nullptr);
-            return true;
-        }
+        bool request_stop() noexcept;
 
     private:
         friend detail::in_place_stop_cb_base;
+
+        struct lock_result
+        {
+            bool locked = false;
+            detail::in_place_stop_cb_base* head = nullptr;
+        };
 
         static constexpr std::uint8_t not_started = 0;
         static constexpr std::uint8_t started = 1;
@@ -189,68 +138,12 @@ namespace clu
         locked_ptr<detail::in_place_stop_cb_base> callbacks_{};
         std::thread::id requesting_thread_{}; // The thread which requested stop
 
-        bool try_attach(detail::in_place_stop_cb_base* cb) noexcept
-        {
-            const auto [locked, head] = lock_if_not_requested();
-            if (!locked)
-                return false;
-            // Add the new one before the current head
-            cb->next_ = head;
-            if (head)
-                head->prev_ = cb;
-            callbacks_.store_and_unlock(cb);
-            return true;
-        }
-
-        void detach(detail::in_place_stop_cb_base* cb) noexcept
-        {
-            auto* head = callbacks_.lock_and_load();
-            if (cb->state_.load(std::memory_order::acquire) == not_started)
-            {
-                // Hasn't started executing
-                if (cb->next_)
-                    cb->next_->prev_ = cb->prev_;
-                if (cb->prev_) // In list
-                {
-                    cb->prev_->next_ = cb->next_;
-                    callbacks_.store_and_unlock(head);
-                }
-                else // Is head of list
-                    callbacks_.store_and_unlock(cb->next_);
-            }
-            else
-            {
-                // Already started executing
-                const auto id = requesting_thread_;
-                callbacks_.store_and_unlock(head); // Just unlock, we won't modify the linked list
-                if (std::this_thread::get_id() == id) // execute() called detach()
-                    cb->removed_during_exec_ = true;
-                else // Executing on a different thread
-                    cb->state_.wait(started, std::memory_order::acquire); // Wait until the callback completes
-            }
-        }
+        bool try_attach(detail::in_place_stop_cb_base* cb) noexcept;
+        void detach(detail::in_place_stop_cb_base* cb) noexcept;
+        lock_result lock_if_not_requested() noexcept;
     };
 
-    namespace detail
-    {
-        inline void in_place_stop_cb_base::attach() noexcept
-        {
-            if (src_ && !src_->try_attach(this))
-            {
-                // Already locked, stop requested
-                src_ = nullptr;
-                execute();
-            }
-        }
-
-        inline void in_place_stop_cb_base::detach() noexcept
-        {
-            if (src_)
-                src_->detach(this);
-        }
-    } // namespace detail
-
-    class in_place_stop_token
+    class CLU_API in_place_stop_token
     {
     public:
         template <typename Callback>
@@ -273,8 +166,6 @@ namespace clu
         in_place_stop_source* src_ = nullptr;
         explicit in_place_stop_token(in_place_stop_source* src) noexcept: src_(src) {}
     };
-
-    inline in_place_stop_token in_place_stop_source::get_token() noexcept { return in_place_stop_token(this); }
 
     template <typename Callback>
     class in_place_stop_callback : public detail::in_place_stop_cb_base

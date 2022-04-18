@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
 #include "clu/execution/algorithms.h"
+#include "clu/execution_contexts.h"
 
 namespace ex = clu::exec;
 namespace tt = clu::this_thread;
@@ -118,7 +119,7 @@ TEST_CASE("let", "[execution]")
 
 TEST_CASE("on", "[execution]")
 {
-    ex::single_thread_context ctx;
+    clu::single_thread_context ctx;
     const auto ctx_id = ctx.get_id();
 
     SECTION("on correct thread")
@@ -142,7 +143,7 @@ TEST_CASE("transfer", "[execution]")
 {
     SECTION("switch thread")
     {
-        ex::single_thread_context ctx;
+        clu::single_thread_context ctx;
         std::thread::id id1, id2;
         tt::sync_wait( //
             ex::just_from([&] { id1 = std::this_thread::get_id(); }) //

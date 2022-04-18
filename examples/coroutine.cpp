@@ -1,15 +1,16 @@
 #include <iostream>
-#include <string>
 #include <chrono>
 #include <mutex>
-#include <array>
 
 #include <clu/execution.h>
+#include <clu/execution_contexts.h>
+#include <clu/async.h>
+#include <clu/chrono_utils.h>
 #include <clu/task.h>
-#include <clu/async_manual_reset_event.h>
 
 using namespace std::literals;
 using namespace clu::literals;
+namespace chr = std::chrono;
 
 template <typename T>
 struct print;
@@ -154,6 +155,7 @@ clu::task<void> tick()
 {
     for (auto i = 0_uz;; i++)
     {
+        co_await ex::just();
         co_await clutest::wait_on_detached_thread(1s);
         std::cout << "Hi! " << i + 1 << " seconds passed...\n";
     }
@@ -168,14 +170,17 @@ clu::task<void> canceller()
 
 int main() // NOLINT
 {
-    time_call(
+    const auto dur = clu::timeit(
         []
         {
-            clu::this_thread::sync_wait_with_variant( //
-                ex::when_all( //
+            clu::this_thread::sync_wait( //
+                ex::when_any( //
                     clutest::wait_on_detached_thread(200ms), //
-                    clutest::wait_on_detached_thread(100ms) | ex::let_value([] { return ex::stop(); })));
+                    clutest::wait_on_detached_thread(100ms), //
+                    clutest::wait_on_detached_thread(500ms), //
+                    clutest::wait_on_detached_thread(600ms)));
         });
+    std::cout << "Completed in " << chr::duration_cast<chr::milliseconds>(dur) << '\n';
 
     // std::cout << "Starting the tasks...\n";
     // clu::this_thread::sync_wait(ex::when_all(tick(), canceller()));

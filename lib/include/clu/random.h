@@ -3,43 +3,13 @@
 #include <random>
 
 #include "concepts.h"
+#include "export.h"
 
 namespace clu
 {
-    namespace detail
-    {
-        class seed_generator
-        {
-        private:
-            std::random_device dev_;
-
-        public:
-            template <typename It>
-            void generate(It begin, It end)
-            {
-                for (; begin != end; ++begin)
-                    *begin = dev_();
-            }
-        };
-    } // namespace detail
-
-    inline std::mt19937& random_engine()
-    {
-        thread_local std::mt19937 engine = []
-        {
-            detail::seed_generator seed_gen;
-            return std::mt19937(seed_gen);
-        }();
-        return engine;
-    }
-
-    inline void reseed()
-    {
-        detail::seed_generator seed_gen;
-        random_engine().seed(seed_gen);
-    }
-
-    inline void reseed(const std::mt19937::result_type seed) { random_engine().seed(seed); }
+    CLU_API std::mt19937& random_engine();
+    CLU_API void reseed();
+    CLU_API void reseed(std::mt19937::result_type seed);
 
     template <std::integral T>
     T randint(const T low, const T high)

@@ -6,7 +6,7 @@
 #include <thread>
 #include <functional>
 
-#include "assertion.h"
+#include "export.h"
 
 namespace clu
 {
@@ -153,29 +153,22 @@ namespace clu
     template <typename T>
     locked(T) -> locked<T>;
 
-    class spinlock
+    class CLU_API spinlock
     {
     public:
-        void lock() noexcept
-        {
-            int i = 0;
-            while (locked_.test_and_set(std::memory_order::acquire))
-            {
-                if (i++ == spin_count)
-                {
-                    i = 0;
-                    std::this_thread::yield();
-                }
-            }
-        }
-
-        void unlock() noexcept { locked_.clear(std::memory_order::release); }
+        void lock() noexcept;
+        void unlock() noexcept;
 
     private:
         static constexpr int spin_count = 20;
-
         std::atomic_flag locked_;
     };
+
+    namespace detail::lck_ptr
+    {
+        CLU_API void* lock_and_load(std::atomic_uintptr_t& value) noexcept;
+        CLU_API void store_and_unlock(std::atomic_uintptr_t& value, void* ptr) noexcept;
+    } // namespace detail::lck_ptr
 
     template <typename T>
     class locked_ptr
@@ -186,60 +179,18 @@ namespace clu
         constexpr locked_ptr() noexcept = default;
         explicit(false) locked_ptr(T* ptr) noexcept: value_(reinterpret_cast<std::uintptr_t>(ptr)) {}
 
-        T* lock_and_load() noexcept
-        {
-            auto value = value_.load(std::memory_order::relaxed);
-            while (true)
-                switch (value & mask)
-                {
-                    case not_locked:
-                    {
-                        // No one is holding the lock, acquire it
-                        const auto locked_value = value | locked_no_notify;
-                        if (value_.compare_exchange_weak(
-                                value, locked_value, std::memory_order::acquire, std::memory_order::relaxed))
-                            return reinterpret_cast<T*>(value); // NOLINT(performance-no-int-to-ptr)
-                        break;
-                    }
-                    case locked_no_notify:
-                    {
-                        // No one was waiting, change the state so that
-                        // we could be notified
-                        const auto notify_value = (value & ~mask) | locked_should_notify;
-                        if (!value_.compare_exchange_weak(value, notify_value, std::memory_order::relaxed))
-                            break;
-                        [[fallthrough]];
-                    }
-                    case locked_should_notify:
-                    {
-                        // Join the wait list
-                        value_.wait(value, std::memory_order::relaxed);
-                        value = value_.load(std::memory_order::relaxed);
-                        break;
-                    }
-                    default: unreachable();
-                }
-        }
+        T* lock_and_load() noexcept { return static_cast<T*>(detail::lck_ptr::lock_and_load(value_)); }
 
-        void store_and_unlock(T* ptr) noexcept
-        {
-            const auto old = value_.exchange(reinterpret_cast<std::uintptr_t>(ptr), std::memory_order::release);
-            if ((old & mask) == locked_should_notify)
-                value_.notify_all();
-        }
+        void store_and_unlock(T* ptr) noexcept { detail::lck_ptr::store_and_unlock(value_, ptr); }
 
         T* unsafe_load_relaxed() noexcept
         {
+            static constexpr std::uintptr_t mask = 3;
             const auto value = value_.load(std::memory_order::relaxed);
             return reinterpret_cast<T*>(value & ~mask); // NOLINT(performance-no-int-to-ptr)
         }
 
     private:
-        static constexpr std::uintptr_t not_locked = 0;
-        static constexpr std::uintptr_t locked_no_notify = 1;
-        static constexpr std::uintptr_t locked_should_notify = 2;
-        static constexpr std::uintptr_t mask = 3;
-
         std::atomic_uintptr_t value_;
     };
 } // namespace clu

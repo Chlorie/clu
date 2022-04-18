@@ -3,7 +3,10 @@
 #include <vector>
 #include <filesystem>
 #include <fstream>
-#include <sstream>
+#include <string>
+
+#include "export.h"
+#include "buffer.h"
 
 namespace clu
 {
@@ -30,13 +33,7 @@ namespace clu
         return buffer;
     }
 
-    [[nodiscard]] inline std::string read_all_text(const std::filesystem::path& path)
-    {
-        std::ifstream fs(path);
-        if (fs.fail())
-            throw std::runtime_error("failed to open text file");
-        std::stringstream buf;
-        buf << fs.rdbuf();
-        return std::move(buf).str();
-    }
+    [[nodiscard]] CLU_API std::string read_all_text(const std::filesystem::path& path);
+    CLU_API void write_all_bytes(const std::filesystem::path& path, const_buffer bytes);
+    CLU_API void write_all_text(const std::filesystem::path& path, std::string_view text);
 } // namespace clu

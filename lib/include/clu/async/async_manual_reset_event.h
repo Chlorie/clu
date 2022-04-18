@@ -4,7 +4,7 @@
 
 namespace clu
 {
-    namespace detail
+    namespace detail::async_ev
     {
 
     }
@@ -23,7 +23,7 @@ namespace clu
         bool ready() const noexcept; // acq
         void reset() noexcept; // acq_rel
 
-        [[nodiscard]] auto async_wait() noexcept; // unstoppable, should transfer to get_scheduler() first
+        [[nodiscard]] auto async_wait() noexcept;
 
     private:
     };

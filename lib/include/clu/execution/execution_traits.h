@@ -3,6 +3,7 @@
 #include <variant>
 
 #include "awaitable_traits.h"
+#include "../assertion.h"
 #include "../stop_token.h"
 #include "../tag_invoke.h"
 #include "../meta_list.h"
@@ -121,7 +122,7 @@ namespace clu::exec
     namespace detail
     {
         template <std::same_as<set_value_t> Cpo, template <typename...> typename Tuple = type_list, typename... Args>
-        Tuple<Args...> comp_sig_impl(Cpo (*)(Args...));
+        type_tag_t<Tuple<Args...>> comp_sig_impl(Cpo (*)(Args...));
         template <std::same_as<set_error_t> Cpo, typename Err>
         Err comp_sig_impl(Cpo (*)(Err));
         template <std::same_as<set_stopped_t> Cpo>
@@ -142,15 +143,20 @@ namespace clu::exec
     namespace detail
     {
         template <template <typename...> typename Tuple, template <typename...> typename Variant, typename... Fns>
-        auto value_types_impl(completion_signatures<Fns...>)
-            -> meta::unpack_invoke<meta::remove_q<void>::fn<decltype(detail::comp_sig_impl<set_value_t, Tuple>(
-                                       static_cast<Fns*>(nullptr)))...>,
+        auto value_types_impl(completion_signatures<Fns...>) //
+            -> meta::unpack_invoke< //
+                meta::transform_l< //
+                    meta::remove_q<void>::fn< //
+                        decltype(detail::comp_sig_impl<set_value_t, Tuple>(static_cast<Fns*>(nullptr)))...>,
+                    meta::_t_q>,
                 meta::quote<Variant>>;
 
         template <template <typename...> typename Variant, typename... Fns>
-        auto error_types_impl(completion_signatures<Fns...>) -> meta::unpack_invoke<
-            meta::remove_q<void>::fn<decltype(detail::comp_sig_impl<set_error_t>(static_cast<Fns*>(nullptr)))...>,
-            meta::quote<Variant>>;
+        auto error_types_impl(completion_signatures<Fns...>) //
+            -> meta::unpack_invoke< //
+                meta::remove_q<void>::fn< //
+                    decltype(detail::comp_sig_impl<set_error_t>(static_cast<Fns*>(nullptr)))...>,
+                meta::quote<Variant>>;
 
         template <typename... Fns>
         constexpr bool sends_stopped_impl(completion_signatures<Fns...>) noexcept

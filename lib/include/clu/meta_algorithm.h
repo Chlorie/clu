@@ -214,6 +214,14 @@ namespace clu::meta
     inline constexpr auto list_size_lv = unpack_invoke_v<List, list_size_q>;
 
     template <typename... Ts>
+    using empty = std::bool_constant<sizeof...(Ts) == 0>;
+    using empty_q = quote<empty>;
+    template <typename List>
+    using empty_l = unpack_invoke<List, empty_q>;
+    template <typename List>
+    inline constexpr bool empty_lv = unpack_invoke_v<List, empty_q>;
+
+    template <typename... Ts>
     using enumerate = decltype(detail::enumerate_impl(type_list<Ts...>{}, std::make_index_sequence<sizeof...(Ts)>{}));
     using enumerate_q = quote<enumerate>;
     template <typename List>
