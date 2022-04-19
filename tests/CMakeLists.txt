@@ -22,7 +22,7 @@ add_executable(tests
     "static_vector.cpp"
     "string_utils.cpp"
     "tag_invoke.cpp"
-    "take.cpp"
+    "uri.cpp"
     "uuid.cpp"
     "wide_integer.cpp"
 

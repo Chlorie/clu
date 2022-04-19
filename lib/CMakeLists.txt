@@ -75,6 +75,7 @@ add_headers(HEADERS
     "task.h"
     "type_traits.h"
     "unique_coroutine_handle.h"
+    "uri.h"
     "uuid.h"
     "vector_utils.h"
 )
@@ -85,6 +86,7 @@ add_sources(SOURCES
     "random.cpp"
     "semver.cpp"
     "stop_token.cpp"
+    "uri.cpp"
     "uuid.cpp"
 )
 

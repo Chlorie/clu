@@ -3,7 +3,6 @@
 #include <memory>
 #include <memory_resource>
 
-#include "take.h"
 #include "iterator.h"
 #include "assertion.h"
 
@@ -519,7 +518,8 @@ namespace clu
             copy_children_impl(root_, other.root_, [&](node_base* ptr) { return new_node(ptr->derived()->value); });
         }
 
-        constexpr forest(forest&& other) noexcept: alloc_(std::move(other.alloc_)), root_(clu::take(other.root_))
+        constexpr forest(forest&& other) noexcept:
+            alloc_(std::move(other.alloc_)), root_(std::exchange(other.root_, {}))
         {
             root_.fix_children_parents();
         }
@@ -528,7 +528,7 @@ namespace clu
         {
             if (alloc == Alloc(alloc_))
             {
-                root_ = clu::take(other.root_);
+                root_ = std::exchange(other.root_, {});
                 root_.fix_children_parents();
             }
             else
@@ -560,12 +560,12 @@ namespace clu
                 {
                     if constexpr (!al_always_equal)
                         alloc_ = other.alloc_;
-                    root_ = clu::take(other.root_);
+                    root_ = std::exchange(other.root_, {});
                     root_.fix_children_parents();
                 }
                 else if (alloc_ == other.alloc_)
                 {
-                    root_ = clu::take(other.root_);
+                    root_ = std::exchange(other.root_, {});
                     root_.fix_children_parents();
                 }
                 else
