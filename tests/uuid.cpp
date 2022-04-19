@@ -1,4 +1,5 @@
 #include <catch2/catch.hpp>
+
 #include "clu/uuid.h"
 
 using namespace clu::uuid_literal;

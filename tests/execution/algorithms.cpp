@@ -1,4 +1,5 @@
 #include <catch2/catch.hpp>
+
 #include "clu/execution/algorithms.h"
 #include "clu/execution_contexts.h"
 

@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
-#include <clu/semver.h>
+
+#include "clu/semver.h"
 
 using namespace clu::literals;
 
@@ -18,10 +19,7 @@ TEST_CASE("semver validate extra", "[semver]")
         REQUIRE_THROWS(clu::semver(1, 0, 0, ".1"));
         REQUIRE_THROWS(clu::semver(1, 0, 0, "", "."));
     }
-    SECTION("invalid character")
-    {
-        REQUIRE_THROWS(clu::semver(1, 0, 0, "?"));
-    }
+    SECTION("invalid character") { REQUIRE_THROWS(clu::semver(1, 0, 0, "?")); }
     SECTION("leading zero")
     {
         REQUIRE_THROWS(clu::semver(1, 0, 0, "01"));
@@ -51,10 +49,7 @@ TEST_CASE("semver parsing", "[semver]")
         REQUIRE_THROWS(clu::semver::from_string("1.01.0"));
         REQUIRE_THROWS(clu::semver::from_string("0.0.01"));
     }
-    SECTION("invalid characters")
-    {
-        REQUIRE_THROWS(clu::semver::from_string("1.0.-1"));
-    }
+    SECTION("invalid characters") { REQUIRE_THROWS(clu::semver::from_string("1.0.-1")); }
     SECTION("incomplete")
     {
         REQUIRE_THROWS(clu::semver::from_string("1.0"));

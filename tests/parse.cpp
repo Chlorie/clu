@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
-#include <clu/parse.h>
+
+#include "clu/parse.h"
 
 TEST_CASE("parse int", "[parse]")
 {

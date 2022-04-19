@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
-#include <clu/string_utils.h>
+
+#include "clu/string_utils.h"
 
 using namespace std::literals;
 

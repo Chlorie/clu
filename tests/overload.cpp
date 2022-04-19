@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
-#include <clu/overload.h>
+
+#include "clu/overload.h"
 
 int f() { return 42; }
 

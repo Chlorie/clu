@@ -24,7 +24,6 @@ add_executable(tests
     "tag_invoke.cpp"
     "uri.cpp"
     "uuid.cpp"
-    "wide_integer.cpp"
 
     "execution/algorithms.cpp"
 )

@@ -1,6 +1,6 @@
 #include <catch2/catch.hpp>
-#include <clu/static_vector.h>
 
+#include "clu/static_vector.h"
 #include "lifetime_counter.h"
 #include "matchers.h"
 
@@ -14,7 +14,7 @@ TEST_CASE("static vector constructors", "[static_vector]")
         constexpr size_t capacity = 4;
         const clu::static_vector<int, capacity> vi;
         REQUIRE(vi.empty());
-        REQUIRE(vi.size() == 0);
+        REQUIRE(vi.size() == 0); // NOLINT(readability-container-size-empty)
         REQUIRE(vi.capacity() == capacity);
         REQUIRE(vi.max_size() == capacity);
 
@@ -26,6 +26,7 @@ TEST_CASE("static vector constructors", "[static_vector]")
         REQUIRE(counter.total_ctor() == 0);
         REQUIRE(counter.alive() == 0);
     }
+
     SECTION("fill")
     {
         constexpr size_t capacity = 4;
@@ -35,10 +36,10 @@ TEST_CASE("static vector constructors", "[static_vector]")
         {
             const vecint vec1(size);
             REQUIRE(vec1.size() == size);
-            REQUIRE_THAT(ct::to_vector(vec1), cm::Equals<int>({ 0, 0, 0 }));
+            REQUIRE_THAT(ct::to_vector(vec1), cm::Equals<int>({0, 0, 0}));
             const vecint vec2(size, 42);
             REQUIRE(vec2.size() == size);
-            REQUIRE_THAT(ct::to_vector(vec2), cm::Equals<int>({ 42, 42, 42 }));
+            REQUIRE_THAT(ct::to_vector(vec2), cm::Equals<int>({42, 42, 42}));
         }
         {
             ct::LifetimeCounter counter;
@@ -59,25 +60,27 @@ TEST_CASE("static vector constructors", "[static_vector]")
             REQUIRE(counter.alive() == 0);
         }
     }
+
     SECTION("iterator pair")
     {
         using vector_t = clu::static_vector<int, 4>;
-        const std::vector arr{ 1, 2, 3 };
+        const std::vector arr{1, 2, 3};
         const vector_t common(arr.begin(), arr.end());
         REQUIRE_THAT(ct::to_vector(common), cm::Equals<int>(arr));
         auto view = std::views::filter(arr, [](const int i) { return i % 2 != 0; });
         const vector_t uncommon(view.begin(), view.end());
-        REQUIRE_THAT(ct::to_vector(uncommon), cm::Equals<int>({ 1, 3 }));
+        REQUIRE_THAT(ct::to_vector(uncommon), cm::Equals<int>({1, 3}));
     }
+
     SECTION("range")
     {
         using vector_t = clu::static_vector<int, 4>;
-        const std::vector arr{ 1, 2, 3 };
+        const std::vector arr{1, 2, 3};
         const vector_t common(arr);
         REQUIRE_THAT(ct::to_vector(common), cm::Equals<int>(arr));
         auto view = std::views::filter(arr, [](const int i) { return i % 2 != 0; });
         const vector_t uncommon(view);
-        REQUIRE_THAT(ct::to_vector(uncommon), cm::Equals<int>({ 1, 3 }));
+        REQUIRE_THAT(ct::to_vector(uncommon), cm::Equals<int>({1, 3}));
     }
 }
 

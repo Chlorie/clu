@@ -1,4 +1,5 @@
 #include <catch2/catch.hpp>
+
 #include "clu/uri.h"
 
 using namespace clu::uri_literal;

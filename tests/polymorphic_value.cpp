@@ -1,6 +1,7 @@
 #include <numbers>
 #include <catch2/catch.hpp>
-#include <clu/polymorphic_value.h>
+
+#include "clu/polymorphic_value.h"
 
 using namespace Catch::literals;
 
@@ -15,6 +16,7 @@ class Rectangle final : public Shape
 {
 private:
     float width_ = 0.0f, height_ = 0.0f;
+
 public:
     Rectangle(const float width, const float height): width_(width), height_(height) {}
     float area() const noexcept override { return width_ * height_; }
@@ -24,6 +26,7 @@ class Disk final : public Shape
 {
 private:
     float radius_ = 0.0f;
+
 public:
     explicit Disk(const float radius): radius_(radius) {}
     float area() const noexcept override { return std::numbers::pi_v<float> * radius_ * radius_; }
@@ -50,8 +53,8 @@ TEST_CASE("polymorphic value constructors", "[polymorphic_value]")
     SECTION("raw base pointer")
     {
         Shape* ptr = new Rectangle(4.0f, 5.0f);
-        const ShapeValue rect(ptr,
-            [](const Shape& s) -> Shape* { return new Rectangle(dynamic_cast<const Rectangle&>(s)); });
+        const ShapeValue rect(
+            ptr, [](const Shape& s) -> Shape* { return new Rectangle(dynamic_cast<const Rectangle&>(s)); });
         REQUIRE(rect);
         REQUIRE(typeid(*rect) == typeid(Rectangle));
         REQUIRE(rect->area() == 20.0_a);

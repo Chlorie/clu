@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
-#include <clu/scope.h>
+
+#include "clu/scope.h"
 
 TEST_CASE("scope on success", "[scope]")
 {

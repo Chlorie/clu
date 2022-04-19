@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
-#include <clu/tag_invoke.h>
+
+#include "clu/tag_invoke.h"
 
 namespace mylib
 {
@@ -7,14 +8,14 @@ namespace mylib
     {
         template <typename... Args>
             requires clu::tag_invocable<do_things_t, Args&&...>
-        constexpr auto operator()(Args&&... args) const
-            noexcept(clu::nothrow_tag_invocable<do_things_t, Args&&...>)
+        constexpr auto operator()(Args&&... args) const noexcept( //
+            clu::nothrow_tag_invocable<do_things_t, Args&&...>) //
             -> clu::tag_invoke_result_t<do_things_t, Args&&...>
         {
             return clu::tag_invoke(*this, static_cast<Args&&>(args)...);
         }
     } constexpr do_things{};
-}
+} // namespace mylib
 
 struct ThingDoer
 {
@@ -32,12 +33,13 @@ TEST_CASE("customization", "[tag_invoke]")
         REQUIRE(mylib::do_things(td, 0, 0) == 0);
         REQUIRE(mylib::do_things(td) == 100);
     }
+
     SECTION("type traits")
     {
-        static_assert(clu::nothrow_tag_invocable<clu::tag_t<mylib::do_things>, ThingDoer>);
-        static_assert(!clu::nothrow_tag_invocable<clu::tag_t<mylib::do_things>, ThingDoer, int>);
-        static_assert(clu::tag_invocable<clu::tag_t<mylib::do_things>, ThingDoer, int>);
-        static_assert(!clu::tag_invocable<clu::tag_t<mylib::do_things>, ThingDoer, int, int, int>);
-        static_assert(std::is_same_v<clu::tag_invoke_result_t<clu::tag_t<mylib::do_things>, ThingDoer>, int>);
+        STATIC_REQUIRE(clu::nothrow_tag_invocable<clu::tag_t<mylib::do_things>, ThingDoer>);
+        STATIC_REQUIRE(!clu::nothrow_tag_invocable<clu::tag_t<mylib::do_things>, ThingDoer, int>);
+        STATIC_REQUIRE(clu::tag_invocable<clu::tag_t<mylib::do_things>, ThingDoer, int>);
+        STATIC_REQUIRE(!clu::tag_invocable<clu::tag_t<mylib::do_things>, ThingDoer, int, int, int>);
+        STATIC_REQUIRE(std::is_same_v<clu::tag_invoke_result_t<clu::tag_t<mylib::do_things>, ThingDoer>, int>);
     }
 }
