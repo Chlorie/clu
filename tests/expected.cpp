@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
-#include <clu/expected.h>
+
+#include "clu/expected.h"
 
 TEST_CASE("expected default constructor", "[expected]")
 {

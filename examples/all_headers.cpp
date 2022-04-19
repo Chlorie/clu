@@ -35,7 +35,6 @@
 #include <clu/string_utils.h>
 #include <clu/tag_invoke.h>
 #include <clu/task.h>
-#include <clu/take.h>
 #include <clu/type_traits.h>
 #include <clu/parse.h>
 #include <clu/piper.h>

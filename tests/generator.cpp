@@ -1,30 +1,58 @@
-#include "matchers.h"
-#include <clu/experimental/generator.h>
-#include <array>
+#include <catch2/catch.hpp>
 #include <ranges>
 
-namespace tst = clu::testing;
+#include "clu/generator.h"
+#include "matchers.h"
 
-clu::generator<int> infinite()
+namespace ct = clu::testing;
+namespace cm = Catch::Matchers;
+namespace sv = std::views;
+
+TEST_CASE("infinite generator", "[generator]")
 {
-    for (int i = 0;; i++)
-        co_yield i;
+    const auto infinite = []() -> clu::generator<int>
+    {
+        for (int i = 0;; i++)
+            co_yield i;
+    };
+    REQUIRE_THAT(ct::to_vector(infinite() | sv::take(5)), //
+        cm::Equals<int>({0, 1, 2, 3, 4}));
 }
 
-using ilist = std::initializer_list<int>;
-
-TEST(Generator, Infinite)
+TEST_CASE("single generator", "[generator]")
 {
-    clu::generator<int> iota = infinite();
-    std::array<int, 5> results{};
-    std::ranges::copy_n(iota.begin(), 5, results.begin());
-    EXPECT_THAT(results, tst::elements_are(ilist{ 0, 1, 2, 3, 4 }));
+    const auto single = []() -> clu::generator<int> { co_yield 42; };
+    REQUIRE_THAT(ct::to_vector(single()), //
+        cm::Equals<int>({42}));
 }
 
-clu::generator<int> single(const int value) { co_yield value; }
-
-TEST(Generator, Single)
+TEST_CASE("recursive generator", "[generator]")
 {
-    clu::generator<int> gen = single(0);
-    EXPECT_THAT(gen | std::views::all, tst::elements_are(ilist{ 0 }));
+    SECTION("with generator")
+    {
+        const auto f = []() -> clu::generator<int>
+        {
+            co_yield 1;
+            co_yield 2;
+        };
+        const auto g = [&]() -> clu::generator<int>
+        {
+            co_yield clu::elements_of(f());
+            co_yield 3;
+        };
+        REQUIRE_THAT(ct::to_vector(g()), //
+            cm::Equals<int>({1, 2, 3}));
+    }
+
+    SECTION("with other ranges")
+    {
+        const auto g = [&]() -> clu::generator<int>
+        {
+            std::vector vec{1, 2};
+            co_yield clu::elements_of(vec);
+            co_yield 3;
+        };
+        REQUIRE_THAT(ct::to_vector(g()), //
+            cm::Equals<int>({1, 2, 3}));
+    }
 }

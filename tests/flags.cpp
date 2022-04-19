@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
-#include <clu/flags.h>
+
+#include "clu/flags.h"
 
 using namespace clu::flag_enum_operators;
 

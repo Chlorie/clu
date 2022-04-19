@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
-#include <clu/function_ref.h>
+
+#include "clu/function_ref.h"
 
 TEST_CASE("empty function reference", "[function_ref]")
 {

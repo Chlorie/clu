@@ -12,13 +12,27 @@
 namespace clu
 {
     template <std::ranges::input_range R>
-    struct elements_of
+    struct elements_of_t
     {
         R range{};
     };
 
     template <typename R>
-    elements_of(R&&) -> elements_of<R&&>;
+    elements_of_t(R&&) -> elements_of_t<R&&>;
+
+    // Not to spec: elements_of is a factory function
+    /**
+     * \brief Wraps an input range to yield from in a generator coroutine.
+     * \details This function wraps (forwards) a range into a special type,
+     * yielding this type in a generator coroutine function is equivalent
+     * to yielding every element in this range.
+     * \param range The range to wrap.
+     */
+    template <std::ranges::input_range R>
+    constexpr auto elements_of(R&& range) noexcept
+    {
+        return elements_of_t<R&&>{static_cast<R&&>(range)};
+    }
 
     template <typename Ref, typename Value>
     class generator;
@@ -137,20 +151,27 @@ namespace clu
 
             template <class T2, class V2>
                 requires std::same_as<typename generator<T2, V2>::yielded, T>
-            auto yield_value(elements_of<generator<T2, V2>&&> other) noexcept
+            auto yield_value(elements_of_t<generator<T2, V2>&&> other) noexcept
             {
                 return yield_generator_awaiter<T2, V2>{std::move(other.range), {}};
             }
 
-            template <std::ranges::input_range Rng>
-                requires std::convertible_to<std::ranges::range_reference_t<Rng>, T>
-            auto yield_value(elements_of<Rng> range) noexcept
+            // Not to spec: supports yielding ranges with lvalue references
+            // in an rvalue generator
+            // clang-format off
+            template <std::ranges::input_range Rng> requires
+                (std::convertible_to<std::ranges::range_reference_t<Rng>, T>) ||
+                (std::is_rvalue_reference_v<T> &&
+                    std::constructible_from<std::remove_cvref_t<T>, std::ranges::range_reference_t<Rng>>)
+            auto yield_value(elements_of_t<Rng> range) noexcept
+            // clang-format on
             {
-                return yield_value(elements_of{[](Rng r) -> generator<T, std::ranges::range_value_t<Rng>>
+                return this->yield_value(clu::elements_of(
+                    [](Rng r) -> generator<T, std::ranges::range_value_t<Rng>>
                     {
                         for (auto&& e : static_cast<Rng>(r))
-                            co_yield static_cast<T>(static_cast<decltype(e)>(e));
-                    }(static_cast<Rng>(range.range))});
+                            co_yield static_cast<decltype(e)>(e);
+                    }(static_cast<Rng>(range.range))));
             }
 
             void return_void() const noexcept {}
