@@ -170,21 +170,14 @@ clu::task<void> canceller()
 
 int main() // NOLINT
 {
-    const auto dur = clu::timeit(
-        []
-        {
-            clu::this_thread::sync_wait( //
-                ex::when_any( //
-                    clutest::wait_on_detached_thread(200ms), //
-                    clutest::wait_on_detached_thread(100ms), //
-                    clutest::wait_on_detached_thread(500ms), //
-                    clutest::wait_on_detached_thread(600ms)));
-        });
-    std::cout << "Completed in " << chr::duration_cast<chr::milliseconds>(dur) << '\n';
-
-    // std::cout << "Starting the tasks...\n";
-    // clu::this_thread::sync_wait(ex::when_all(tick(), canceller()));
-    // std::cout << "Finished!\n";
+    clu::static_thread_pool tp(4);
+    for (std::size_t i = 0; i < 10; i++)
+    {
+        clu::this_thread::sync_wait( //
+            ex::schedule(tp.get_scheduler()) //
+            | ex::then(print_thread_id));
+    }
+    tp.finish();
 
     return 0;
 }

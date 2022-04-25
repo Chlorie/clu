@@ -17,15 +17,6 @@ endfunction ()
 
 add_headers(HEADERS
     # Header files here (relative to ./include/clu/)
-    "async/async_manual_reset_event.h"
-
-    "execution/algorithms.h"
-    "execution/any_scheduler.h"
-    "execution/awaitable_traits.h"
-    "execution/execution_traits.h"
-    "execution/run_loop.h"
-    "execution/utility.h"
-
     "any_unique.h"
     "assertion.h"
     "async.h"
@@ -78,6 +69,18 @@ add_headers(HEADERS
     "uri.h"
     "uuid.h"
     "vector_utils.h"
+
+    "async/async_manual_reset_event.h"
+
+    "execution/algorithms.h"
+    "execution/any_scheduler.h"
+    "execution/awaitable_traits.h"
+    "execution/context.h"
+    "execution/execution_traits.h"
+    "execution/run_loop.h"
+    "execution/utility.h"
+
+    "execution_contexts/static_thread_pool.h"
 )
 add_sources(SOURCES
     # Source files here (relative to ./src/)
@@ -88,6 +91,10 @@ add_sources(SOURCES
     "stop_token.cpp"
     "uri.cpp"
     "uuid.cpp"
+
+    "execution/run_loop.cpp"
+    
+    "execution_contexts/static_thread_pool.cpp"
 )
 
 target_sources(clu PRIVATE ${HEADERS} ${SOURCES})

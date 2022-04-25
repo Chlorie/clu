@@ -2157,12 +2157,13 @@ namespace clu::this_thread
         };
 
         namespace loop = clu::detail::loop;
+        using loop_schd = decltype(std::declval<run_loop&>().get_scheduler());
 
         struct env_t
         {
-            loop::schd_t schd;
-            friend loop::schd_t tag_invoke(exec::get_scheduler_t, const env_t& self) noexcept { return self.schd; }
-            friend loop::schd_t tag_invoke(exec::get_delegatee_scheduler_t, const env_t& self) noexcept
+            loop_schd schd;
+            friend loop_schd tag_invoke(exec::get_scheduler_t, const env_t& self) noexcept { return self.schd; }
+            friend loop_schd tag_invoke(exec::get_delegatee_scheduler_t, const env_t& self) noexcept
             {
                 return self.schd;
             }

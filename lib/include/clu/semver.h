@@ -26,8 +26,8 @@ namespace clu
         [[nodiscard]] std::string_view prerelease() const noexcept { return prerelease_; }
         [[nodiscard]] std::string_view build_metadata() const noexcept { return build_; }
 
-        [[nodiscard]] CLU_API friend bool operator==(const semver&, const semver&) noexcept = default;
-        [[nodiscard]] CLU_API friend std::weak_ordering operator<=>(const semver& lhs, const semver& rhs);
+        CLU_API friend bool operator==(const semver&, const semver&) noexcept = default;
+        CLU_API friend std::weak_ordering operator<=>(const semver& lhs, const semver& rhs);
 
     private:
         u32 major_ = 0;

@@ -20,8 +20,8 @@ namespace clu
             [[nodiscard]] explicit operator bool() const noexcept { return !!begin_; }
             [[nodiscard]] bool undefined() const noexcept { return !begin_; }
 
-            [[nodiscard]] CLU_API friend bool operator==(component lhs, std::string_view rhs) noexcept;
-            [[nodiscard]] CLU_API friend bool operator==(component lhs, component rhs) noexcept;
+            CLU_API friend bool operator==(component lhs, std::string_view rhs) noexcept;
+            CLU_API friend bool operator==(component lhs, component rhs) noexcept;
 
         private:
             friend class uri;

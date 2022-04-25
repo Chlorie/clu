@@ -3,6 +3,7 @@
 #include <thread>
 
 #include "execution.h"
+#include "execution_contexts/static_thread_pool.h"
 
 namespace clu
 {
