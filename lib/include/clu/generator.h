@@ -202,6 +202,12 @@ namespace clu
             using value_type = Value;
             using difference_type = std::ptrdiff_t;
 
+            // clang-format off
+            template <typename P>
+            explicit generator_iterator(coro::coroutine_handle<P> handle) noexcept:
+                handle_(handle_t::from_promise(handle.promise())) {}
+            // clang-format on
+
             CLU_NON_COPYABLE_TYPE(generator_iterator);
             CLU_DEFAULT_MOVE_MEMBERS(generator_iterator);
 
@@ -223,15 +229,6 @@ namespace clu
         private:
             using handle_t = coro::coroutine_handle<generator_promise_base<Yielded>>;
             coro::coroutine_handle<generator_promise_base<Yielded>> handle_{};
-
-            template <typename, typename>
-            friend class generator;
-
-            template <typename P>
-            explicit generator_iterator(coro::coroutine_handle<P> handle) noexcept:
-                handle_(handle_t::from_promise(handle.promise()))
-            {
-            }
         };
     } // namespace detail
 

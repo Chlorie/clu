@@ -6,6 +6,8 @@ find_package(Catch2 CONFIG REQUIRED)
 
 add_executable(tests
     "main.cpp" # with CATCH_CONFIG_MAIN
+
+    "async.cpp"
     "expected.cpp"
     "flags.cpp"
     "forest.cpp"

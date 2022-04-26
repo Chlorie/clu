@@ -1,19 +1,15 @@
 #include "clu/execution/run_loop.h"
 
-namespace clu::detail::loop
+namespace clu
 {
     run_loop::~run_loop() noexcept
     {
-        if (head_ || state_ == state_t::running)
+        if (head_ || !stopped_)
             std::terminate();
     }
 
     void run_loop::run()
     {
-        {
-            std::unique_lock lock(mutex_);
-            state_ = state_t::running;
-        }
         while (ops_base* task = dequeue())
             task->execute();
     }
@@ -21,7 +17,7 @@ namespace clu::detail::loop
     void run_loop::finish()
     {
         std::unique_lock lock(mutex_);
-        state_ = state_t::finishing;
+        stopped_ = true;
         cv_.notify_all();
     }
 
@@ -37,7 +33,7 @@ namespace clu::detail::loop
     run_loop::ops_base* run_loop::dequeue()
     {
         std::unique_lock lock(mutex_);
-        cv_.wait(lock, [this] { return head_ != nullptr || state_ == state_t::finishing; });
+        cv_.wait(lock, [this] { return head_ != nullptr || stopped_; });
         if (!head_)
             return nullptr;
         ops_base* ptr = head_;
@@ -46,4 +42,4 @@ namespace clu::detail::loop
             tail_ = nullptr;
         return ptr;
     }
-} // namespace clu::detail::loop
+} // namespace clu

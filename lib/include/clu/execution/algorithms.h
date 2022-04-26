@@ -1860,7 +1860,7 @@ namespace clu::exec
                 }
 
                 template <snd_qry::fwd_snd_query Q, typename... Args>
-                    requires callable<Q, const type&, Args...>
+                    requires callable<Q, const S&, Args...>
                 constexpr friend auto tag_invoke(Q, const type& snd, Args&&... args) noexcept(
                     nothrow_callable<Q, const type&, Args...>)
                 {
@@ -2156,7 +2156,6 @@ namespace clu::this_thread
             class type;
         };
 
-        namespace loop = clu::detail::loop;
         using loop_schd = decltype(std::declval<run_loop&>().get_scheduler());
 
         struct env_t

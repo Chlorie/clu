@@ -2,7 +2,6 @@
 #include <chrono>
 #include <mutex>
 
-#include <clu/execution.h>
 #include <clu/execution_contexts.h>
 #include <clu/async.h>
 #include <clu/chrono_utils.h>

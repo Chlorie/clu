@@ -22,7 +22,7 @@ namespace clu
             auto get_scheduler() noexcept { return exec::context_scheduler<pool>(this); }
 
         private:
-            using ops_base = exec::operation_state_base<pool>;
+            using ops_base = exec::context_operation_state_base<pool>;
             class thread_res;
 
             std::size_t size_ = 0;

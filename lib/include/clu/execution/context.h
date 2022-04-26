@@ -39,18 +39,6 @@ namespace clu::exec
         template <typename Ctx>
         using snd_t = typename snd_t_<Ctx>::type;
 
-        template <typename Ctx>
-        class schd_t
-        {
-        public:
-            explicit schd_t(Ctx* ctx) noexcept: ctx_(ctx) {}
-            friend bool operator==(schd_t, schd_t) noexcept = default;
-
-        private:
-            Ctx* ctx_;
-            friend snd_t<Ctx> tag_invoke(schedule_t, schd_t schd) noexcept;
-        };
-
         template <typename Ctx, typename R>
         struct ops_t_
         {
@@ -96,6 +84,15 @@ namespace clu::exec
         };
 
         template <typename Ctx>
+        struct schd_t_
+        {
+            class type;
+        };
+
+        template <typename Ctx>
+        using schd_t = typename schd_t_<Ctx>::type;
+
+        template <typename Ctx>
         class snd_t_<Ctx>::type
         {
         public:
@@ -113,17 +110,12 @@ namespace clu::exec
 
             // clang-format off
             template <recvs::completion_cpo Cpo>
-            friend auto tag_invoke(get_completion_scheduler_t<Cpo>, const type& snd) noexcept { return schd_t(snd.ctx_); }
+            friend auto tag_invoke(get_completion_scheduler_t<Cpo>, //
+                const type& snd) noexcept { return schd_t<Ctx>(snd.ctx_); }
 
             constexpr friend completion_signatures<set_value_t(), set_error_t(std::exception_ptr), set_stopped_t()>
             tag_invoke(get_completion_signatures_t, const type&, auto&&) noexcept { return {}; }
             // clang-format on
-        };
-
-        template <typename Ctx>
-        struct schd_t_
-        {
-            class type;
         };
 
         template <typename Ctx>
@@ -148,7 +140,7 @@ namespace clu::exec
     using context_scheduler = typename detail::ctx::schd_t_<Ctx>::type;
 
     template <typename Ctx>
-    using operation_state_base = detail::ctx::ops_base<Ctx>;
+    using context_operation_state_base = detail::ctx::ops_base<Ctx>;
 
     using detail::ctx::add_operation_t;
     inline constexpr add_operation_t add_operation{};

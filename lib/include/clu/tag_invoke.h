@@ -56,7 +56,11 @@ namespace clu
         };
     } // namespace detail::taginv
 
-    inline constexpr detail::taginv::tag_invoke_t tag_invoke{};
+    inline namespace inl
+    {
+        inline constexpr detail::taginv::tag_invoke_t tag_invoke{};
+    }
+
     using detail::taginv::tag_invocable;
     using detail::taginv::nothrow_tag_invocable;
     using detail::taginv::tag_invoke_result;

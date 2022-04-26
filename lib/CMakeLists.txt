@@ -92,6 +92,8 @@ add_sources(SOURCES
     "uri.cpp"
     "uuid.cpp"
 
+    "async/async_manual_reset_event.cpp"
+
     "execution/run_loop.cpp"
     
     "execution_contexts/static_thread_pool.cpp"

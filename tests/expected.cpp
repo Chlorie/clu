@@ -7,7 +7,6 @@ TEST_CASE("expected default constructor", "[expected]")
     const clu::expected<int, int> ex;
     REQUIRE(ex);
     REQUIRE(*ex == 0);
-    static_assert(std::is_trivially_copyable_v<clu::expected<int, int>>);
 }
 
 TEST_CASE("expected with reference type", "[expected]")

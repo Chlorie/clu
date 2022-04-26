@@ -281,7 +281,7 @@ namespace clu::exec
         class ops_optional
         {
         public:
-            ops_optional() noexcept = default;
+            ops_optional() noexcept: dummy_{} {}
             ops_optional(const ops_optional&) = delete;
             ~ops_optional() noexcept { reset(); }
 
@@ -318,7 +318,7 @@ namespace clu::exec
             bool engaged_ = false;
             union
             {
-                monostate dummy_{};
+                monostate dummy_;
                 T value_;
             };
         };

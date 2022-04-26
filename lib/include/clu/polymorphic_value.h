@@ -6,6 +6,7 @@
 #include <typeinfo>
 
 #include "concepts.h"
+#include "macros.h"
 
 namespace clu
 {
@@ -68,7 +69,7 @@ namespace clu
         class pointer_control_block final : public control_block<T>
         {
         private:
-            [[no_unique_address]] C copier_;
+            CLU_NO_UNIQUE_ADDRESS C copier_;
             std::unique_ptr<U, D> ptr_;
 
         public:
