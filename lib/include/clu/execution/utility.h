@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 #include "execution_traits.h"
 #include "../macros.h"
 
@@ -363,5 +365,97 @@ namespace clu::exec
 
         template <typename... Ts>
         using ops_tuple = decltype(ops_tpl::get_type<Ts...>(std::index_sequence_for<Ts...>{}));
+
+        template <typename... Ts>
+        class ops_variant // NOLINT(cppcoreguidelines-pro-type-member-init)
+        {
+        public:
+            ops_variant() requires(sizeof...(Ts) > 0) &&
+                (std::default_initializable<meta::nth_type_q<0>::fn<Ts...>>) = default;
+
+            template <std::size_t I, typename... Us>
+            explicit ops_variant(std::in_place_index_t<I>, Us&&... args): index_(I)
+            {
+                using type = typename meta::nth_type_q<I>::template fn<Ts...>;
+                new (data_) type(static_cast<Us&&>(args)...);
+            }
+
+            ~ops_variant() noexcept { destruct(); }
+
+            std::size_t index() const noexcept { return index_; }
+
+            template <std::size_t I, typename... Us>
+            auto& emplace(Us&&... args)
+            {
+                destruct();
+                index_ = sizeof...(Ts);
+                using type = typename meta::nth_type_q<I>::template fn<Ts...>;
+                type* ptr = new (data_) type(static_cast<Us&&>(args)...);
+                index_ = I;
+                return *ptr;
+            }
+
+            template <typename T, typename... Us>
+            auto& emplace(Us&&... args)
+            {
+                destruct();
+                index_ = sizeof...(Ts);
+                T* ptr = new (data_) T(static_cast<Us&&>(args)...);
+                index_ = meta::find_q<T>::template fn<Ts...>::value;
+                return *ptr;
+            }
+
+        private:
+            // ReSharper disable once CppUninitializedNonStaticDataMember
+            std::size_t index_ = 0;
+            alignas(Ts...) std::byte data_[std::max({sizeof(Ts)...})];
+
+            template <std::size_t I, forwarding<ops_variant<Ts...>> Self>
+            friend auto&& get(Self&& self)
+            {
+                if (self.index_ != I)
+                    throw std::bad_variant_access();
+                using type = typename meta::nth_type_q<I>::template fn<Ts...>;
+                return get_unchecked<type>(static_cast<Self&&>(self));
+            }
+
+            template <typename T, forwarding<ops_variant<Ts...>> Self>
+            friend auto&& get_unchecked(Self&& self)
+            {
+                using copy_cv = conditional_t<std::is_const_v<std::remove_reference_t<Self>>, const T, T>;
+                return static_cast<copy_cvref_t<Self, T>&&>(*reinterpret_cast<copy_cv*>(self.data_));
+            }
+
+            template <typename Fn, forwarding<ops_variant<Ts...>> Self>
+            friend decltype(auto) visit(Fn&& visitor, Self&& self)
+            {
+                if (self.index_ == sizeof...(Ts))
+                    throw std::bad_variant_access();
+                static constexpr std::array vtbl{visit_as<Ts, Fn, Self>...};
+                return vtbl[self.index_](static_cast<Fn&&>(visitor), static_cast<Self&&>(self));
+            }
+
+            template <typename T, typename Fn, forwarding<ops_variant<Ts...>> Self>
+            static decltype(auto) visit_as(Fn&& visitor, Self&& self)
+            {
+                return static_cast<Fn&&>(visitor)(get_unchecked<T>(static_cast<Self&&>(self)));
+            }
+
+            void destruct() noexcept
+            {
+                if (index_ == sizeof...(Ts))
+                    return;
+                using fptr = void (*)(ops_variant&) noexcept;
+                static constexpr std::array<fptr, sizeof...(Ts)> dtors{destruct_as<Ts>...};
+                dtors[index_](*this);
+            }
+
+            template <typename T>
+            static void destruct_as(ops_variant& self) noexcept
+            {
+                T& value = *reinterpret_cast<T*>(self.data_);
+                value.~T();
+            }
+        };
     } // namespace detail
 } // namespace clu::exec

@@ -27,7 +27,6 @@ namespace clu::exec
             Ctx* ctx_ = nullptr;
             explicit ops_base(Ctx* ctx) noexcept: ctx_(ctx) {}
             ~ops_base() noexcept = default;
-            void enqueue() { ctx_->add(this); }
         };
 
         template <typename Ctx>

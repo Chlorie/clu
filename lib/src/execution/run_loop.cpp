@@ -1,6 +1,6 @@
 #include "clu/execution/run_loop.h"
 
-namespace clu
+namespace clu::detail::loop
 {
     run_loop::~run_loop() noexcept
     {
@@ -21,13 +21,13 @@ namespace clu
         cv_.notify_all();
     }
 
-    void run_loop::enqueue(ops_base* task)
+    void tag_invoke(exec::add_operation_t, run_loop& self, run_loop::ops_base& task)
     {
         {
-            std::unique_lock lock(mutex_);
-            tail_ = (head_ ? tail_->next : head_) = task;
+            std::unique_lock lock(self.mutex_);
+            self.tail_ = (self.head_ ? self.tail_->next : self.head_) = &task;
         }
-        cv_.notify_one();
+        self.cv_.notify_one();
     }
 
     run_loop::ops_base* run_loop::dequeue()
@@ -42,4 +42,4 @@ namespace clu
             tail_ = nullptr;
         return ptr;
     }
-} // namespace clu
+} // namespace clu::detail::loop

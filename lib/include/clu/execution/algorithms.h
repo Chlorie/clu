@@ -25,6 +25,9 @@ namespace clu::exec
         template <typename... Ts>
         using nullable_variant = meta::unpack_invoke<meta::unique<std::monostate, Ts...>, meta::quote<std::variant>>;
 
+        template <typename... Ts>
+        using nullable_ops_variant = meta::unpack_invoke<meta::unique<std::monostate, Ts...>, meta::quote<ops_variant>>;
+
         // clang-format off
         template <typename Cpo, typename SetCpo, typename S, typename... Args>
         concept customized_sender_algorithm =
@@ -40,14 +43,14 @@ namespace clu::exec
                 using schd_t = completion_scheduler_of_t<SetCpo, S>;
                 static_assert(sender<tag_invoke_result_t<Cpo, schd_t, S, Args...>>,
                     "customizations for sender algorithms should return senders");
-                return clu::tag_invoke(Cpo{}, exec::get_completion_scheduler<SetCpo>(snd), static_cast<S&&>(snd),
+                return tag_invoke(Cpo{}, exec::get_completion_scheduler<SetCpo>(snd), static_cast<S&&>(snd),
                     static_cast<Args&&>(args)...);
             }
             else // if constexpr (tag_invocable<Cpo, S, Args...>)
             {
                 static_assert(sender<tag_invoke_result_t<Cpo, S, Args...>>,
                     "customizations for sender algorithms should return senders");
-                return clu::tag_invoke(Cpo{}, static_cast<S&&>(snd), static_cast<Args&&>(args)...);
+                return tag_invoke(Cpo{}, static_cast<S&&>(snd), static_cast<Args&&>(args)...);
             }
         }
 
@@ -417,7 +420,7 @@ namespace clu::exec
                 using ops_for = connect_result_t<std::invoke_result_t<F, decay_lref<Args>...>, R>;
 
                 value_types_of_t<S, env_of_t<R>, decayed_tuple, nullable_variant> args;
-                value_types_of_t<S, env_of_t<R>, ops_for, nullable_variant> ops;
+                value_types_of_t<S, env_of_t<R>, ops_for, nullable_ops_variant> ops;
             };
 
             template <typename S, typename R, typename F>
@@ -427,7 +430,7 @@ namespace clu::exec
                 using args_variant_for = nullable_variant<decayed_tuple<Es>...>;
                 template <typename... Es>
                 using ops_variant_for =
-                    nullable_variant<connect_result_t<std::invoke_result_t<F, decay_lref<Es>>, R>...>;
+                    nullable_ops_variant<connect_result_t<std::invoke_result_t<F, decay_lref<Es>>, R>...>;
 
                 error_types_of_t<S, env_of_t<R>, args_variant_for> args;
                 error_types_of_t<S, env_of_t<R>, ops_variant_for> ops;
@@ -437,7 +440,7 @@ namespace clu::exec
             struct storage<S, R, set_stopped_t, F>
             {
                 std::variant<std::tuple<>> args;
-                std::variant<std::monostate, connect_result_t<std::invoke_result_t<F>, R>> ops;
+                ops_variant<std::monostate, connect_result_t<std::invoke_result_t<F>, R>> ops;
             };
 
             template <typename S, typename R, typename Cpo, typename F>
@@ -721,13 +724,14 @@ namespace clu::exec
             public:
                 template <typename R2>
                 type(S&& snd, R2&& recv, Schd&& schd):
-                    snd_(static_cast<S&&>(snd)), recv_(static_cast<R2&&>(recv)), schd_(static_cast<Schd&&>(schd))
+                    snd_(static_cast<S&&>(snd)), recv_(static_cast<R2&&>(recv)), schd_(static_cast<Schd&&>(schd)),
+                    inner_ops_(std::in_place_index<0>,
+                        copy_elider{[&]
+                            {
+                                return exec::connect(exec::schedule(schd_), //
+                                    recv_t<S, R, Schd>(this));
+                            }})
                 {
-                    inner_ops_.template emplace<1>(copy_elider{[&]
-                        {
-                            return exec::connect(exec::schedule(schd_), //
-                                recv_t<S, R, Schd>(this));
-                        }});
                 }
 
             private:
@@ -738,13 +742,12 @@ namespace clu::exec
                 S snd_;
                 R recv_;
                 Schd schd_;
-                std::variant< //
-                    std::monostate, // MSVC doesn't like in place construction with copy elision
+                ops_variant< //
                     connect_result_t<schedule_result_t<Schd>, recv_t<S, R, Schd>>,
                     connect_result_t<S, recv2_t<S, R, Schd>>>
                     inner_ops_;
 
-                friend void tag_invoke(start_t, type& self) noexcept { exec::start(std::get<1>(self.inner_ops_)); }
+                friend void tag_invoke(start_t, type& self) noexcept { exec::start(get<0>(self.inner_ops_)); }
             };
 
             // clang-format off
@@ -764,7 +767,7 @@ namespace clu::exec
                 try
                 {
                     auto* ops = ops_; // *this is going to be destroyed
-                    auto& final_ops = ops->inner_ops_.template emplace<2>(copy_elider{[=]
+                    auto& final_ops = ops->inner_ops_.template emplace<1>(copy_elider{[=]
                         {
                             return exec::connect(static_cast<S&&>(ops->snd_), //
                                 recv2_t<S, R, Schd>(ops));

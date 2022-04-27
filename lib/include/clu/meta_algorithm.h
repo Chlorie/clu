@@ -227,6 +227,27 @@ namespace clu::meta
     template <typename List>
     using enumerate_l = unpack_invoke<List, enumerate_q>;
 
+    namespace detail
+    {
+        template <typename... Ts>
+        struct nth_type_impl : Ts...
+        {
+        };
+
+        template <std::size_t I, typename T>
+        type_tag_t<T> nth_type_fn(indexed_type<I, T>);
+    } // namespace detail
+
+    template <std::size_t I>
+    struct nth_type_q
+    {
+        template <typename... Ts>
+        using fn = typename decltype(detail::nth_type_fn<I>(
+            unpack_invoke<enumerate<Ts...>, quote<detail::nth_type_impl>>{}))::type;
+    };
+    template <typename List, std::size_t I>
+    using nth_type_l = unpack_invoke<List, nth_type_q<I>>;
+
     template <typename T>
     struct push_back_q
     {
