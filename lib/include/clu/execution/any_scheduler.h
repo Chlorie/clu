@@ -21,6 +21,7 @@ namespace clu::exec
                 start_([](void* ptr) noexcept { exec::start(*static_cast<call_result_t<Fn>*>(ptr)); }) {}
             // clang-format on
 
+            CLU_IMMOVABLE_TYPE(any_ops_t);
             ~any_ops_t() noexcept { destruct_(ptr_); }
 
         private:
@@ -185,7 +186,7 @@ namespace clu::exec
             template <typename R2>
             type(schd_base& schd, R2&& recv):
                 prop_{.recv = static_cast<R2&&>(recv)},
-                ops_{[&] { return schd.connect(proxy_recv_t(prop_.recv, prop_.get_token())); }} {}
+                ops_{schd.connect(proxy_recv_t(prop_.recv, prop_.get_token()))} {}
             // clang-format on
 
         private:

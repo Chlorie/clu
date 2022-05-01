@@ -70,7 +70,15 @@ namespace clu
                         "using the get_completion_scheduler<set_value_t> customization point");
 
                     using awaitable_t = call_result_t<exec::as_awaitable_t, U, promise<T>&>;
-                    using awaiter_base = exec::awaiter_type_t<awaitable_t, void>;
+                    const auto get_awaitable = [&] { return exec::as_awaitable(static_cast<U&&>(value), pms); };
+                    const auto get_awaiter = [&]
+                    {
+                        if constexpr (exec::awaiter<awaitable_t, promise<T>>)
+                            return get_awaitable();
+                        else
+                            return exec::get_awaiter(get_awaitable());
+                    };
+                    using awaiter_base = call_result_t<decltype(get_awaiter)>;
 
                     struct awaiter
                     {
@@ -92,11 +100,8 @@ namespace clu
                         }
                     };
 
-                    return awaiter{
-                        exec::get_awaiter(exec::as_awaitable(static_cast<U&&>(value), pms)), //
-                        exec::get_completion_scheduler<exec::set_value_t>(value), //
-                        pms //
-                    };
+                    auto schd = exec::get_completion_scheduler<exec::set_value_t>(value);
+                    return awaiter{get_awaiter(), std::move(schd), pms};
                 }
                 else if constexpr (exec::sender<U, promise_env>)
                     return exec::as_awaitable(static_cast<U&&>(value) | exec::transfer(schd_), pms);

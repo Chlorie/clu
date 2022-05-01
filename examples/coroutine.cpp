@@ -159,27 +159,15 @@ std::string this_thread_id()
     return std::move(ss).str();
 }
 
-clu::task<void> hello()
-{
-    std::cout << std::format("Hello! I'm running on thread {}!\n", this_thread_id());
-    co_return;
-}
-
 clu::task<void> task(clu::single_thread_context& thread)
 {
-    std::cout << std::format("Here we should still be on the main thread ({})\n", this_thread_id());
-    std::cout << "Just calling hello() should not change the context.\n";
-    co_await hello();
-    std::cout << "Now we call hello() on the single thread context!\n";
-    co_await ex::on(thread.get_scheduler(), hello());
-    std::cout << "We should be automatically transitioned back to the original thread after hello() returns.\n";
-    std::cout << std::format("Currently we are on thread {}\n", this_thread_id());
-    std::cout << "We are about to explicitly transition to the single thread context.\n";
+    const auto main_thread = co_await ex::get_scheduler();
+    print_thread_id(); // Main thread
+    co_await ex::on(thread.get_scheduler(), ex::just());
     co_await ex::schedule(thread.get_scheduler());
-    std::cout << std::format("Now we're on thread {}\n", this_thread_id());
-    std::cout << "Also if we call hello() now it will be run on our current thread.\n";
-    co_await hello();
-    std::cout << "That's it!\n";
+    print_thread_id(); // Single thread context
+    co_await ex::schedule(main_thread);
+    print_thread_id(); // Main thread
 }
 
 int main() // NOLINT
