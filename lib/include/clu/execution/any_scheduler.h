@@ -14,7 +14,7 @@ namespace clu::exec
         {
         public:
             // clang-format off
-            template <typename Fn>
+            template <callable Fn>
             explicit any_ops_t(Fn&& fn):
                 ptr_(new call_result_t<Fn>(fn())),
                 destruct_([](void* ptr) noexcept { delete static_cast<call_result_t<Fn>*>(ptr); }),

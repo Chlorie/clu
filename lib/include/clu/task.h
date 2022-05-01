@@ -30,11 +30,20 @@ namespace clu
         class promise_env
         {
         public:
-            explicit promise_env(const in_place_stop_token token): stop_token_(token) {}
+            // clang-format off
+            explicit promise_env(const in_place_stop_token token, const exec::any_scheduler& schd):
+                stop_token_(token), schd_(schd) {}
+            // clang-format on
 
         private:
+            template <typename T>
+            class promise;
+
             in_place_stop_token stop_token_;
-            friend auto tag_invoke(exec::get_stop_token_t, const promise_env env) noexcept { return env.stop_token_; }
+            exec::any_scheduler schd_;
+
+            friend auto tag_invoke(exec::get_stop_token_t, const promise_env& env) noexcept { return env.stop_token_; }
+            friend auto tag_invoke(exec::get_scheduler_t, const promise_env& env) noexcept { return env.schd_; }
         };
 
         template <typename T>
@@ -47,14 +56,63 @@ namespace clu
             void unhandled_exception() { result_.template emplace<2>(std::current_exception()); }
 
             void replace_stop_token(const in_place_stop_token token) noexcept { stop_token_ = token; }
+            void replace_scheduler(exec::any_scheduler schd) noexcept { schd_ = std::move(schd); }
+
+            template <typename U>
+            decltype(auto) await_transform(U&& value)
+            {
+                auto& pms = static_cast<promise<T>&>(*this);
+                if constexpr (exec::no_await_thunk_sender<U>)
+                {
+                    static_assert(
+                        requires { exec::get_completion_scheduler<exec::set_value_t>(value); },
+                        "senders configured with no_await_thunk should specify completion schedulers "
+                        "using the get_completion_scheduler<set_value_t> customization point");
+
+                    using awaitable_t = call_result_t<exec::as_awaitable_t, U, promise<T>&>;
+                    using awaiter_base = exec::awaiter_type_t<awaitable_t, void>;
+
+                    struct awaiter
+                    {
+                        awaiter_base base;
+                        exec::any_scheduler schd;
+                        promise<T>& pms;
+
+                        bool await_ready() { return base.await_ready(); }
+
+                        auto await_suspend(coro::coroutine_handle<promise<T>> handle)
+                        {
+                            return base.await_suspend(handle);
+                        }
+
+                        decltype(auto) await_resume()
+                        {
+                            pms.replace_scheduler(std::move(schd));
+                            return base.await_resume();
+                        }
+                    };
+
+                    return awaiter{
+                        exec::get_awaiter(exec::as_awaitable(static_cast<U&&>(value), pms)), //
+                        exec::get_completion_scheduler<exec::set_value_t>(value), //
+                        pms //
+                    };
+                }
+                else if constexpr (exec::sender<U, promise_env>)
+                    return exec::as_awaitable(static_cast<U&&>(value) | exec::transfer(schd_), pms);
+                else
+                    return exec::as_awaitable(
+                        exec::as_awaitable(static_cast<U&&>(value), pms) | exec::transfer(schd_), pms);
+            }
 
         protected:
             std::variant<std::monostate, with_regular_void_t<T>, std::exception_ptr> result_;
             in_place_stop_token stop_token_;
+            exec::any_scheduler schd_;
 
             friend promise_env tag_invoke(exec::get_env_t, const promise<T>& self) noexcept
             {
-                return promise_env(self.stop_token_);
+                return promise_env(self.stop_token_, self.schd_);
             }
         };
 
@@ -105,8 +163,9 @@ namespace clu
 
         // clang-format off
         template <typename T>
-        concept env_has_stop_token =
-            requires { typename exec::stop_token_of_t<exec::env_of_t<T>>; };
+        concept env_has_scheduler = callable<exec::get_scheduler_t, exec::env_of_t<T>>;
+        template <typename T>
+        concept env_has_stop_token = requires { typename exec::stop_token_of_t<exec::env_of_t<T>>; };
         // clang-format on
 
         template <typename T>
@@ -116,7 +175,14 @@ namespace clu
         class task_awaitable_base
         {
         public:
-            explicit task_awaitable_base(promise<T>& current) noexcept: current_(&current) {}
+            template <typename P>
+            explicit task_awaitable_base(promise<T>& current, P&& parent) noexcept: current_(&current)
+            {
+                if constexpr (env_has_scheduler<P>)
+                    current_->replace_scheduler(exec::get_scheduler(exec::get_env(parent)));
+                else
+                    current_->replace_scheduler(exec::trampoline_scheduler{});
+            }
 
             bool await_ready() const noexcept { return false; }
 
@@ -151,7 +217,7 @@ namespace clu
         class task_awaitable : public task_awaitable_base<T>
         {
         public:
-            task_awaitable(promise<T>& current, Parent&) noexcept: task_awaitable_base<T>(current) {}
+            task_awaitable(promise<T>& current, Parent& parent) noexcept: task_awaitable_base<T>(current, parent) {}
         };
 
         // Parent coroutine has an in_place_stop_token,
@@ -162,7 +228,7 @@ namespace clu
         {
         public:
             // Just inherit stop token from parent coroutine
-            task_awaitable(promise<T>& current, Parent& parent) noexcept: task_awaitable_base<T>(current)
+            task_awaitable(promise<T>& current, Parent& parent) noexcept: task_awaitable_base<T>(current, parent)
             {
                 current.replace_stop_token(exec::get_stop_token(exec::get_env(parent)));
             }
@@ -176,7 +242,7 @@ namespace clu
         {
         public:
             task_awaitable(promise<T>& current, Parent& parent) noexcept:
-                task_awaitable_base<T>(current),
+                task_awaitable_base<T>(current, parent),
                 cb_(exec::get_stop_token(exec::get_env(parent)), stop_propagation_callback{stop_src_})
             {
                 current.replace_stop_token(stop_src_.get_token());
@@ -197,14 +263,17 @@ namespace clu
         class task_awaitable<T, void> : public task_awaitable_base<T>
         {
         public:
-            explicit task_awaitable(promise<T>& current) noexcept: task_awaitable_base<T>(current) {}
+            // clang-format off
+            explicit task_awaitable(promise<T>& current) noexcept: //
+                task_awaitable_base<T>(current, 0) {} // 0 is not even an environment, default scheduler will be used
+            // clang-format on
 
             template <typename Parent>
             coro::coroutine_handle<> await_suspend(coro::coroutine_handle<Parent> handle)
             {
+                Parent& parent = handle.promise();
                 if constexpr (env_has_stop_token<Parent>)
                 {
-                    Parent& parent = handle.promise();
                     using stop_token_t = env_stop_token_of_t<Parent>;
                     if constexpr (std::is_same_v<stop_token_t, in_place_stop_token>)
                         this->current_->replace_stop_token(exec::get_stop_token(exec::get_env(parent)));
@@ -216,6 +285,8 @@ namespace clu
                             stop_propagation_callback{stop_src_});
                     }
                 }
+                if constexpr (env_has_scheduler<Parent>)
+                    this->current_->replace_scheduler(exec::get_scheduler(exec::get_env(parent)));
                 return task_awaitable_base<T>::await_suspend(handle);
             }
 
@@ -225,7 +296,7 @@ namespace clu
         };
 
         template <typename T>
-        class task_<T>::type : public exec::with_awaitable_senders<promise<T>>
+        class task_<T>::type
         {
         public:
             using promise_type = promise<T>;
@@ -237,15 +308,16 @@ namespace clu
 
             unique_coroutine_handle<promise_type> handle_;
 
+            // clang-format off
             explicit type(promise_type& promise) noexcept:
-                handle_(coro::coroutine_handle<promise_type>::from_promise(promise))
-            {
-            }
+                handle_(coro::coroutine_handle<promise_type>::from_promise(promise)) {}
+            // clang-format on
 
             template <typename P>
             friend auto tag_invoke(exec::as_awaitable_t, type&& self, P& parent_promise)
             {
-                return task_awaitable<T, P>(self.handle_.get().promise(), parent_promise);
+                return task_awaitable<T, P>( //
+                    self.handle_.get().promise(), parent_promise);
             }
         };
 

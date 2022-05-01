@@ -71,6 +71,7 @@ add_headers(HEADERS
     "vector_utils.h"
 
     "async/async_manual_reset_event.h"
+    "async/async_scope.h"
 
     "execution/algorithms.h"
     "execution/any_scheduler.h"
@@ -78,9 +79,10 @@ add_headers(HEADERS
     "execution/context.h"
     "execution/execution_traits.h"
     "execution/run_loop.h"
+    "execution/schedulers.h"
     "execution/utility.h"
 
-    "execution_contexts/static_thread_pool.h"
+    "execution_contexts/threads.h"
 )
 add_sources(SOURCES
     # Source files here (relative to ./src/)
@@ -93,10 +95,12 @@ add_sources(SOURCES
     "uuid.cpp"
 
     "async/async_manual_reset_event.cpp"
+    "async/async_scope.cpp"
 
     "execution/run_loop.cpp"
+    "execution/schedulers.cpp"
     
-    "execution_contexts/static_thread_pool.cpp"
+    "execution_contexts/threads.cpp"
 )
 
 target_sources(clu PRIVATE ${HEADERS} ${SOURCES})

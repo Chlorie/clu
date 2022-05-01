@@ -1,11 +1,39 @@
 #pragma once
 
 #include <memory>
+#include <thread>
 
 #include "../execution/context.h"
+#include "../execution/run_loop.h"
 
 namespace clu
 {
+    class CLU_API single_thread_context
+    {
+    public:
+        single_thread_context(): thr_([this] { loop_.run(); }) {}
+        ~single_thread_context() noexcept { finish(); }
+        single_thread_context(const single_thread_context&) = delete;
+        single_thread_context(single_thread_context&&) = delete;
+        single_thread_context& operator=(const single_thread_context&) = delete;
+        single_thread_context& operator=(single_thread_context&&) = delete;
+
+        auto get_scheduler() noexcept { return loop_.get_scheduler(); }
+
+        void finish()
+        {
+            loop_.finish();
+            if (thr_.joinable())
+                thr_.join();
+        }
+
+        std::thread::id get_id() const noexcept { return thr_.get_id(); }
+
+    private:
+        run_loop loop_;
+        std::thread thr_;
+    };
+
     namespace detail::static_tp
     {
         class CLU_API pool

@@ -17,3 +17,4 @@ Have fun!
     :caption: Contents
 
     components
+    guides

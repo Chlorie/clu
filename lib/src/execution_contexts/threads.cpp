@@ -1,4 +1,4 @@
-#include "clu/execution_contexts/static_thread_pool.h"
+#include "clu/execution_contexts/threads.h"
 
 #include <thread>
 #include <mutex>
@@ -15,6 +15,12 @@ namespace clu::detail::static_tp
         template <typename Fn>
         explicit thread_res(Fn&& func): thread_(static_cast<Fn&&>(func)) {}
         // clang-format on
+
+        ~thread_res() noexcept
+        {
+            CLU_ASSERT(!thread_.joinable(), //
+                "finish() should be called before the destruction of a static thread pool");
+        }
 
         void finish()
         {

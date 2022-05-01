@@ -9,6 +9,7 @@
 #include "../meta_list.h"
 #include "../meta_algorithm.h"
 #include "../unique_coroutine_handle.h"
+#include "../piper.h"
 
 namespace clu::exec
 {
@@ -203,8 +204,8 @@ namespace clu::exec
                     if constexpr (std::is_void_v<await_result_t<S>>)
                         return completion_signatures<set_value_t(), set_error_t(std::exception_ptr), set_stopped_t()>{};
                     else
-                        return completion_signatures<set_value_t(await_result_t<S>), set_error_t(std::exception_ptr),
-                            set_stopped_t()>{};
+                        return completion_signatures< //
+                            set_value_t(await_result_t<S>), set_error_t(std::exception_ptr), set_stopped_t()>{};
                 }
                 else
                     return no_completion_signatures{};
@@ -612,119 +613,191 @@ namespace clu::exec
                 forwarding_sender_query_t, get_completion_scheduler_t) noexcept { return true; }
             // clang-format on
         };
+
+        // Before P2280, we can only use this kind of type tag.
+        // If we can use compile-time unknown reference to sender types
+        // just to get their type, we can get rid of this type_tag_t hack.
+        struct no_await_thunk_t
+        {
+            template <typename S>
+            constexpr bool operator()(type_tag_t<S>) const noexcept
+            {
+                if constexpr (tag_invocable<no_await_thunk_t, type_tag_t<S>>)
+                {
+                    static_assert(nothrow_tag_invocable<no_await_thunk_t, type_tag_t<S>>, //
+                        "no_await_thunk should be noexcept");
+                    static_assert(boolean_testable<tag_invoke_result_t<no_await_thunk_t, type_tag_t<S>>>);
+                    return tag_invoke(*this, type_tag_t<S>{}) ? true : false;
+                }
+                else
+                    return false;
+            }
+        };
     } // namespace detail::snd_qry
 
     using detail::snd_qry::forwarding_sender_query_t;
     using detail::snd_qry::get_completion_scheduler_t;
+    using detail::snd_qry::no_await_thunk_t;
     inline constexpr forwarding_sender_query_t forwarding_sender_query{};
     template <typename Cpo>
     inline constexpr get_completion_scheduler_t<Cpo> get_completion_scheduler{};
+    inline constexpr no_await_thunk_t no_await_thunk{};
+    template <typename S>
+    concept no_await_thunk_sender = sender<S> &&(no_await_thunk(type_tag<std::remove_cvref_t<S>>));
 
     namespace detail
     {
         template <typename Cpo, sender S>
         using completion_scheduler_of_t = call_result_t<get_completion_scheduler_t<Cpo>, S>;
-    }
 
-    namespace detail::sched
-    {
-        struct schedule_t
+        namespace wo_thunk
         {
             template <typename S>
-                requires tag_invocable<schedule_t, S>
-            auto operator()(S&& schd) const
+            struct snd_t_
             {
-                static_assert(
-                    sender<tag_invoke_result_t<schedule_t, S>>, "return type of schedule should satisfy sender");
-                return tag_invoke(*this, static_cast<S&&>(schd));
-            }
-        };
-    } // namespace detail::sched
+                class type;
+            };
 
-    namespace detail::read
-    {
-        template <typename Cpo, typename R>
-        struct ops_t_
-        {
-            struct type;
-        };
+            template <typename S>
+            using snd_t = typename snd_t_<std::remove_cvref_t<S>>::type;
 
-        template <typename Cpo>
-        struct snd_t_
-        {
-            struct type;
-        };
-
-        template <typename Cpo, typename R>
-        struct ops_t_<Cpo, R>::type
-        {
-            R recv;
-
-            friend void tag_invoke(start_t, type& self) noexcept
+            template <typename S>
+            class snd_t_<S>::type
             {
-                if constexpr (nothrow_callable<Cpo, env_of_t<R>>)
+            public:
+                // clang-format off
+                template <forwarding<S> S2>
+                explicit type(S2&& snd): snd_(static_cast<S2&&>(snd)) {}
+                // clang-format on
+
+            private:
+                S snd_;
+
+                template <typename Cpo, forwarding<type> Self, typename... Args>
+                    requires tag_invocable<Cpo, copy_cvref_t<Self, S>, Args...>
+                constexpr friend decltype(auto) tag_invoke(Cpo, Self&& self, Args&&... args) noexcept(
+                    nothrow_tag_invocable<Cpo, copy_cvref_t<Self, S>, Args...>)
                 {
-                    auto value = Cpo{}(get_env(self.recv));
-                    set_value(std::move(self.recv), std::move(value));
+                    return clu::tag_invoke(Cpo{}, static_cast<Self&&>(self).snd_, static_cast<Args&&>(args)...);
                 }
-                else
+
+                constexpr friend bool tag_invoke(no_await_thunk_t, type_tag_t<type>) noexcept { return true; }
+            };
+
+            // Wrap up a sender to use no await thunk
+            struct without_await_thunk_t
+            {
+                template <sender S>
+                auto operator()(S&& snd) const
                 {
-                    try
+                    return snd_t<S>(static_cast<S&&>(snd));
+                }
+                constexpr auto operator()() const noexcept { return make_piper(*this); }
+            };
+        } // namespace wo_thunk
+
+        namespace sched
+        {
+            struct schedule_t
+            {
+                template <typename S>
+                    requires tag_invocable<schedule_t, S>
+                auto operator()(S&& schd) const
+                {
+                    static_assert(
+                        sender<tag_invoke_result_t<schedule_t, S>>, "return type of schedule should satisfy sender");
+                    return wo_thunk::without_await_thunk_t{}(tag_invoke(*this, static_cast<S&&>(schd)));
+                }
+            };
+        } // namespace sched
+
+        namespace read
+        {
+            template <typename Cpo, typename R>
+            struct ops_t_
+            {
+                struct type;
+            };
+
+            template <typename Cpo>
+            struct snd_t_
+            {
+                struct type;
+            };
+
+            template <typename Cpo, typename R>
+            struct ops_t_<Cpo, R>::type
+            {
+                R recv;
+
+                friend void tag_invoke(start_t, type& self) noexcept
+                {
+                    if constexpr (nothrow_callable<Cpo, env_of_t<R>>)
                     {
                         auto value = Cpo{}(get_env(self.recv));
                         set_value(std::move(self.recv), std::move(value));
                     }
-                    catch (...)
+                    else
                     {
-                        set_error(std::move(self.recv, std::current_exception()));
+                        try
+                        {
+                            auto value = Cpo{}(get_env(self.recv));
+                            set_value(std::move(self.recv), std::move(value));
+                        }
+                        catch (...)
+                        {
+                            set_error(std::move(self.recv, std::current_exception()));
+                        }
                     }
                 }
-            }
-        };
+            };
 
-        template <typename Cpo>
-        struct snd_t_<Cpo>::type
-        {
-            template <receiver R>
-            friend auto tag_invoke(connect_t, type, R&& recv)
-            {
-                using ops_t = typename ops_t_<Cpo, std::remove_cvref_t<R>>::type;
-                return ops_t{static_cast<R&&>(recv)};
-            }
-
-            template <typename Env>
-            friend dependent_completion_signatures<Env> tag_invoke(get_completion_signatures_t, type, Env)
-            {
-                return {};
-            }
-
-            // clang-format off
-            template <typename Env> requires
-                (!std::same_as<Env, no_env>) &&
-                callable<Cpo, Env>
-            friend auto tag_invoke(get_completion_signatures_t, type, Env)
-            {
-                using res_t = call_result_t<Cpo, Env>;
-                if constexpr (nothrow_callable<Cpo, Env>)
-                    return completion_signatures<set_value_t(res_t)>{};
-                else
-                    return completion_signatures<set_value_t(res_t), set_error_t(std::exception_ptr)>{};
-            }
-            // clang-format on
-        };
-
-        struct read_t
-        {
             template <typename Cpo>
-            constexpr auto operator()(Cpo) const noexcept
+            struct snd_t_<Cpo>::type
             {
-                using snd_t = typename snd_t_<Cpo>::type;
-                return snd_t{};
-            }
-        };
-    } // namespace detail::read
+                template <receiver R>
+                friend auto tag_invoke(connect_t, type, R&& recv)
+                {
+                    using ops_t = typename ops_t_<Cpo, std::remove_cvref_t<R>>::type;
+                    return ops_t{static_cast<R&&>(recv)};
+                }
 
+                template <typename Env>
+                friend auto tag_invoke(get_completion_signatures_t, type, Env&&)
+                {
+                    return dependent_completion_signatures<std::remove_cvref_t<Env>>{};
+                }
+
+                // clang-format off
+                template <typename Env> requires
+                    (!similar_to<Env, no_env>) &&
+                    callable<Cpo, Env>
+                friend auto tag_invoke(get_completion_signatures_t, type, Env&&)
+                {
+                    using res_t = call_result_t<Cpo, Env&&>;
+                    if constexpr (nothrow_callable<Cpo, Env&&>)
+                        return completion_signatures<set_value_t(res_t)>{};
+                    else
+                        return completion_signatures<set_value_t(res_t), set_error_t(std::exception_ptr)>{};
+                }
+                // clang-format on
+            };
+
+            struct read_t
+            {
+                template <typename Cpo>
+                constexpr auto operator()(Cpo) const noexcept
+                {
+                    using snd_t = typename snd_t_<Cpo>::type;
+                    return snd_t{};
+                }
+            };
+        } // namespace read
+    } // namespace detail
+
+    using detail::wo_thunk::without_await_thunk_t;
     using detail::read::read_t;
+    inline constexpr without_await_thunk_t without_await_thunk{};
     inline constexpr schedule_t schedule{};
     inline constexpr read_t read{};
 

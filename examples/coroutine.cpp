@@ -1,11 +1,13 @@
 #include <iostream>
 #include <chrono>
 #include <mutex>
+#include <format>
 
 #include <clu/execution_contexts.h>
 #include <clu/async.h>
 #include <clu/chrono_utils.h>
 #include <clu/task.h>
+#include <clu/indices.h>
 
 using namespace std::literals;
 using namespace clu::literals;
@@ -150,33 +152,40 @@ namespace clutest
     }
 } // namespace clutest
 
-clu::task<void> tick()
+std::string this_thread_id()
 {
-    for (auto i = 0_uz;; i++)
-    {
-        co_await ex::just();
-        co_await clutest::wait_on_detached_thread(1s);
-        std::cout << "Hi! " << i + 1 << " seconds passed...\n";
-    }
+    std::stringstream ss;
+    ss << std::this_thread::get_id();
+    return std::move(ss).str();
 }
 
-clu::task<void> canceller()
+clu::task<void> hello()
 {
-    co_await clutest::wait_on_detached_thread(3141ms);
-    std::cout << "Waited 3.141s!\n";
-    co_await ex::stop();
+    std::cout << std::format("Hello! I'm running on thread {}!\n", this_thread_id());
+    co_return;
+}
+
+clu::task<void> task(clu::single_thread_context& thread)
+{
+    std::cout << std::format("Here we should still be on the main thread ({})\n", this_thread_id());
+    std::cout << "Just calling hello() should not change the context.\n";
+    co_await hello();
+    std::cout << "Now we call hello() on the single thread context!\n";
+    co_await ex::on(thread.get_scheduler(), hello());
+    std::cout << "We should be automatically transitioned back to the original thread after hello() returns.\n";
+    std::cout << std::format("Currently we are on thread {}\n", this_thread_id());
+    std::cout << "We are about to explicitly transition to the single thread context.\n";
+    co_await ex::schedule(thread.get_scheduler());
+    std::cout << std::format("Now we're on thread {}\n", this_thread_id());
+    std::cout << "Also if we call hello() now it will be run on our current thread.\n";
+    co_await hello();
+    std::cout << "That's it!\n";
 }
 
 int main() // NOLINT
 {
-    clu::static_thread_pool tp(4);
-    for (std::size_t i = 0; i < 10; i++)
-    {
-        clu::this_thread::sync_wait( //
-            ex::schedule(tp.get_scheduler()) //
-            | ex::then(print_thread_id));
-    }
-    tp.finish();
-
-    return 0;
+    clu::single_thread_context thread;
+    std::cout << std::format("Main thread = {}\n", this_thread_id());
+    clu::this_thread::sync_wait(task(thread));
+    thread.finish();
 }
