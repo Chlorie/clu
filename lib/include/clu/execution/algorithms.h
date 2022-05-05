@@ -10,6 +10,8 @@
 
 namespace clu::exec
 {
+    // Not to spec: ensure_started not implemented, in favor of async_scope
+
     namespace detail
     {
         template <typename... Sigs>

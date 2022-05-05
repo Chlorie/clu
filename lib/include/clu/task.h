@@ -332,8 +332,39 @@ namespace clu
             using result_t = typename task_<T>::type;
             return result_t(static_cast<promise<T>&>(*this));
         }
+
+        template <typename S>
+        using task_return_type_of = exec::value_types_of_t<S, promise_env, //
+            exec::detail::collapse_types_t, exec::detail::collapse_types_t>;
+
+        template <typename S>
+        concept task_convertible_sender = exec::sender<S> && requires
+        {
+            typename task_return_type_of<S>;
+        };
     } // namespace detail::task
 
     template <typename T>
     using task = typename detail::task::task_<T>::type;
+
+    struct as_task_t
+    {
+        template <exec::sender S>
+        auto operator()(S&& sender) const
+        {
+            static_assert(detail::task::task_convertible_sender<S>,
+                "Senders that send multiple sets of values, or those that send "
+                "multiple values in some single set are not convertible into tasks. "
+                "For those that send multiple value sets, consider using "
+                "clu::exec::into_variant(sender) to convert the multiple sets "
+                "into a single value; for those that send multiple values, "
+                "consider using clu::exec::into_tuple(sender) to collapse "
+                "the values into a tuple.");
+            using return_type = detail::task::task_return_type_of<S>;
+            return [](S&& snd) -> task<return_type>
+            { co_return co_await static_cast<S&&>(snd); }(static_cast<S&&>(sender));
+        }
+
+        constexpr auto operator()() const noexcept { return make_piper(*this); }
+    } inline constexpr as_task{};
 } // namespace clu

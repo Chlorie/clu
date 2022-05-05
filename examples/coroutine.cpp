@@ -36,33 +36,6 @@ void print_thread_id()
 
 namespace ex = clu::exec;
 
-namespace wtf
-{
-    namespace get_pms
-    {
-        struct awaitable
-        {
-            template <typename P>
-            friend auto tag_invoke(ex::as_awaitable_t, awaitable, P& promise)
-            {
-                struct awaiter
-                {
-                    P& pms;
-                    bool await_ready() const noexcept { return true; }
-                    void await_suspend(clu::coro::coroutine_handle<>) const noexcept { clu::unreachable(); }
-                    P& await_resume() const noexcept { return pms; }
-                };
-                return awaiter{promise};
-            }
-        };
-    } // namespace get_pms
-
-    inline struct get_promise_t
-    {
-        constexpr auto operator()() const noexcept { return get_pms::awaitable{}; }
-    } constexpr get_promise{};
-} // namespace wtf
-
 namespace clutest
 {
     using clock = std::chrono::system_clock;
@@ -159,21 +132,23 @@ std::string this_thread_id()
     return std::move(ss).str();
 }
 
-clu::task<void> task(clu::single_thread_context& thread)
+clu::task<int> thing()
 {
-    const auto main_thread = co_await ex::get_scheduler();
-    print_thread_id(); // Main thread
-    co_await ex::on(thread.get_scheduler(), ex::just());
-    co_await ex::schedule(thread.get_scheduler());
-    print_thread_id(); // Single thread context
-    co_await ex::schedule(main_thread);
-    print_thread_id(); // Main thread
+    co_await clutest::wait_on_detached_thread(500ms);
+    co_return 42;
+}
+
+clu::task<void> task()
+{
+    clu::async_scope scope;
+    auto future = scope.spawn_future(thing()) | clu::as_task();
+    std::cout << "They're taking their sweet time calculating...\n";
+    const auto res = co_await std::move(future);
+    std::cout << std::format("And the result is {}\n", res);
+    co_await scope.deplete_async();
 }
 
 int main() // NOLINT
 {
-    clu::single_thread_context thread;
-    std::cout << std::format("Main thread = {}\n", this_thread_id());
-    clu::this_thread::sync_wait(task(thread));
-    thread.finish();
+    clu::this_thread::sync_wait(task());
 }

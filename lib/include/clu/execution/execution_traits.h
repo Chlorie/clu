@@ -914,6 +914,7 @@ namespace clu::exec
             {
             }
 
+            // TODO: if the sender completes inline, return true from await_ready()
             bool await_ready() const noexcept { return false; }
             void await_suspend(coro::coroutine_handle<P>) noexcept { exec::start(state_); }
             auto await_resume()
