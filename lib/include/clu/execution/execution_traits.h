@@ -555,19 +555,20 @@ namespace clu::exec
     extern const schedule_t schedule;
 
     // clang-format off
-    template <typename S, typename R> concept sender_to = detail::conn::receiver_for<R, S> && callable<connect_t, S, R>;
+    template <typename S, typename R>
+    concept sender_to = detail::conn::receiver_for<R, S> && callable<connect_t, S, R>;
 
     template <typename S>
     concept scheduler =
-        std::copy_constructible<std::remove_cvref_t<S>> &&
-        std::equality_comparable<std::remove_cvref_t<S>> &&
         requires(S&& schd, const get_completion_scheduler_t<set_value_t>& cpo)
         {
             { exec::schedule(static_cast<S&&>(schd)) };
             {
                 tag_invoke(cpo, exec::schedule(static_cast<S&&>(schd)))
             } -> std::same_as<std::remove_cvref_t<S>>;
-        };
+        } &&
+        std::copy_constructible<std::remove_cvref_t<S>> &&
+        std::equality_comparable<std::remove_cvref_t<S>>;
     // clang-format on
 
     namespace detail::snd_qry
@@ -814,7 +815,7 @@ namespace clu::exec
             else if constexpr (decays_to<E, std::error_code>)
                 return std::make_exception_ptr(std::system_error(error));
             else
-                return std::make_exception_ptr(error);
+                return std::make_exception_ptr(static_cast<E&&>(error));
         }
     } // namespace detail
 

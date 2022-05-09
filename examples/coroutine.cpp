@@ -138,14 +138,41 @@ clu::task<int> thing()
     co_return 42;
 }
 
+auto cleanup()
+{
+    return ex::just_from([] { std::cout << "Clean up\n"; });
+}
+
+struct get_promise_t
+{
+    template <typename P>
+    friend auto tag_invoke(ex::as_awaitable_t, get_promise_t, P& promise) noexcept
+    {
+        struct awaiter
+        {
+            P* pms;
+            bool await_ready() const noexcept { return true; }
+            void await_suspend(clu::coro::coroutine_handle<>) const noexcept {}
+            P* await_resume() const noexcept { return pms; }
+        };
+        return awaiter{&promise};
+    }
+} get_promise{};
+
 clu::task<void> task()
 {
-    clu::async_scope scope;
-    auto future = scope.spawn_future(thing()) | clu::as_task();
-    std::cout << "They're taking their sweet time calculating...\n";
-    const auto res = co_await std::move(future);
-    std::cout << std::format("And the result is {}\n", res);
-    co_await scope.deplete_async();
+    try
+    {
+        co_await ( //
+            ex::just_error(std::exception("Weird error")) //
+            | ex::finally(cleanup()) //
+        );
+    }
+    catch (const std::exception& ex)
+    {
+        std::cout << std::format("Exception: {}\n", ex.what());
+    }
+    // co_await ex::with_query_value(ex::just(), ex::get_stop_token, clu::never_stop_token{});
 }
 
 int main() // NOLINT

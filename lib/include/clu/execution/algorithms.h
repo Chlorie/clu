@@ -38,7 +38,7 @@ namespace clu::exec
         // clang-format on
 
         template <typename Cpo, typename SetCpo, typename S, typename... Args>
-        auto invoke_customized_sender_algorithm(Cpo, S&& snd, Args&&... args)
+        auto invoke_customized_sender_algorithm(S&& snd, Args&&... args)
         {
             if constexpr (requires { requires tag_invocable<Cpo, completion_scheduler_of_t<SetCpo, S>, S, Args...>; })
             {
@@ -124,14 +124,14 @@ namespace clu::exec
             };
 
             template <typename Cpo, typename... Ts>
-            using snd_t = typename snd_t_<Cpo, Ts...>::type;
+            using snd_t = typename snd_t_<Cpo, std::decay_t<Ts>...>::type;
 
             struct just_t
             {
                 template <typename... Ts>
                 auto operator()(Ts&&... values) const
                 {
-                    return snd_t<set_value_t, std::decay_t<Ts>...>(static_cast<Ts&&>(values)...);
+                    return snd_t<set_value_t, Ts...>(static_cast<Ts&&>(values)...);
                 }
             };
 
@@ -140,7 +140,7 @@ namespace clu::exec
                 template <typename E>
                 auto operator()(E&& error) const
                 {
-                    return snd_t<set_error_t, std::decay_t<E>>(static_cast<E&&>(error));
+                    return snd_t<set_error_t, E>(static_cast<E&&>(error));
                 }
             };
 
@@ -407,6 +407,193 @@ namespace clu::exec
             // clang-format on
         } // namespace upon
 
+        namespace mat
+        {
+            template <typename R>
+            struct recv_t_
+            {
+                class type;
+            };
+
+            template <typename R>
+            using recv_t = typename recv_t_<std::decay_t<R>>::type;
+
+            template <typename R>
+            class recv_t_<R>::type : public receiver_adaptor<type, R>
+            {
+            public:
+                using receiver_adaptor<type, R>::receiver_adaptor;
+
+                template <typename... Ts>
+                void set_value(Ts&&... args) && noexcept
+                {
+                    if constexpr ((std::is_nothrow_constructible_v<std::decay_t<Ts>, Ts> && ...))
+                        exec::set_value(std::move(*this).base(), exec::set_value, static_cast<Ts&&>(args)...);
+                    else
+                        try
+                        {
+                            exec::set_value(std::move(*this).base(), exec::set_value, static_cast<Ts&&>(args)...);
+                        }
+                        catch (...)
+                        {
+                            exec::set_error(std::move(*this).base(), std::current_exception());
+                        }
+                }
+
+                template <typename E>
+                void set_error(E&& error) && noexcept
+                {
+                    exec::set_value(std::move(*this).base(), exec::set_error, static_cast<E&&>(error));
+                }
+
+                void set_stopped() && noexcept { exec::set_value(std::move(*this).base(), exec::set_stopped); }
+            };
+
+            template <typename S>
+            struct snd_t_
+            {
+                class type;
+            };
+
+            template <typename S>
+            using snd_t = typename snd_t_<std::decay_t<S>>::type;
+
+            template <typename... Ts>
+            using value_sig = filtered_sigs<set_value_t(set_value_t, Ts...),
+                conditional_t<(std::is_nothrow_constructible_v<std::decay_t<Ts>, Ts> && ...), //
+                    void, set_error_t(std::exception_ptr)>>;
+
+            template <typename E>
+            using error_sig = completion_signatures<set_value_t(set_error_t, E)>;
+
+            template <typename S>
+            class snd_t_<S>::type
+            {
+            public:
+                // clang-format off
+                template <forwarding<S> S2>
+                explicit type(S2&& snd) noexcept(std::is_nothrow_constructible_v<S, S2>):
+                    snd_(static_cast<S2&&>(snd)) {}
+                // clang-format on
+
+            private:
+                CLU_NO_UNIQUE_ADDRESS S snd_;
+
+                template <typename R>
+                friend auto tag_invoke(connect_t, type&& self, R&& recv)
+                    CLU_SINGLE_RETURN(connect(static_cast<S&&>(self.snd_), recv_t<R>(static_cast<R&&>(recv))));
+
+                // clang-format off
+                template <typename Env>
+                friend make_completion_signatures<S, Env, completion_signatures<>, //
+                    value_sig, error_sig, completion_signatures<set_value_t(set_stopped_t)>>
+                tag_invoke(get_completion_signatures_t, const type&, Env&&) noexcept { return {}; }
+                // clang-format on
+            };
+
+            struct materialize_t
+            {
+                template <sender S>
+                auto operator()(S&& snd) const noexcept( //
+                    std::is_nothrow_constructible_v<std::decay_t<S>, S>)
+                {
+                    return snd_t<S>(static_cast<S&&>(snd));
+                }
+                constexpr auto operator()() const noexcept { return make_piper(*this); }
+            };
+        }
+
+        namespace demat
+        {
+            template <typename R>
+            struct recv_t_
+            {
+                class type;
+            };
+
+            template <typename R>
+            using recv_t = typename recv_t_<std::decay_t<R>>::type;
+
+            template <typename R>
+            class recv_t_<R>::type : public receiver_adaptor<type, R>
+            {
+            public:
+                using receiver_adaptor<type, R>::receiver_adaptor;
+
+                template <recvs::completion_cpo Cpo, typename... Ts>
+                void set_value(Cpo, Ts&&... args) && noexcept
+                {
+                    if constexpr ((std::is_nothrow_constructible_v<std::decay_t<Ts>, Ts> && ...))
+                        Cpo{}(std::move(*this).base(), static_cast<Ts&&>(args)...);
+                    else
+                        try
+                        {
+                            Cpo{}(std::move(*this).base(), static_cast<Ts&&>(args)...);
+                        }
+                        catch (...)
+                        {
+                            exec::set_error(std::move(*this).base(), std::current_exception());
+                        }
+                }
+            };
+
+            template <typename S>
+            struct snd_t_
+            {
+                class type;
+            };
+
+            template <typename S>
+            using snd_t = typename snd_t_<std::decay_t<S>>::type;
+
+            template <typename Cpo, typename... Ts>
+            constexpr auto value_sig_impl() noexcept
+            {
+                if constexpr ((std::is_nothrow_constructible_v<std::decay_t<Ts>, Ts> && ...))
+                    return completion_signatures<Cpo(Ts...)>{};
+                else
+                    return completion_signatures<Cpo(Ts...), set_error_t(std::exception_ptr)>{};
+            }
+
+            template <typename... Ts>
+            using value_sig = decltype(value_sig_impl<Ts...>());
+
+            template <typename S>
+            class snd_t_<S>::type
+            {
+            public:
+                // clang-format off
+                template <forwarding<S> S2>
+                explicit type(S2&& snd) noexcept(std::is_nothrow_constructible_v<S, S2>):
+                    snd_(static_cast<S2&&>(snd)) {}
+                // clang-format on
+
+            private:
+                CLU_NO_UNIQUE_ADDRESS S snd_;
+
+                template <typename R>
+                friend auto tag_invoke(connect_t, type&& self, R&& recv)
+                    CLU_SINGLE_RETURN(connect(static_cast<S&&>(self.snd_), recv_t<R>(static_cast<R&&>(recv))));
+
+                // clang-format off
+                template <typename Env>
+                friend make_completion_signatures<S, Env, completion_signatures<>, value_sig>
+                tag_invoke(get_completion_signatures_t, const type&, Env&&) noexcept { return {}; }
+                // clang-format on
+            };
+
+            struct dematerialize_t
+            {
+                template <sender S>
+                auto operator()(S&& snd) const noexcept( //
+                    std::is_nothrow_constructible_v<std::decay_t<S>, S>)
+                {
+                    return snd_t<S>(static_cast<S&&>(snd));
+                }
+                constexpr auto operator()() const noexcept { return make_piper(*this); }
+            };
+        }
+
         namespace let
         {
             template <typename T>
@@ -535,16 +722,16 @@ namespace clu::exec
                     conn::nothrow_connectable<S, recv_t<S, R, Cpo, F>> &&
                     std::is_nothrow_constructible_v<R, R2> &&
                     std::is_nothrow_constructible_v<F, F2>):
-                    initial_ops_(exec::connect(static_cast<S&&>(snd), recv_t<S, R, Cpo, F>(this))),
-                    recv_(static_cast<R2&&>(recv)), func_(static_cast<F2&&>(func)) {}
+                    recv_(static_cast<R2&&>(recv)), func_(static_cast<F2&&>(func)),
+                    initial_ops_(exec::connect(static_cast<S&&>(snd), recv_t<S, R, Cpo, F>(this))) {}
                 // clang-format on
 
             private:
                 friend recv_t<S, R, Cpo, F>;
 
-                connect_result_t<S, recv_t<S, R, Cpo, F>> initial_ops_;
                 R recv_;
                 CLU_NO_UNIQUE_ADDRESS F func_;
+                connect_result_t<S, recv_t<S, R, Cpo, F>> initial_ops_;
                 storage<S, R, Cpo, F> storage_;
 
                 friend void tag_invoke(start_t, type& self) noexcept { exec::start(self.initial_ops_); }
@@ -652,6 +839,88 @@ namespace clu::exec
             struct let_stopped_t : let_t<let_stopped_t, set_stopped_t> {};
             // clang-format on
         } // namespace let
+
+        namespace qry_val
+        {
+            template <typename R, typename Q, typename T>
+            struct recv_t_
+            {
+                class type;
+            };
+
+            template <typename R, typename Q, typename T>
+            using recv_t = typename recv_t_<std::decay_t<R>, Q, T>::type;
+
+            template <typename R, typename Q, typename T>
+            class recv_t_<R, Q, T>::type : public receiver_adaptor<type, R>
+            {
+            public:
+                // clang-format off
+                template <typename R2, typename T2>
+                type(R2&& recv, T2&& value):
+                    receiver_adaptor<type, R>(static_cast<R2&&>(recv)),
+                    env_(exec::get_env(receiver_adaptor<type, R>::base()), static_cast<T2&&>(value)) {}
+                // clang-format on
+
+                const auto& get_env() const noexcept { return env_; }
+
+            private:
+                adapted_env_t<env_of_t<R>, Q, T> env_;
+            };
+
+            template <typename S, typename Q, typename T>
+            struct snd_t_
+            {
+                class type;
+            };
+
+            template <typename S, typename Q, typename T>
+            using snd_t = typename snd_t_<std::decay_t<S>, Q, std::decay_t<T>>::type;
+
+            template <typename S, typename Q, typename T>
+            class snd_t_<S, Q, T>::type
+            {
+            public:
+                // clang-format off
+                template <typename S2, typename T2>
+                type(S2&& snd, T2&& value):
+                    snd_(static_cast<S2&&>(snd)), value_(static_cast<T2&&>(value)) {}
+                // clang-format on
+
+            private:
+                S snd_;
+                T value_;
+
+                template <typename R>
+                friend auto tag_invoke(connect_t, type&& self, R&& recv)
+                {
+                    return connect(static_cast<S&&>(self.snd_), //
+                        recv_t<R, Q, T>(static_cast<R&&>(recv), static_cast<T&&>(self.value_)));
+                }
+
+                // clang-format off
+                template <typename Env>
+                constexpr friend completion_signatures_of_t<S, adapted_env_t<Env, Q, T>>
+                tag_invoke(get_completion_signatures_t, const type&, Env&&) noexcept { return {}; }
+                // clang-format on
+            };
+
+            struct with_query_value_t
+            {
+                template <sender S, typename Q, typename T>
+                auto operator()(S&& snd, Q, T&& value) const
+                {
+                    return snd_t<S, Q, T>(static_cast<S&&>(snd), static_cast<T&&>(value));
+                }
+
+                template <typename Q, typename T>
+                auto operator()(Q, T&& value) const
+                {
+                    return clu::make_piper(clu::bind_back(*this, //
+                        Q{}, static_cast<T&&>(value)));
+                }
+            };
+        }
 
         namespace on
         {
@@ -974,9 +1243,9 @@ namespace clu::exec
                 // clang-format off
                 template <typename R2>
                 type(S&& snd, R2&& recv, Schd schd):
-                    initial_ops_(exec::connect(static_cast<S&&>(snd), recv_t<S, R, Schd>(this))),
                     recv_(static_cast<R2&&>(recv), this),
-                    schd_(static_cast<Schd&&>(schd)) {}
+                    schd_(static_cast<Schd&&>(schd)),
+                    initial_ops_(exec::connect(static_cast<S&&>(snd), recv_t<S, R, Schd>(this))) {}
                 // clang-format on
 
             private:
@@ -985,9 +1254,9 @@ namespace clu::exec
 
                 using final_ops_t = connect_result_t<schedule_result_t<Schd>, recv2_t<S, R, Schd>>;
 
-                connect_result_t<S, recv_t<S, R, Schd>> initial_ops_;
                 recv2_t<S, R, Schd> recv_;
                 CLU_NO_UNIQUE_ADDRESS Schd schd_;
+                connect_result_t<S, recv_t<S, R, Schd>> initial_ops_;
                 storage_variant_t<S, R> args_;
                 ops_optional<final_ops_t> final_ops_;
 
@@ -1998,9 +2267,12 @@ namespace clu::exec
     using detail::upon::then_t;
     using detail::upon::upon_error_t;
     using detail::upon::upon_stopped_t;
+    using detail::mat::materialize_t;
+    using detail::demat::dematerialize_t;
     using detail::let::let_value_t;
     using detail::let::let_error_t;
     using detail::let::let_stopped_t;
+    using detail::qry_val::with_query_value_t;
     using detail::schd_from::schedule_from_t;
     using detail::on::on_t;
     using detail::xfer::transfer_t;
@@ -2019,9 +2291,12 @@ namespace clu::exec
     inline constexpr then_t then{};
     inline constexpr upon_error_t upon_error{};
     inline constexpr upon_stopped_t upon_stopped{};
+    inline constexpr materialize_t materialize{};
+    inline constexpr dematerialize_t dematerialize{};
     inline constexpr let_value_t let_value{};
     inline constexpr let_error_t let_error{};
     inline constexpr let_stopped_t let_stopped{};
+    inline constexpr with_query_value_t with_query_value{};
     inline constexpr on_t on{};
     inline constexpr schedule_from_t schedule_from{};
     inline constexpr transfer_t transfer{};
@@ -2046,11 +2321,8 @@ namespace clu::exec
         template <std::invocable F>
             requires sender<std::invoke_result_t<F>>
         constexpr auto operator()(F&& func) const
-        {
-            // clang-format off
-            return just()
-                | let_value(static_cast<F&&>(func));
-            // clang-format on
+        { //
+            return just() | let_value(static_cast<F&&>(func));
         }
     } constexpr defer{};
 
@@ -2096,41 +2368,31 @@ namespace clu::exec
         }
     } constexpr stopped_as_error{};
 
-    inline struct materialize_t
+    inline struct finally_t
     {
-        template <sender S>
-        auto operator()(S&& snd) const
+        template <sender S, sender C>
+        auto operator()(S&& snd, C&& cleanup) const
         {
             return static_cast<S&&>(snd) //
-                | let_value([]<typename... Ts>(Ts&&... vs) { return just(set_value, static_cast<Ts&&>(vs)...); }) //
-                | let_error([]<typename E>(E&& err) { return just(set_error, static_cast<E&&>(err)); }) //
-                | let_stopped([] { return just(set_stopped); });
+                | materialize() //
+                | let_value(
+                      [c = static_cast<C&&>(cleanup)]<typename Cpo, typename... Ts>(Cpo, Ts&&... args) mutable
+                      {
+                          return with_query_value(std::move(c), get_stop_token, never_stop_token{}) //
+                              | upon_error([](auto&&) { std::terminate(); }) //
+                              | upon_stopped([] { std::terminate(); }) //
+                              | let_value( //
+                                    [... as = static_cast<Ts&&>(args)]() mutable
+                                    { return detail::just::snd_t<Cpo, Ts...>(std::move(as)...); });
+                      });
         }
 
-        constexpr auto operator()() const noexcept { return make_piper(*this); }
-    } constexpr materialize{};
-
-    inline struct dematerialize_t
-    {
-        template <sender S>
-        auto operator()(S&& snd) const
+        template <sender C>
+        auto operator()(C&& cleanup) const
         {
-            return let_value(static_cast<S&&>(snd), //
-                []<typename Cpo, typename... Ts>(Cpo, Ts&&... vs)
-                {
-                    if constexpr (std::is_same_v<Cpo, set_value_t>)
-                        return just(static_cast<Ts&&>(vs)...);
-                    else if constexpr (std::is_same_v<Cpo, set_error_t>)
-                        return just_error(static_cast<Ts&&>(vs)...);
-                    else if constexpr (std::is_same_v<Cpo, set_stopped_t>)
-                        return just_stopped();
-                    else
-                        static_assert(dependent_false<S>);
-                });
+            return clu::make_piper(clu::bind_back(*this, static_cast<C&&>(cleanup)));
         }
-
-        constexpr auto operator()() const noexcept { return make_piper(*this); }
-    } constexpr dematerialize{};
+    } constexpr finally{};
 
     inline struct into_tuple_t
     {

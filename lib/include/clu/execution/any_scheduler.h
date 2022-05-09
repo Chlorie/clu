@@ -200,6 +200,13 @@ namespace clu::exec
     class any_scheduler
     {
     public:
+        constexpr any_scheduler() noexcept = default;
+        ~any_scheduler() noexcept = default;
+        any_scheduler(const any_scheduler& other) noexcept = default;
+        any_scheduler(any_scheduler&& other) noexcept = default;
+        any_scheduler& operator=(const any_scheduler& other) noexcept = default;
+        any_scheduler& operator=(any_scheduler&& other) noexcept = default;
+
         // clang-format off
         template <typename Schd> requires
             (!similar_to<Schd, any_scheduler>) &&
@@ -207,13 +214,6 @@ namespace clu::exec
         explicit(false) any_scheduler(Schd&& schd):
             ptr_(detail::any_schd::make_schd_ptr(static_cast<Schd&&>(schd))) {}
         // clang-format on
-
-        constexpr any_scheduler() noexcept = default;
-        ~any_scheduler() noexcept = default;
-        any_scheduler(const any_scheduler& other) noexcept = default;
-        any_scheduler(any_scheduler&& other) noexcept = default;
-        any_scheduler& operator=(const any_scheduler& other) noexcept = default;
-        any_scheduler& operator=(any_scheduler&& other) noexcept = default;
 
         void swap(any_scheduler& other) noexcept { ptr_.swap(other.ptr_); }
         friend void swap(any_scheduler& lhs, any_scheduler& rhs) noexcept { lhs.ptr_.swap(rhs.ptr_); }
@@ -266,6 +266,11 @@ namespace clu::exec
             }
         };
 
-        friend auto tag_invoke(schedule_t, const any_scheduler& self) noexcept { return snd_t(self.ptr_); }
+        // clang-format off
+        // Make this into a template to avoid infinite recursion of concept evaluation when
+        // ADL of any_scheduler is triggered.
+        friend auto tag_invoke(schedule_t, //
+            const std::same_as<any_scheduler> auto& self) noexcept { return snd_t(self.ptr_); }
+        // clang-format on
     };
 } // namespace clu::exec
