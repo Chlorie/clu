@@ -2368,6 +2368,20 @@ namespace clu::exec
         }
     } constexpr stopped_as_error{};
 
+    inline struct with_stop_token_t
+    {
+        template <sender S>
+        auto operator()(S&& snd, const stoppable_token auto token) const
+        {
+            return with_query_value(static_cast<S&&>(snd), get_stop_token, token);
+        }
+
+        auto operator()(const stoppable_token auto token) const
+        {
+            return clu::make_piper(clu::bind_back(*this, token));
+        }
+    } constexpr with_stop_token{};
+
     inline struct finally_t
     {
         template <sender S, sender C>
@@ -2376,14 +2390,19 @@ namespace clu::exec
             return static_cast<S&&>(snd) //
                 | materialize() //
                 | let_value(
-                      [c = static_cast<C&&>(cleanup)]<typename Cpo, typename... Ts>(Cpo, Ts&&... args) mutable
+                      [c = static_cast<C&&>(cleanup)]<typename Cpo, typename... Ts>(Cpo, Ts&&... values) mutable
                       {
-                          return with_query_value(std::move(c), get_stop_token, never_stop_token{}) //
-                              | upon_error([](auto&&) { std::terminate(); }) //
-                              | upon_stopped([] { std::terminate(); }) //
-                              | let_value( //
-                                    [... as = static_cast<Ts&&>(args)]() mutable
-                                    { return detail::just::snd_t<Cpo, Ts...>(std::move(as)...); });
+                          return with_stop_token(std::move(c), never_stop_token{}) //
+                              | materialize() //
+                              | let_value(
+                                    [... vs = static_cast<Ts&&>(values)]<typename Cpo2, typename... Us>(
+                                        Cpo2, Us&&... err) mutable
+                                    {
+                                        if constexpr (std::is_same_v<Cpo2, set_value_t>) // Clean up succeeded
+                                            return detail::just::snd_t<Cpo, Ts...>(std::move(vs)...);
+                                        else // Clean up finished with error/stopped
+                                            return detail::just::snd_t<Cpo2, Us...>(static_cast<Us&&>(err)...);
+                                    });
                       });
         }
 

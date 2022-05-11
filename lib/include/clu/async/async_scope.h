@@ -316,7 +316,6 @@ namespace clu
 
             void start_eagerly() noexcept { exec::start(*ops_->ops); }
         };
-
     } // namespace detail::async_scp
 
     class CLU_API async_scope

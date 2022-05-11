@@ -163,16 +163,12 @@ clu::task<void> task()
 {
     try
     {
-        co_await ( //
-            ex::just_error(std::exception("Weird error")) //
-            | ex::finally(cleanup()) //
-        );
+        co_await (ex::just_error(std::exception("Weird error")) | ex::finally(cleanup()));
     }
     catch (const std::exception& ex)
     {
         std::cout << std::format("Exception: {}\n", ex.what());
     }
-    // co_await ex::with_query_value(ex::just(), ex::get_stop_token, clu::never_stop_token{});
 }
 
 int main() // NOLINT
