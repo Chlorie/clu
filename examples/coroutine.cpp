@@ -132,44 +132,22 @@ std::string this_thread_id()
     return std::move(ss).str();
 }
 
-clu::task<int> thing()
+clu::task<void> counter()
 {
-    co_await clutest::wait_on_detached_thread(500ms);
-    co_return 42;
-}
-
-auto cleanup()
-{
-    return ex::just_from([] { std::cout << "Clean up\n"; });
-}
-
-struct get_promise_t
-{
-    template <typename P>
-    friend auto tag_invoke(ex::as_awaitable_t, get_promise_t, P& promise) noexcept
+    for (int i = 0;; i++)
     {
-        struct awaiter
-        {
-            P* pms;
-            bool await_ready() const noexcept { return true; }
-            void await_suspend(clu::coro::coroutine_handle<>) const noexcept {}
-            P* await_resume() const noexcept { return pms; }
-        };
-        return awaiter{&promise};
-    }
-} get_promise{};
-
-clu::task<void> task()
-{
-    try
-    {
-        co_await (ex::just_error(std::exception("Weird error")) | ex::finally(cleanup()));
-    }
-    catch (const std::exception& ex)
-    {
-        std::cout << std::format("Exception: {}\n", ex.what());
+        std::cout << std::format("Counting: {}\n", i);
+        co_await clutest::wait_on_detached_thread(1s);
     }
 }
+
+clu::task<void> wait(const std::size_t ms)
+{
+    co_await clutest::wait_on_detached_thread(chr::milliseconds(ms));
+    std::cout << std::format("Waited {}ms\n", ms);
+}
+
+clu::task<void> task() { co_await (counter() | ex::stop_when(wait(3142))); }
 
 int main() // NOLINT
 {

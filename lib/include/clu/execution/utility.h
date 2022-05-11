@@ -275,10 +275,11 @@ namespace clu::exec
         coro::coroutine_handle<> (*stopped_handler_)(void*) noexcept = default_stopped_handler;
     };
 
-    // Re-implement some of the algebraic types so that they support immovable types properly
-    // Most of the functionalities are just missing for convenience's sake
     namespace detail
     {
+        // Re-implement some of the algebraic types so that they support immovable types properly
+        // Most of the functionalities are just missing for convenience's sake
+
         template <typename T>
         class ops_optional
         {
@@ -457,5 +458,49 @@ namespace clu::exec
                 value.~T();
             }
         };
+
+        // Algorithm fundamentals
+
+        template <typename... Sigs>
+        using filtered_sigs =
+            meta::unpack_invoke<meta::remove_q<void>::fn<Sigs...>, meta::quote<completion_signatures>>;
+
+        template <typename Sigs, typename New>
+        using add_sig = meta::unpack_invoke<meta::push_back_unique_l<Sigs, New>, meta::quote<filtered_sigs>>;
+
+        template <typename Sigs, bool Nothrow = false>
+        using maybe_add_throw = conditional_t<Nothrow, Sigs, add_sig<Sigs, set_error_t(std::exception_ptr)>>;
+
+        template <typename... Ts>
+        using nullable_variant = meta::unpack_invoke<meta::unique<std::monostate, Ts...>, meta::quote<std::variant>>;
+
+        template <typename... Ts>
+        using nullable_ops_variant = meta::unpack_invoke<meta::unique<std::monostate, Ts...>, meta::quote<ops_variant>>;
+
+        // clang-format off
+        template <typename Cpo, typename SetCpo, typename S, typename... Args>
+        concept customized_sender_algorithm =
+            tag_invocable<Cpo, completion_scheduler_of_t<SetCpo, S>, S, Args...> ||
+            tag_invocable<Cpo, S, Args...>;
+        // clang-format on
+
+        template <typename Cpo, typename SetCpo, typename S, typename... Args>
+        auto invoke_customized_sender_algorithm(S&& snd, Args&&... args)
+        {
+            if constexpr (requires { requires tag_invocable<Cpo, completion_scheduler_of_t<SetCpo, S>, S, Args...>; })
+            {
+                using schd_t = completion_scheduler_of_t<SetCpo, S>;
+                static_assert(sender<tag_invoke_result_t<Cpo, schd_t, S, Args...>>,
+                    "customizations for sender algorithms should return senders");
+                return tag_invoke(Cpo{}, exec::get_completion_scheduler<SetCpo>(snd), static_cast<S&&>(snd),
+                    static_cast<Args&&>(args)...);
+            }
+            else // if constexpr (tag_invocable<Cpo, S, Args...>)
+            {
+                static_assert(sender<tag_invoke_result_t<Cpo, S, Args...>>,
+                    "customizations for sender algorithms should return senders");
+                return tag_invoke(Cpo{}, static_cast<S&&>(snd), static_cast<Args&&>(args)...);
+            }
+        }
     } // namespace detail
 } // namespace clu::exec
