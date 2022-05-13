@@ -2,7 +2,7 @@
 
 cmake_minimum_required(VERSION 3.20)
 
-project(clu LANGUAGES CXX VERSION 0.33.0)
+project(clu LANGUAGES CXX VERSION 0.34.0)
 
 set(CMAKE_SCRIPTS "${PROJECT_SOURCE_DIR}/cmake")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SCRIPTS})
@@ -12,7 +12,7 @@ include("cmake/ProjectSettings.cmake")
 target_set_warnings(project_options INTERFACE)
 target_set_options(project_options INTERFACE)
 
-option(BUILD_SHARED_LIBS "Build library as shared library" ON)
+option(BUILD_SHARED_LIBS "Build library as shared library" OFF)
 option(ENABLE_INSTALL "Enable to install the project" ON)
 
 add_subdirectory(lib)
