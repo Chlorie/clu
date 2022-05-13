@@ -7,6 +7,7 @@
 
 namespace clu
 {
+    CLU_SUPPRESS_EXPORT_WARNING
     class CLU_API uri
     {
     public:
@@ -42,18 +43,21 @@ namespace clu
         [[nodiscard]] component authority() const noexcept { return from_relative(authority_); }
         [[nodiscard]] component userinfo() const noexcept { return from_relative(userinfo_); }
         [[nodiscard]] component host() const noexcept { return from_relative(host_); }
+        [[nodiscard]] component origin() const noexcept;
         [[nodiscard]] component port_component() const noexcept { return from_relative(port_view_); }
         [[nodiscard]] int port() const noexcept { return port_; }
         [[nodiscard]] std::string_view path() const noexcept { return *from_relative(path_); }
         [[nodiscard]] component query() const noexcept { return from_relative(query_); }
         [[nodiscard]] component fragment() const noexcept { return from_relative(fragment_); }
+        [[nodiscard]] std::string_view path_and_query() const noexcept;
+        [[nodiscard]] std::string_view target() const noexcept { return *from_relative({path_.start, uri_.size()}); }
 
         [[nodiscard]] bool operator==(const uri& other) const noexcept { return uri_ == other.uri_; }
         [[nodiscard]] bool is_absolute() const noexcept { return !scheme().undefined(); }
         [[nodiscard]] bool empty() const noexcept { return uri_.empty(); }
 
         void swap(uri& other) noexcept;
-        CLU_API friend void swap(uri& lhs, uri& rhs) noexcept { lhs.swap(rhs); }
+        friend void swap(uri& lhs, uri& rhs) noexcept { lhs.swap(rhs); }
 
         [[nodiscard]] uri resolve_relative(const uri& relative) const;
 
@@ -87,6 +91,7 @@ namespace clu
         void append_query(component comp);
         void append_fragment(component comp);
     };
+    CLU_RESTORE_EXPORT_WARNING
 
     enum class uri_errc
     {

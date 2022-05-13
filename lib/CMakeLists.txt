@@ -82,6 +82,12 @@ add_headers(HEADERS
     "execution/schedulers.h"
     "execution/utility.h"
 
+    "execution/algorithms/basic.h"
+    "execution/algorithms/composed.h"
+    "execution/algorithms/consumers.h"
+    "execution/algorithms/parallel.h"
+    "execution/algorithms/scheduling.h"
+
     "execution_contexts/threads.h"
 )
 add_sources(SOURCES

@@ -6,6 +6,7 @@ namespace clu
 {
     class async_scope;
 
+    CLU_SUPPRESS_EXPORT_WARNING
     namespace detail::async_scp
     {
         class CLU_API stop_token_env
@@ -17,7 +18,7 @@ namespace clu
             in_place_stop_token token_;
 
             // clang-format off
-            CLU_API friend in_place_stop_token tag_invoke(
+            friend in_place_stop_token tag_invoke(
                 exec::get_stop_token_t, const stop_token_env self) noexcept { return self.token_; }
             // clang-format on
         };
@@ -370,4 +371,5 @@ namespace clu
         in_place_stop_source src_;
         std::atomic_size_t count_{0};
     };
+    CLU_RESTORE_EXPORT_WARNING
 } // namespace clu

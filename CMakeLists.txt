@@ -12,7 +12,7 @@ include("cmake/ProjectSettings.cmake")
 target_set_warnings(project_options INTERFACE)
 target_set_options(project_options INTERFACE)
 
-option(BUILD_SHARED_LIBS "Build library as shared library" OFF)
+option(BUILD_SHARED_LIBS "Build library as shared library" ON)
 option(ENABLE_INSTALL "Enable to install the project" ON)
 
 add_subdirectory(lib)

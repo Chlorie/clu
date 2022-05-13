@@ -571,6 +571,25 @@ namespace clu::exec
         std::equality_comparable<std::remove_cvref_t<S>>;
     // clang-format on
 
+    namespace detail
+    {
+        // clang-format off
+        template <typename T>
+        concept constexpr_boolean = requires { { T::value } -> boolean_testable; };
+        template <typename T>
+        concept constexpr_true = constexpr_boolean<T> && (T::value ? true : false);
+        // clang-format on
+
+        template <typename T, typename U>
+        constexpr auto bool_and([[maybe_unused]] const T lhs, [[maybe_unused]] const U rhs) noexcept
+        {
+            if constexpr (constexpr_boolean<T> && constexpr_boolean<U>)
+                return std::bool_constant<(T::value && U::value)>{};
+            else
+                return lhs && rhs;
+        }
+    } // namespace detail
+
     namespace detail::snd_qry
     {
         struct forwarding_sender_query_t
@@ -615,36 +634,59 @@ namespace clu::exec
             // clang-format on
         };
 
-        // Before P2280, we can only use this kind of type tag.
-        // If we can use compile-time unknown reference to sender types
-        // just to get their type, we can get rid of this type_tag_t hack.
         struct no_await_thunk_t
         {
             template <typename S>
-            constexpr bool operator()(type_tag_t<S>) const noexcept
+            constexpr auto operator()([[maybe_unused]] const S& snd) const noexcept
             {
-                if constexpr (tag_invocable<no_await_thunk_t, type_tag_t<S>>)
+                if constexpr (tag_invocable<no_await_thunk_t, const S&>)
                 {
-                    static_assert(nothrow_tag_invocable<no_await_thunk_t, type_tag_t<S>>, //
+                    static_assert(nothrow_tag_invocable<no_await_thunk_t, const S&>, //
                         "no_await_thunk should be noexcept");
-                    static_assert(boolean_testable<tag_invoke_result_t<no_await_thunk_t, type_tag_t<S>>>);
-                    return tag_invoke(*this, type_tag_t<S>{}) ? true : false;
+                    static_assert(boolean_testable<tag_invoke_result_t<no_await_thunk_t, const S&>>);
+                    return tag_invoke(*this, snd);
                 }
                 else
-                    return false;
+                    return std::false_type{};
             }
+        };
+
+        struct completes_inline_t
+        {
+            template <typename S>
+            constexpr auto operator()([[maybe_unused]] const S& snd) const noexcept
+            {
+                if constexpr (tag_invocable<completes_inline_t, const S&>)
+                {
+                    static_assert(nothrow_tag_invocable<completes_inline_t, const S&>, //
+                        "completes_inline should be noexcept");
+                    static_assert(boolean_testable<tag_invoke_result_t<completes_inline_t, const S&>>);
+                    return tag_invoke(*this, snd);
+                }
+                else
+                    return std::false_type{};
+            }
+
+            // clang-format off
+            constexpr friend bool tag_invoke(
+                forwarding_sender_query_t, completes_inline_t) noexcept { return true; }
+            // clang-format on
         };
     } // namespace detail::snd_qry
 
     using detail::snd_qry::forwarding_sender_query_t;
     using detail::snd_qry::get_completion_scheduler_t;
     using detail::snd_qry::no_await_thunk_t;
+    using detail::snd_qry::completes_inline_t;
     inline constexpr forwarding_sender_query_t forwarding_sender_query{};
     template <typename Cpo>
     inline constexpr get_completion_scheduler_t<Cpo> get_completion_scheduler{};
     inline constexpr no_await_thunk_t no_await_thunk{};
+    inline constexpr completes_inline_t completes_inline{};
     template <typename S>
-    concept no_await_thunk_sender = sender<S> &&(no_await_thunk(type_tag<std::remove_cvref_t<S>>));
+    concept no_await_thunk_sender = sender<S> && detail::constexpr_true<call_result_t<no_await_thunk_t, const S&>>;
+    template <typename S>
+    concept inline_sender = sender<S> && detail::constexpr_true<call_result_t<completes_inline_t, const S&>>;
 
     namespace detail
     {
@@ -682,7 +724,7 @@ namespace clu::exec
                     return clu::tag_invoke(Cpo{}, static_cast<Self&&>(self).snd_, static_cast<Args&&>(args)...);
                 }
 
-                constexpr friend bool tag_invoke(no_await_thunk_t, type_tag_t<type>) noexcept { return true; }
+                constexpr friend std::true_type tag_invoke(no_await_thunk_t, const type&) noexcept { return {}; }
             };
 
             // Wrap up a sender to use no await thunk
@@ -916,7 +958,7 @@ namespace clu::exec
             }
 
             // TODO: if the sender completes inline, return true from await_ready()
-            bool await_ready() const noexcept { return false; }
+            bool await_ready() const noexcept { return inline_sender<S>; }
             void await_suspend(coro::coroutine_handle<P>) noexcept { exec::start(state_); }
             auto await_resume()
             {

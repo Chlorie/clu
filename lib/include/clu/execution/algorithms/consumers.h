@@ -100,7 +100,7 @@ namespace clu::exec
                     else
                     {
                         start_det::start_detached_t{}(
-                            upon::then_t{}(exec::schedule(static_cast<S&&>(schd)), static_cast<F&&>(func)));
+                            then(exec::schedule(static_cast<S&&>(schd)), static_cast<F&&>(func)));
                     }
                 }
             };

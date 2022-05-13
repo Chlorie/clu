@@ -35,4 +35,5 @@ target_link_libraries(tests PRIVATE
     Catch2::Catch2
 )
 target_set_cxx_std(tests)
+target_set_output_dirs(tests)
 add_test(AllTestsInMain tests)

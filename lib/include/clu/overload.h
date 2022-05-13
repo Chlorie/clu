@@ -33,7 +33,8 @@ namespace clu
             // clang-format on
 
             template <typename FirstBase, typename... Bases, typename Self, typename... Args>
-            constexpr static auto call_result_impl(Self&& self, Args&&... args) noexcept
+            constexpr static auto call_result_impl(
+                [[maybe_unused]] Self&& self, [[maybe_unused]] Args&&... args) noexcept
             {
                 using base = copy_cvref_t<Self&&, FirstBase>;
                 if constexpr (std::is_invocable_v<base, Args&&...>)
@@ -45,7 +46,8 @@ namespace clu
             }
 
             template <typename FirstBase, typename... Bases, typename Self, typename... Args>
-            constexpr static auto is_nothrow_callable_impl(Self&& self, Args&&... args) noexcept
+            constexpr static auto is_nothrow_callable_impl(
+                [[maybe_unused]] Self&& self, [[maybe_unused]] Args&&... args) noexcept
             {
                 using base = copy_cvref_t<Self&&, FirstBase>;
                 if constexpr (std::is_invocable_v<base, Args&&...>)

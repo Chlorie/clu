@@ -175,6 +175,22 @@ namespace clu
         }
     }
 
+    uri::component uri::origin() const noexcept
+    {
+        if (scheme_.undefined())
+            return from_relative(authority_);
+        if (authority_.undefined())
+            return from_relative(scheme_);
+        return from_relative({scheme_.start, authority_.stop});
+    }
+
+    std::string_view uri::path_and_query() const noexcept
+    {
+        if (query_.undefined())
+            return path();
+        return *from_relative({path_.start, query_.stop});
+    }
+
     void uri::swap(uri& other) noexcept
     {
         std::swap(uri_, other.uri_);

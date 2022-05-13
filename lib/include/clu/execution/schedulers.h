@@ -44,15 +44,15 @@ namespace clu::exec
                     }
 
                     // clang-format off
-                    CLU_API friend schd_t tag_invoke(
+                    friend schd_t tag_invoke(
                         get_completion_scheduler_t<set_value_t>, snd_t) noexcept { return {}; }
-                    CLU_API friend completion_signatures<set_value_t()> tag_invoke(
+                    friend completion_signatures<set_value_t()> tag_invoke(
                         get_completion_signatures_t, snd_t, auto&&) noexcept { return {}; }
                     // clang-format on
                 };
 
-                CLU_API constexpr friend bool operator==(schd_t, schd_t) noexcept = default;
-                CLU_API friend snd_t tag_invoke(schedule_t, schd_t) noexcept { return {}; }
+                constexpr friend bool operator==(schd_t, schd_t) noexcept = default;
+                friend snd_t tag_invoke(schedule_t, schd_t) noexcept { return {}; }
             };
         } // namespace inl_schd
 
@@ -134,17 +134,17 @@ namespace clu::exec
                     }
 
                     // clang-format off
-                    CLU_API friend schd_t tag_invoke(get_completion_scheduler_t<set_value_t>, //
+                    friend schd_t tag_invoke(get_completion_scheduler_t<set_value_t>, //
                         const snd_t self) noexcept { return schd_t(self.depth_); }
-                    CLU_API friend completion_signatures<set_value_t(), set_stopped_t()> tag_invoke(
+                    friend completion_signatures<set_value_t(), set_stopped_t()> tag_invoke(
                         get_completion_signatures_t, snd_t, auto&&) noexcept { return {}; }
                     // clang-format on
                 };
 
                 std::size_t depth_;
 
-                CLU_API friend snd_t tag_invoke(schedule_t, const schd_t self) noexcept { return snd_t(self.depth_); }
-                CLU_API constexpr friend bool operator==(schd_t, schd_t) noexcept { return true; }
+                friend snd_t tag_invoke(schedule_t, const schd_t self) noexcept { return snd_t(self.depth_); }
+                constexpr friend bool operator==(schd_t, schd_t) noexcept { return true; }
             };
         } // namespace trmp_schd
     } // namespace detail

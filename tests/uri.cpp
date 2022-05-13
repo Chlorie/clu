@@ -21,11 +21,14 @@ TEST_CASE("uri construction", "[uri]")
         CHECK(uri.authority().undefined());
         CHECK(uri.userinfo().undefined());
         CHECK(uri.host().undefined());
+        CHECK(uri.origin().undefined());
         CHECK(uri.port_component().undefined());
         CHECK(uri.port() == -1);
         CHECK(uri.path().empty());
         CHECK(uri.query().undefined());
         CHECK(uri.fragment().undefined());
+        CHECK(uri.path_and_query().empty());
+        CHECK(uri.target().empty());
         CHECK(!uri.is_absolute());
     }
 
@@ -37,11 +40,14 @@ TEST_CASE("uri construction", "[uri]")
         CHECK(uri.authority() == "www.ietf.org");
         CHECK(uri.userinfo().undefined());
         CHECK(uri.host() == "www.ietf.org");
+        CHECK(uri.origin() == "http://www.ietf.org");
         CHECK(uri.port_component().undefined());
         CHECK(uri.port() == 80);
         CHECK(uri.path() == "/rfc/rfc2396.txt");
         CHECK(uri.query().undefined());
         CHECK(uri.fragment().undefined());
+        CHECK(uri.path_and_query() == "/rfc/rfc2396.txt");
+        CHECK(uri.target() == "/rfc/rfc2396.txt");
         CHECK(uri.is_absolute());
     }
 
@@ -55,11 +61,14 @@ TEST_CASE("uri construction", "[uri]")
         CHECK(uri.authority() == "john.doe@www.example.com:123");
         CHECK(uri.userinfo() == "john.doe");
         CHECK(uri.host() == "www.example.com");
+        CHECK(uri.origin() == "https://john.doe@www.example.com:123");
         CHECK(uri.port_component() == "123");
         CHECK(uri.port() == 123);
         CHECK(uri.path() == "/forum/questions/");
         CHECK(uri.query() == "tag=networking&order=newest");
         CHECK(uri.fragment() == "top");
+        CHECK(uri.path_and_query() == "/forum/questions/?tag=networking&order=newest");
+        CHECK(uri.target() == "/forum/questions/?tag=networking&order=newest#top");
         CHECK(uri.is_absolute());
     }
 }

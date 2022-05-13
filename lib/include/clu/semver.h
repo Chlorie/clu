@@ -10,6 +10,7 @@
 
 namespace clu
 {
+    CLU_SUPPRESS_EXPORT_WARNING
     class CLU_API semver
     {
     public:
@@ -26,7 +27,7 @@ namespace clu
         [[nodiscard]] std::string_view prerelease() const noexcept { return prerelease_; }
         [[nodiscard]] std::string_view build_metadata() const noexcept { return build_; }
 
-        CLU_API friend bool operator==(const semver&, const semver&) noexcept = default;
+        friend bool operator==(const semver&, const semver&) noexcept = default;
         CLU_API friend std::weak_ordering operator<=>(const semver& lhs, const semver& rhs);
 
     private:
@@ -69,6 +70,7 @@ namespace clu
         std::string_view prerelease_segment_at(size_t index) const;
         std::weak_ordering compare_prerelease(const semver& rhs) const;
     };
+    CLU_RESTORE_EXPORT_WARNING
 
     inline namespace literals
     {

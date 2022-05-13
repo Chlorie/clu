@@ -80,6 +80,7 @@ namespace clu
     class in_place_stop_source;
     class in_place_stop_token;
 
+    CLU_SUPPRESS_EXPORT_WARNING
     namespace detail
     {
         class CLU_API in_place_stop_cb_base
@@ -166,6 +167,7 @@ namespace clu
         in_place_stop_source* src_ = nullptr;
         explicit in_place_stop_token(in_place_stop_source* src) noexcept: src_(src) {}
     };
+    CLU_RESTORE_EXPORT_WARNING
 
     template <typename Callback>
     class in_place_stop_callback : public detail::in_place_stop_cb_base

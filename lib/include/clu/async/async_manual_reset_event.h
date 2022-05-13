@@ -4,6 +4,7 @@
 
 namespace clu
 {
+    CLU_SUPPRESS_EXPORT_WARNING
     class CLU_API async_manual_reset_event
     {
     public:
@@ -36,4 +37,5 @@ namespace clu
 
         CLU_API friend void tag_invoke(exec::add_operation_t, async_manual_reset_event& self, ops_base& task);
     };
+    CLU_RESTORE_EXPORT_WARNING
 } // namespace clu

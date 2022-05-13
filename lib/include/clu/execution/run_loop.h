@@ -10,6 +10,7 @@ namespace clu
 {
     namespace detail::loop
     {
+        CLU_SUPPRESS_EXPORT_WARNING
         class CLU_API run_loop
         {
         public:
@@ -44,6 +45,7 @@ namespace clu
             CLU_API friend void tag_invoke(exec::add_operation_t, run_loop& self, ops_base& task);
             ops_base* dequeue();
         };
+        CLU_RESTORE_EXPORT_WARNING
     } // namespace detail::loop
 
     using detail::loop::run_loop;

@@ -4,6 +4,7 @@
 #include "clu/async.h"
 #include "clu/execution_contexts.h"
 #include "clu/task.h"
+#include "clu/scope.h"
 
 namespace chr = std::chrono;
 namespace ex = clu::exec;
@@ -12,6 +13,7 @@ using namespace std::literals;
 TEST_CASE("async_manual_reset_event", "[async]")
 {
     clu::static_thread_pool tp(2);
+    clu::scope_exit guard{[&] { tp.finish(); }};
     clu::async_manual_reset_event ev;
     int value = 0;
 
@@ -55,6 +57,4 @@ TEST_CASE("async_manual_reset_event", "[async]")
         REQUIRE(out1 == 42);
         REQUIRE(out2 == 42);
     }
-
-    tp.finish();
 }

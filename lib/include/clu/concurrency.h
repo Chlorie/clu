@@ -153,6 +153,7 @@ namespace clu
     template <typename T>
     locked(T) -> locked<T>;
 
+    CLU_SUPPRESS_EXPORT_WARNING
     class CLU_API spinlock
     {
     public:
@@ -163,6 +164,7 @@ namespace clu
         static constexpr int spin_count = 20;
         std::atomic_flag locked_;
     };
+    CLU_RESTORE_EXPORT_WARNING
 
     namespace detail::lck_ptr
     {
