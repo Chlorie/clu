@@ -1,6 +1,6 @@
 {
     "name": "clu",
-    "version-string": "0.34.0",
+    "version-string": "0.34.1",
     "description": "Chlorie's collection of small utilities",
     "features": {
         "testing": {

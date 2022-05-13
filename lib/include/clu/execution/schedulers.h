@@ -67,7 +67,7 @@ namespace clu::exec
             template <typename R>
             using ops_t = typename ops_t_<std::remove_cvref_t<R>>::type;
 
-            class ops_base_t
+            class CLU_API ops_base_t
             {
             public:
                 explicit ops_base_t(const std::size_t depth) noexcept: depth_(depth) {}
