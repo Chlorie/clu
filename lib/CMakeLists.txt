@@ -78,6 +78,7 @@ add_headers(HEADERS
     "execution/awaitable_traits.h"
     "execution/context.h"
     "execution/execution_traits.h"
+    "execution/factories.h"
     "execution/run_loop.h"
     "execution/schedulers.h"
     "execution/utility.h"

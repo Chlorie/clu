@@ -73,7 +73,7 @@ namespace clu::detail::static_tp
 
         void enqueue_with_lock(ops_base* task) noexcept
         {
-            tail_ = (head_ ? tail_->next : head_) = task;
+            tail_ = (head_ ? tail_->state.next : head_) = task;
             cv_.notify_one();
         }
 
@@ -83,7 +83,7 @@ namespace clu::detail::static_tp
             if (!head_)
                 return nullptr;
             ops_base* ptr = head_;
-            head_ = head_->next;
+            head_ = head_->state.next;
             if (!head_)
                 tail_ = nullptr;
             return ptr;
@@ -134,6 +134,6 @@ namespace clu::detail::static_tp
             return res_[index].dequeue();
         };
         while (ops_base* task = get_task())
-            task->execute();
+            task->set();
     }
 } // namespace clu::detail::static_tp

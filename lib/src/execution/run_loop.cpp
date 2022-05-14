@@ -11,7 +11,7 @@ namespace clu::detail::loop
     void run_loop::run()
     {
         while (ops_base* task = dequeue())
-            task->execute();
+            task->set();
     }
 
     void run_loop::finish()
@@ -21,13 +21,13 @@ namespace clu::detail::loop
         cv_.notify_all();
     }
 
-    void tag_invoke(exec::add_operation_t, run_loop& self, run_loop::ops_base& task)
+    void run_loop::enqueue(ops_base& ops)
     {
         {
-            std::unique_lock lock(self.mutex_);
-            self.tail_ = (self.head_ ? self.tail_->next : self.head_) = &task;
+            std::unique_lock lock(mutex_);
+            tail_ = (head_ ? tail_->state.next : head_) = &ops;
         }
-        self.cv_.notify_one();
+        cv_.notify_one();
     }
 
     run_loop::ops_base* run_loop::dequeue()
@@ -37,7 +37,7 @@ namespace clu::detail::loop
         if (!head_)
             return nullptr;
         ops_base* ptr = head_;
-        head_ = head_->next;
+        head_ = head_->state.next;
         if (!head_)
             tail_ = nullptr;
         return ptr;

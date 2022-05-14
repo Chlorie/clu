@@ -2,6 +2,7 @@
 
 #include <string>
 #include <system_error>
+#include <format>
 
 #include "export.h"
 
@@ -105,7 +106,7 @@ namespace clu
 
 namespace clu::inline literals::inline uri_literal
 {
-    CLU_API [[nodiscard]] inline uri operator""_uri(const char* ptr, const std::size_t size)
+    [[nodiscard]] CLU_API inline uri operator""_uri(const char* ptr, const std::size_t size)
     {
         return uri({ptr, size});
     }
@@ -114,3 +115,19 @@ namespace clu::inline literals::inline uri_literal
 // clang-format off
 template <> struct std::is_error_code_enum<clu::uri_errc> : std::true_type {};
 // clang-format on
+
+template <>
+struct std::hash<clu::uri>
+{
+    std::size_t operator()(const clu::uri& uri) const noexcept { return std::hash<std::string>{}(uri.full()); }
+};
+
+template <>
+struct std::formatter<clu::uri> : std::formatter<std::string_view>
+{
+    template <typename FormatContext>
+    auto format(const clu::uri& uri, FormatContext& ctx)
+    {
+        return std::formatter<std::string_view>::format(uri.full(), ctx);
+    }
+};

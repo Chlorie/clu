@@ -19,13 +19,7 @@ namespace clu
 
         [[nodiscard]] auto wait_async() noexcept
         {
-            const auto wait_and_transfer_to_outer = [this](const auto& schd)
-            {
-                return exec::schedule(exec::context_scheduler<async_manual_reset_event>(this)) //
-                    | exec::transfer(schd);
-            };
-            return exec::get_scheduler() //
-                | exec::let_value(wait_and_transfer_to_outer);
+            return exec::schedule(exec::context_scheduler<async_manual_reset_event>(this));
         }
 
     private:

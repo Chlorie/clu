@@ -48,17 +48,34 @@ namespace clu
 
             ~pool() noexcept;
             void finish();
-            auto get_scheduler() noexcept { return exec::context_scheduler<pool>(this); }
 
         private:
-            using ops_base = exec::context_operation_state_base<pool>;
+            struct schd_state
+            {
+                pool* ctx;
+                friend bool operator==(schd_state, schd_state) noexcept = default;
+            };
+            struct ops_state;
+            using ops_base = exec::scheduler_operation_base<ops_state, schd_state>;
+            struct ops_state
+            {
+                ops_base* next = nullptr;
+            };
+
+        public:
+            auto get_scheduler() noexcept
+            {
+                return exec::create_scheduler<ops_state>(schd_state{this}, //
+                    [](ops_base& ops) { return ops.scheduler_state().ctx->enqueue(&ops); });
+            }
+
+        private:
             class thread_res;
 
             std::size_t size_ = 0;
             thread_res* res_ = nullptr;
             std::atomic_size_t index_ = 0;
 
-            friend void tag_invoke(exec::add_operation_t, pool& self, ops_base& task) { self.enqueue(&task); }
             void enqueue(ops_base* task);
             void work(std::size_t index);
         };

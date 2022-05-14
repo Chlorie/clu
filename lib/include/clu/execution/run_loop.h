@@ -4,7 +4,7 @@
 #include <condition_variable>
 
 #include "execution_traits.h"
-#include "context.h"
+#include "factories.h"
 
 namespace clu
 {
@@ -23,11 +23,28 @@ namespace clu
             ~run_loop() noexcept;
             void run();
             void finish();
-            auto get_scheduler() noexcept { return exec::context_scheduler<run_loop>(this); }
 
         private:
-            using ops_base = exec::context_operation_state_base<run_loop>;
+            struct schd_state
+            {
+                run_loop* loop;
+                friend bool operator==(schd_state, schd_state) noexcept = default;
+            };
+            struct ops_state;
+            using ops_base = exec::scheduler_operation_base<ops_state, schd_state>;
+            struct ops_state
+            {
+                ops_base* next = nullptr;
+            };
 
+        public:
+            auto get_scheduler() noexcept
+            {
+                return exec::create_scheduler<ops_state>(schd_state{this}, //
+                    [](ops_base& ops) { ops.scheduler_state().loop->enqueue(ops); });
+            }
+
+        private:
             enum class state_t
             {
                 starting,
@@ -42,7 +59,7 @@ namespace clu
             ops_base* head_ = nullptr;
             ops_base* tail_ = nullptr;
 
-            CLU_API friend void tag_invoke(exec::add_operation_t, run_loop& self, ops_base& task);
+            void enqueue(ops_base& ops);
             ops_base* dequeue();
         };
         CLU_RESTORE_EXPORT_WARNING
