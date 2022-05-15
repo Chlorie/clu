@@ -502,5 +502,13 @@ namespace clu::exec
                 return tag_invoke(Cpo{}, static_cast<S&&>(snd), static_cast<Args&&>(args)...);
             }
         }
+
+        // clang-format off
+        // Environments with stop tokens that are actually stoppable
+        template <typename Env>
+        concept stoppable_env =
+            (!std::same_as<Env, no_env>) &&
+            (!unstoppable_token<stop_token_of_t<Env>>);
+        // clang-format on
     } // namespace detail
 } // namespace clu::exec

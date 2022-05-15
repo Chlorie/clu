@@ -1,6 +1,6 @@
 #pragma once
 
-#include "execution_traits.h"
+#include "utility.h"
 
 namespace clu::exec
 {
@@ -113,7 +113,7 @@ namespace clu::exec
             };
 
             template <typename SchdSt, typename OpsSt, typename Callback>
-            using schd_t = typename schd_t_<std::decay_t<SchdSt>, std::decay_t<OpsSt>, std::decay_t<Callback>>::type;
+            using schd_t = typename schd_t_<std::decay_t<SchdSt>, OpsSt, std::decay_t<Callback>>::type;
 
             template <typename SchdSt, typename OpsSt, typename Callback>
             class snd_t_<SchdSt, OpsSt, Callback>::type
@@ -128,14 +128,11 @@ namespace clu::exec
                 template <typename Env>
                 constexpr friend auto tag_invoke(get_completion_signatures_t, const type&, Env&&) noexcept
                 {
-                    // MSVC chokes at concepts used as constexpr booleans
-                    // Also the parser chokes so much if I use filtered_sigs here...
-                    constexpr bool unstoppable = requires { requires unstoppable_token<stop_token_of_t<Env>>; };
-                    constexpr bool nothrow = std::is_nothrow_invocable_v<Callback, ops_base_t<SchdSt, OpsSt>&>;
-                    using list = meta::remove_q<void>::fn<set_value_t(), //
-                        conditional_t<unstoppable, void, set_stopped_t()>, //
-                        conditional_t<nothrow, set_error_t(std::exception_ptr), void>>;
-                    return meta::unpack_invoke<list, meta::quote<completion_signatures>>{};
+                    constexpr bool nothrow = nothrow_invocable<Callback, ops_base_t<SchdSt, OpsSt>&>;
+                    return filtered_sigs< //
+                        set_value_t(), //
+                        conditional_t<stoppable_env<Env>, set_stopped_t(), void>, //
+                        conditional_t<nothrow, set_error_t(std::exception_ptr), void>>{};
                 }
 
                 template <typename R>

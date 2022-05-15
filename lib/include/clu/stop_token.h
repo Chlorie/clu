@@ -47,8 +47,8 @@ namespace clu
         requires
         {
             { T::stop_possible() } -> boolean_testable;
-        } &&
-        (!T::stop_possible());
+            requires (!T::stop_possible());
+        };
     // clang-format on
 
     template <typename Token, typename Callback>

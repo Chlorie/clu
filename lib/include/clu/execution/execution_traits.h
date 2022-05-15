@@ -847,6 +847,83 @@ namespace clu::exec
     template <scheduler S>
     using schedule_result_t = call_result_t<schedule_t, S>;
 
+    // clang-format off
+    template <typename T>
+    concept time_point =
+        std::regular<T> &&
+        std::totally_ordered<T> &&
+        requires { typename T::duration; } &&
+        requires(T tp, const T ctp, typename T::duration d)
+        {
+            { ctp + d } -> std::same_as<T>;
+            { ctp - d } -> std::same_as<T>;
+            { ctp - ctp } -> std::same_as<typename T::duration>;
+            { tp += d } -> std::same_as<T&>;
+            { tp -= d } -> std::same_as<T&>;
+        };
+
+    template <typename D>
+    concept duration = template_of<D, std::chrono::duration>;
+    // clang-format on
+
+    namespace detail::time_schd
+    {
+        struct now_t
+        {
+            template <typename S>
+                requires tag_invocable<now_t, S>
+            auto operator()(S&& schd) const noexcept(nothrow_tag_invocable<now_t, S>)
+            {
+                static_assert(
+                    time_point<tag_invoke_result_t<now_t, S>>, "return type of now should satisfy time_point");
+                return tag_invoke(*this, static_cast<S&&>(schd));
+            }
+        };
+
+        struct schedule_at_t
+        {
+            template <typename S, time_point T>
+                requires tag_invocable<schedule_at_t, S, T>
+            auto operator()(S&& schd, const T tp) const
+            {
+                static_assert(sender<tag_invoke_result_t<schedule_at_t, S, T>>, //
+                    "return type of schedule_at should satisfy sender");
+                return tag_invoke(*this, static_cast<S&&>(schd), tp);
+            }
+        };
+
+        struct schedule_after_t
+        {
+            template <typename S, typename D>
+                requires tag_invocable<schedule_after_t, S, D>
+            auto operator()(S&& schd, const D dur) const
+            {
+                static_assert(sender<tag_invoke_result_t<schedule_after_t, S, D>>, //
+                    "return type of schedule_after should satisfy sender");
+                return tag_invoke(*this, static_cast<S&&>(schd), dur);
+            }
+        };
+    } // namespace detail::time_schd
+
+    using detail::time_schd::now_t;
+    using detail::time_schd::schedule_at_t;
+    using detail::time_schd::schedule_after_t;
+    inline constexpr now_t now{};
+    inline constexpr schedule_at_t schedule_at{};
+    inline constexpr schedule_after_t schedule_after{};
+
+    // clang-format off
+    template <typename S>
+    concept time_scheduler =
+        scheduler<S> &&
+        requires(S&& schd) { exec::now(static_cast<S&&>(schd)); } &&
+        requires(S&& schd, decltype(exec::now(static_cast<S&&>(schd))) tp)
+        {
+            exec::schedule_at(static_cast<S&&>(schd), tp);
+            exec::schedule_after(static_cast<S&&>(schd), tp - tp);
+        };
+    // clang-format on
+
     namespace detail
     {
         template <typename E>

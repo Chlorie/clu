@@ -437,7 +437,25 @@ namespace clu::meta
     using filter_l = unpack_invoke<List, filter_q<Pred>>;
 
     template <typename Target>
-    using remove_q = filter_q<compose_q<bind_front_q1<quote2<std::is_same>, Target>, quote1<std::negation>>>;
+    struct remove_q
+    {
+    private:
+        // clang-format off
+        template <typename... Ts>
+        struct fn_impl : std::type_identity<type_list<>> {};
+        // clang-format on
+
+    public:
+        template <typename... Ts>
+        using fn = typename fn_impl<Ts...>::type;
+    };
+    template <typename Target>
+    template <typename First, typename... Rest>
+    struct remove_q<Target>::fn_impl<First, Rest...>
+    {
+        using rest_list = typename fn_impl<Rest...>::type;
+        using type = conditional_t<std::is_same_v<Target, First>, rest_list, push_front_l<rest_list, First>>;
+    };
     template <typename List, typename Target>
     using remove_l = unpack_invoke<List, remove_q<Target>>;
 

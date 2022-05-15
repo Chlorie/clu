@@ -90,6 +90,7 @@ add_headers(HEADERS
     "execution/algorithms/scheduling.h"
 
     "execution_contexts/threads.h"
+    "execution_contexts/timed_threads.h"
 )
 add_sources(SOURCES
     # Source files here (relative to ./src/)
