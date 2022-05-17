@@ -1,6 +1,8 @@
 #pragma once
 
 #include "async_manual_reset_event.h"
+#include "../execution/utility.h"
+#include "../execution/algorithms/composed.h"
 
 namespace clu
 {

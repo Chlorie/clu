@@ -2,6 +2,8 @@
 
 namespace clu
 {
+    using detail::amre::ops_base;
+
     void async_manual_reset_event::set() noexcept
     {
         void* tail = tail_.exchange(this, std::memory_order::acq_rel);
@@ -22,7 +24,7 @@ namespace clu
         // list reversed, now just traverse the list and execute the tasks one by one
         while (head)
         {
-            head->execute();
+            head->set();
             head = head->next;
         }
     }
@@ -34,22 +36,19 @@ namespace clu
         (void)tail_.compare_exchange_strong(expected, nullptr, std::memory_order::acq_rel);
     }
 
-    // The enqueue customization point
-    void tag_invoke(exec::add_operation_t, //
-        async_manual_reset_event& self, async_manual_reset_event::ops_base& task)
+    void start_ops(async_manual_reset_event& self, ops_base& ops)
     {
-        using ops_base = async_manual_reset_event::ops_base;
         void* tail = self.tail_.load(std::memory_order::acquire);
         while (true)
         {
             if (tail == &self) // set state, complete synchronously
             {
-                task.execute();
+                ops.set();
                 return;
             }
-            task.next = static_cast<ops_base*>(tail);
+            ops.next = static_cast<ops_base*>(tail);
             // try to append task to the list
-            if (self.tail_.compare_exchange_weak(tail, &task, //
+            if (self.tail_.compare_exchange_weak(tail, &ops, //
                     std::memory_order::release, std::memory_order::acquire))
                 return; // we succeeded
         }

@@ -3,7 +3,6 @@
 #include <memory>
 #include <thread>
 
-#include "../execution/context.h"
 #include "../execution/run_loop.h"
 
 namespace clu

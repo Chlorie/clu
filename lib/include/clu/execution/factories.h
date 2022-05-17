@@ -46,14 +46,14 @@ namespace clu::exec
             {
             public:
                 // clang-format off
-            template <typename S, typename C, typename R>
-            type(S&& state, C&& callback, R&& recv) noexcept(
-                std::is_nothrow_constructible_v<SchdSt, S> &&
-                std::is_nothrow_constructible_v<Callback, C> &&
-                std::is_nothrow_constructible_v<Recv, R>):
-                ops_base_t<SchdSt, OpsSt>(static_cast<S&&>(state)),
-                callback_(static_cast<C&&>(callback)),
-                recv_(static_cast<R&&>(recv)) {}
+                template <typename S, typename C, typename R>
+                type(S&& state, C&& callback, R&& recv) noexcept(
+                    std::is_nothrow_constructible_v<SchdSt, S> &&
+                    std::is_nothrow_constructible_v<Callback, C> &&
+                    std::is_nothrow_constructible_v<Recv, R>):
+                    ops_base_t<SchdSt, OpsSt>(static_cast<S&&>(state)),
+                    callback_(static_cast<C&&>(callback)),
+                    recv_(static_cast<R&&>(recv)) {}
                 // clang-format on
 
                 void set() noexcept override

@@ -76,7 +76,6 @@ add_headers(HEADERS
     "execution/algorithms.h"
     "execution/any_scheduler.h"
     "execution/awaitable_traits.h"
-    "execution/context.h"
     "execution/execution_traits.h"
     "execution/factories.h"
     "execution/run_loop.h"
@@ -109,6 +108,7 @@ add_sources(SOURCES
     "execution/schedulers.cpp"
     
     "execution_contexts/threads.cpp"
+    "execution_contexts/timed_threads.cpp"
 )
 
 target_sources(clu PRIVATE ${HEADERS} ${SOURCES})

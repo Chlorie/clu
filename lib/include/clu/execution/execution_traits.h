@@ -696,6 +696,17 @@ namespace clu::exec
         namespace wo_thunk
         {
             template <typename S>
+            struct member_comp_sigs
+            {
+            };
+            template <typename S>
+                requires requires { typename S::completion_signatures; }
+            struct member_comp_sigs<S>
+            {
+                using completion_signatures = typename S::completion_signatures;
+            };
+
+            template <typename S>
             struct snd_t_
             {
                 class type;
@@ -705,7 +716,7 @@ namespace clu::exec
             using snd_t = typename snd_t_<std::remove_cvref_t<S>>::type;
 
             template <typename S>
-            class snd_t_<S>::type
+            class snd_t_<S>::type : public member_comp_sigs<S>
             {
             public:
                 // clang-format off

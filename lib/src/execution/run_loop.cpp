@@ -1,6 +1,6 @@
 #include "clu/execution/run_loop.h"
 
-namespace clu::detail::loop
+namespace clu
 {
     run_loop::~run_loop() noexcept
     {
@@ -42,4 +42,4 @@ namespace clu::detail::loop
             tail_ = nullptr;
         return ptr;
     }
-} // namespace clu::detail::loop
+} // namespace clu
