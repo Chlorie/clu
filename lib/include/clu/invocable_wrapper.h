@@ -61,7 +61,7 @@ namespace clu
 #undef CLU_FN_WRAPPER_CALL_DEF
 
     private:
-        Inv invocable_;
+        CLU_NO_UNIQUE_ADDRESS Inv invocable_;
     };
 
     template <typename Res, typename... Args>

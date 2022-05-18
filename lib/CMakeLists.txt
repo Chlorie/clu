@@ -102,6 +102,7 @@ add_sources(SOURCES
     "uuid.cpp"
 
     "async/async_manual_reset_event.cpp"
+    "async/async_mutex.cpp"
     "async/async_scope.cpp"
 
     "execution/run_loop.cpp"

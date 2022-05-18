@@ -111,7 +111,6 @@ namespace clu
             static_cast<Inv&&>(invocable), static_cast<Args&&>(args)...);
     }
 
-    // @formatter:off
     template <typename Inv>
     constexpr auto make_piper(Inv&& invocable) noexcept(
         std::is_nothrow_constructible_v<std::remove_cvref_t<Inv>, Inv&&>)
@@ -119,7 +118,8 @@ namespace clu
         using inv_t = std::remove_cvref_t<Inv>;
         struct pipeable : private inv_t, piper_mixin
         {
-            constexpr explicit pipeable(Inv&& inv) noexcept(std::is_nothrow_constructible_v<inv_t, Inv&&>):
+            constexpr explicit pipeable(Inv&& inv) noexcept( //
+                std::is_nothrow_constructible_v<inv_t, Inv&&>):
                 inv_t(static_cast<Inv&&>(inv))
             {
             }
@@ -127,5 +127,4 @@ namespace clu
         };
         return pipeable(static_cast<Inv&&>(invocable));
     }
-    // @formatter:on
 } // namespace clu

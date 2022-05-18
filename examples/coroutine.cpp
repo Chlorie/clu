@@ -55,41 +55,39 @@ auto get_timer()
     return guard.ctx.get_scheduler();
 }
 
-clu::task<void> counter()
+auto get_pool()
 {
-    for (int i = 0;; i++)
+    struct raii_guard
     {
-        std::cout << std::format("Counting: {}\n", i);
-        co_await ex::schedule_after(get_timer(), 1s);
-    }
+        clu::static_thread_pool pool{8};
+        ~raii_guard() noexcept { pool.finish(); }
+    };
+    static raii_guard guard;
+    return guard.pool.get_scheduler();
 }
 
-std::atomic_int total = 0;
-clu::task<void> wait(const std::size_t ms)
+clu::async_mutex mut;
+int value = 0;
+
+clu::task<void> adder()
 {
-    co_await ex::schedule_after(get_timer(), chr::milliseconds(ms));
-    total.fetch_add(1, std::memory_order::relaxed);
+    co_await ex::schedule_after(get_timer(), chr::milliseconds(clu::randint(50, 100)));
+    co_await mut.lock_async();
+    clu::scope_exit guard{[] { mut.unlock(); }};
+    value++;
 }
 
-clu::task<void> test()
+clu::task<void> task()
 {
+    co_await ex::schedule(get_pool());
     clu::async_scope scope;
-    std::vector<clu::task<void>> waits;
-    time_call(
-        [&]
-        {
-            for (auto _ : clu::indices(1'000))
-                waits.emplace_back(scope.spawn_future(wait(clu::randint(100, 10000))) | clu::as_task());
-        });
-    co_await wait(5000);
-    scope.request_stop();
+    for (auto _ : clu::indices(10000))
+        scope.spawn(adder());
     co_await scope.deplete_async();
-    std::cout << "Total waited: " << total.load(std::memory_order::relaxed) << '\n';
+    std::cout << std::format("value = {}\n", value);
 }
-
-clu::task<void> task() { co_await (counter() | ex::stop_when(wait(3142))); }
 
 int main() // NOLINT
 {
-    clu::this_thread::sync_wait(test());
+    clu::this_thread::sync_wait(task());
 }

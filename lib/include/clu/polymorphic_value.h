@@ -31,7 +31,7 @@ namespace clu
     class bad_polymorphic_value_construction : public std::exception
     {
     public:
-        bad_polymorphic_value_construction() noexcept {}
+        bad_polymorphic_value_construction() noexcept = default;
         const char* what() const noexcept override { return "bad polymorphic value construction"; }
     };
 
