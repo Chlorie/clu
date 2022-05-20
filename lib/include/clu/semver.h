@@ -6,12 +6,10 @@
 #include <algorithm>
 
 #include "integer_literals.h"
-#include "export.h"
 
 namespace clu
 {
-    CLU_SUPPRESS_EXPORT_WARNING
-    class CLU_API semver
+    class semver
     {
     public:
         constexpr semver() noexcept = default; /// Initialize the version to 0.1.0
@@ -28,7 +26,7 @@ namespace clu
         [[nodiscard]] std::string_view build_metadata() const noexcept { return build_; }
 
         friend bool operator==(const semver&, const semver&) noexcept = default;
-        CLU_API friend std::weak_ordering operator<=>(const semver& lhs, const semver& rhs);
+        friend std::weak_ordering operator<=>(const semver& lhs, const semver& rhs);
 
     private:
         u32 major_ = 0;
@@ -70,7 +68,6 @@ namespace clu
         std::string_view prerelease_segment_at(size_t index) const;
         std::weak_ordering compare_prerelease(const semver& rhs) const;
     };
-    CLU_RESTORE_EXPORT_WARNING
 
     inline namespace literals
     {

@@ -1,4 +1,4 @@
-option(ENABLE_IPO "Enable interprocedural optimization (link-time optimization)" ON)
+option(ENABLE_IPO "Enable interprocedural optimization (link-time optimization)" OFF)
 option(ENABLE_CXX_EXTENSIONS "Enable C++ language extensions" OFF)
 
 if (ENABLE_IPO)

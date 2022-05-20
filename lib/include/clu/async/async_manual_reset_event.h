@@ -8,7 +8,7 @@ namespace clu
 
     namespace detail::amre
     {
-        class CLU_API ops_base
+        class ops_base
         {
         public:
             ops_base* next = nullptr;
@@ -49,7 +49,7 @@ namespace clu
             friend void tag_invoke(exec::start_t, type& self) noexcept { start_ops(*self.ev_, self); }
         };
 
-        class CLU_API snd_t
+        class snd_t
         {
         public:
             explicit snd_t(async_manual_reset_event* ev) noexcept: ev_(ev) {}
@@ -70,8 +70,7 @@ namespace clu
         };
     } // namespace detail::amre
 
-    CLU_SUPPRESS_EXPORT_WARNING
-    class CLU_API async_manual_reset_event
+    class async_manual_reset_event
     {
     public:
         explicit async_manual_reset_event(const bool start_set = false) noexcept: tail_(start_set ? this : nullptr) {}
@@ -89,7 +88,6 @@ namespace clu
         // the last inserted pending ops_base* if there is any, or nullptr otherwise.
         std::atomic<void*> tail_{nullptr};
 
-        CLU_API friend void start_ops(async_manual_reset_event& self, detail::amre::ops_base& ops);
+        friend void start_ops(async_manual_reset_event& self, detail::amre::ops_base& ops);
     };
-    CLU_RESTORE_EXPORT_WARNING
 } // namespace clu

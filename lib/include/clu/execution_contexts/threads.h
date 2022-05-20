@@ -7,8 +7,7 @@
 
 namespace clu
 {
-    CLU_SUPPRESS_EXPORT_WARNING
-    class CLU_API single_thread_context
+    class single_thread_context
     {
     public:
         single_thread_context(): thr_([this] { loop_.run(); }) {}
@@ -36,7 +35,7 @@ namespace clu
 
     namespace detail::static_tp
     {
-        class CLU_API pool
+        class pool
         {
         public:
             explicit pool(std::size_t size);
@@ -79,7 +78,6 @@ namespace clu
             void work(std::size_t index);
         };
     } // namespace detail::static_tp
-    CLU_RESTORE_EXPORT_WARNING
 
     using static_thread_pool = detail::static_tp::pool;
 } // namespace clu

@@ -8,10 +8,9 @@ namespace clu
 {
     class async_scope;
 
-    CLU_SUPPRESS_EXPORT_WARNING
     namespace detail::async_scp
     {
-        class CLU_API stop_token_env
+        class stop_token_env
         {
         public:
             explicit stop_token_env(const in_place_stop_token token) noexcept: token_(token) {}
@@ -28,7 +27,7 @@ namespace clu
         template <typename S>
         concept void_sender = exec::sender_of<S, stop_token_env>;
 
-        class CLU_API recv_base
+        class recv_base
         {
         public:
             explicit recv_base(async_scope* scope) noexcept: scope_(scope) {}
@@ -321,7 +320,7 @@ namespace clu
         };
     } // namespace detail::async_scp
 
-    class CLU_API async_scope
+    class async_scope
     {
     public:
         async_scope() = default;
@@ -373,5 +372,4 @@ namespace clu
         in_place_stop_source src_;
         std::atomic_size_t count_{0};
     };
-    CLU_RESTORE_EXPORT_WARNING
 } // namespace clu

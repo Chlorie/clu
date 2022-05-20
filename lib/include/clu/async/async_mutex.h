@@ -6,10 +6,9 @@ namespace clu
 {
     class async_mutex;
 
-    CLU_SUPPRESS_EXPORT_WARNING
     namespace detail::async_mut
     {
-        class CLU_API ops_base
+        class ops_base
         {
         public:
             ops_base* next = nullptr;
@@ -54,7 +53,7 @@ namespace clu
             }
         };
 
-        class CLU_API snd_t
+        class snd_t
         {
         public:
             explicit snd_t(async_mutex* mut) noexcept: mut_(mut) {}
@@ -75,7 +74,7 @@ namespace clu
         };
     } // namespace detail::async_mut
 
-    class CLU_API async_mutex
+    class async_mutex
     {
     public:
         async_mutex() noexcept = default;
@@ -93,7 +92,6 @@ namespace clu
         std::atomic<void*> waiting_{this};
         ops_base* pending_ = nullptr;
 
-        CLU_API friend bool start_ops(async_mutex& self, ops_base& ops) noexcept;
+        friend bool start_ops(async_mutex& self, ops_base& ops) noexcept;
     };
-    CLU_RESTORE_EXPORT_WARNING
 } // namespace clu

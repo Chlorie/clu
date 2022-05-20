@@ -1,7 +1,10 @@
 add_library(clu)
 add_library(clu::clu ALIAS clu)
 
-set_target_properties(clu PROPERTIES LINKER_LANGUAGE CXX)
+set_target_properties(clu PROPERTIES
+    LINKER_LANGUAGE CXX
+    WINDOWS_EXPORT_ALL_SYMBOLS ON
+)
 target_set_output_dirs(clu)
 
 function (add_headers TGT)

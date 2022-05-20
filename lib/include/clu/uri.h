@@ -4,15 +4,12 @@
 #include <system_error>
 #include <format>
 
-#include "export.h"
-
 namespace clu
 {
-    CLU_SUPPRESS_EXPORT_WARNING
-    class CLU_API uri
+    class uri
     {
     public:
-        class CLU_API component
+        class component
         {
         public:
             [[nodiscard]] std::string_view get() const noexcept { return {begin_, end_}; }
@@ -22,8 +19,8 @@ namespace clu
             [[nodiscard]] explicit operator bool() const noexcept { return !!begin_; }
             [[nodiscard]] bool undefined() const noexcept { return !begin_; }
 
-            CLU_API friend bool operator==(component lhs, std::string_view rhs) noexcept;
-            CLU_API friend bool operator==(component lhs, component rhs) noexcept;
+            friend bool operator==(component lhs, std::string_view rhs) noexcept;
+            friend bool operator==(component lhs, component rhs) noexcept;
 
         private:
             friend class uri;
@@ -92,7 +89,6 @@ namespace clu
         void append_query(component comp);
         void append_fragment(component comp);
     };
-    CLU_RESTORE_EXPORT_WARNING
 
     enum class uri_errc
     {
@@ -101,15 +97,12 @@ namespace clu
         uri_not_absolute
     };
 
-    CLU_API std::error_code make_error_code(uri_errc ec);
+    std::error_code make_error_code(uri_errc ec);
 } // namespace clu
 
 namespace clu::inline literals::inline uri_literal
 {
-    [[nodiscard]] CLU_API inline uri operator""_uri(const char* ptr, const std::size_t size)
-    {
-        return uri({ptr, size});
-    }
+    [[nodiscard]] inline uri operator""_uri(const char* ptr, const std::size_t size) { return uri({ptr, size}); }
 } // namespace clu::inline literals::inline uri_literal
 
 // clang-format off

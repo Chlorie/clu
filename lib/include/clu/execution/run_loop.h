@@ -7,8 +7,7 @@
 
 namespace clu
 {
-    CLU_SUPPRESS_EXPORT_WARNING
-    class CLU_API run_loop
+    class run_loop
     {
     public:
         run_loop() noexcept = default;
@@ -49,5 +48,4 @@ namespace clu
         void enqueue(ops_base& ops);
         ops_base* dequeue();
     };
-    CLU_RESTORE_EXPORT_WARNING
 } // namespace clu

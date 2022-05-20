@@ -33,9 +33,9 @@ namespace clu::exec
             template <typename R>
             using ops_t = typename ops_t_<std::remove_cvref_t<R>>::type;
 
-            struct CLU_API schd_t
+            struct schd_t
             {
-                struct CLU_API snd_t
+                struct snd_t
                 {
                     template <typename R>
                     friend ops_t<R> tag_invoke(connect_t, snd_t, R&& recv)
@@ -67,7 +67,7 @@ namespace clu::exec
             template <typename R>
             using ops_t = typename ops_t_<std::remove_cvref_t<R>>::type;
 
-            class CLU_API ops_base_t
+            class ops_base_t
             {
             public:
                 explicit ops_base_t(const std::size_t depth) noexcept: depth_(depth) {}
@@ -110,7 +110,7 @@ namespace clu::exec
                 friend void tag_invoke(start_t, type& self) noexcept { self.add_operation(); }
             };
 
-            class CLU_API schd_t
+            class schd_t
             {
             public:
                 // clang-format off
@@ -119,7 +119,7 @@ namespace clu::exec
                 // clang-format on
 
             private:
-                class CLU_API snd_t
+                class snd_t
                 {
                 public:
                     constexpr explicit snd_t(const std::size_t depth) noexcept: depth_(depth) {}

@@ -6,8 +6,6 @@
 #include <thread>
 #include <functional>
 
-#include "export.h"
-
 namespace clu
 {
     template <typename T>
@@ -153,8 +151,7 @@ namespace clu
     template <typename T>
     locked(T) -> locked<T>;
 
-    CLU_SUPPRESS_EXPORT_WARNING
-    class CLU_API spinlock
+    class spinlock
     {
     public:
         void lock() noexcept;
@@ -164,12 +161,11 @@ namespace clu
         static constexpr int spin_count = 20;
         std::atomic_flag locked_;
     };
-    CLU_RESTORE_EXPORT_WARNING
 
     namespace detail::lck_ptr
     {
-        CLU_API void* lock_and_load(std::atomic_uintptr_t& value) noexcept;
-        CLU_API void store_and_unlock(std::atomic_uintptr_t& value, void* ptr) noexcept;
+        void* lock_and_load(std::atomic_uintptr_t& value) noexcept;
+        void store_and_unlock(std::atomic_uintptr_t& value, void* ptr) noexcept;
     } // namespace detail::lck_ptr
 
     template <typename T>

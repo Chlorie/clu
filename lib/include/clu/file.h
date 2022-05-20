@@ -5,7 +5,6 @@
 #include <fstream>
 #include <string>
 
-#include "export.h"
 #include "buffer.h"
 
 namespace clu
@@ -37,19 +36,19 @@ namespace clu
      * \brief Reads contents of a text file into a `std::string`.
      * \param path The path to the file to read from.
      */
-    [[nodiscard]] CLU_API std::string read_all_text(const std::filesystem::path& path);
+    [[nodiscard]] std::string read_all_text(const std::filesystem::path& path);
 
     /**
      * \brief Writes bytes in a given buffer into a file. The file will be overwritten.
      * \param path The path to the file to write into.
      * \param bytes The byte buffer.
      */
-    CLU_API void write_all_bytes(const std::filesystem::path& path, const_buffer bytes);
+    void write_all_bytes(const std::filesystem::path& path, const_buffer bytes);
 
     /**
      * \brief Writes given text into a file. The file will be overwritten.
      * \param path The path to the file to write into.
      * \param text The text to write.
      */
-    CLU_API void write_all_text(const std::filesystem::path& path, std::string_view text);
+    void write_all_text(const std::filesystem::path& path, std::string_view text);
 } // namespace clu

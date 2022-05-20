@@ -10,7 +10,7 @@
 
 namespace clu
 {
-    class CLU_API uuid
+    class uuid
     {
     public:
         using value_type = std::array<std::byte, 16>;
@@ -50,8 +50,8 @@ namespace clu
             // clang-format on
         }
 
-        [[nodiscard]] CLU_API constexpr friend bool operator==(uuid, uuid) noexcept = default;
-        [[nodiscard]] CLU_API constexpr friend auto operator<=>(uuid, uuid) noexcept = default;
+        [[nodiscard]] constexpr friend bool operator==(uuid, uuid) noexcept = default;
+        [[nodiscard]] constexpr friend auto operator<=>(uuid, uuid) noexcept = default;
 
         [[nodiscard]] constexpr value_type& data() noexcept { return data_; }
         [[nodiscard]] constexpr const value_type& data() const noexcept { return data_; }

@@ -233,7 +233,6 @@ namespace clu
     using new_thread_scheduler = detail::new_thrd_ctx::schd_t;
     class timer_loop;
 
-    CLU_SUPPRESS_EXPORT_WARNING
     namespace detail::tm_loop
     {
         using clock = std::chrono::steady_clock;
@@ -246,7 +245,7 @@ namespace clu
         };
 
         // Maintains an intrusive red-black tree
-        class CLU_API ops_base
+        class ops_base
         {
         public:
             time_point deadline{};
@@ -481,13 +480,13 @@ namespace clu
             return after_snd_t<Dur>(loop, dur);
         }
 
-        class CLU_API schd_t
+        class schd_t
         {
         public:
             explicit schd_t(timer_loop* loop) noexcept: loop_(loop) {}
 
         private:
-            class CLU_API at_snd_t
+            class at_snd_t
             {
             public:
                 using completion_signatures = sigs;
@@ -529,7 +528,7 @@ namespace clu
         };
     } // namespace detail::tm_loop
 
-    class CLU_API timer_loop
+    class timer_loop
     {
     public:
         using clock = std::chrono::steady_clock;
@@ -559,7 +558,7 @@ namespace clu
     };
     static_assert(alignof(timer_loop) >= 2);
 
-    class CLU_API timer_thread_context
+    class timer_thread_context
     {
     public:
         timer_thread_context(): thr_([this] { loop_.run(); }) {}
@@ -584,5 +583,4 @@ namespace clu
         timer_loop loop_;
         std::thread thr_;
     };
-    CLU_RESTORE_EXPORT_WARNING
 } // namespace clu

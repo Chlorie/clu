@@ -3,13 +3,12 @@
 #include <random>
 
 #include "concepts.h"
-#include "export.h"
 
 namespace clu
 {
-    CLU_API std::mt19937& random_engine();
-    CLU_API void reseed();
-    CLU_API void reseed(std::mt19937::result_type seed);
+    std::mt19937& random_engine();
+    void reseed();
+    void reseed(std::mt19937::result_type seed);
 
     template <std::integral T>
     T randint(const T low, const T high)
