@@ -1,10 +1,10 @@
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_templated.hpp>
 
 #include "clu/forest.h"
 #include "matchers.h"
 
 namespace ct = clu::testing;
-namespace cm = Catch::Matchers;
 
 TEST_CASE("forest rule of five", "[forest]")
 {
@@ -17,9 +17,9 @@ TEST_CASE("forest rule of five", "[forest]")
 
     f.insert_children_back(f.end(), {1, 2, 3});
     g = f;
-    REQUIRE_THAT(ct::to_vector(g.roots()), cm::Equals<int>({1, 2, 3}));
+    REQUIRE_THAT(g.roots(), ct::EqualsRange({1, 2, 3}));
     h = std::move(f);
-    REQUIRE_THAT(ct::to_vector(h.roots()), cm::Equals<int>({1, 2, 3}));
+    REQUIRE_THAT(h.roots(), ct::EqualsRange({1, 2, 3}));
 }
 
 TEST_CASE("forest emplace child", "[forest]")
@@ -29,7 +29,7 @@ TEST_CASE("forest emplace child", "[forest]")
     f.emplace_child_back(f.end(), 1);
     f.emplace_child_back(f.end(), 2);
     const auto roots = f.roots();
-    REQUIRE_THAT(ct::to_vector(roots), cm::Equals<int>({1, 2}));
+    REQUIRE_THAT(roots, ct::EqualsRange({1, 2}));
     const auto iter1 = roots.begin();
     const auto iter2 = std::next(iter1);
     REQUIRE(f.is_root(iter1));
@@ -39,9 +39,9 @@ TEST_CASE("forest emplace child", "[forest]")
     f.emplace_child_back(iter1, 3);
     f.emplace_child_front(iter1, 4);
     f.emplace_child_front(iter2, 5);
-    REQUIRE_THAT(ct::to_vector(f.roots()), cm::Equals<int>({1, 2}));
-    REQUIRE_THAT(ct::to_vector(iter1.children()), cm::Equals<int>({4, 3}));
-    REQUIRE_THAT(ct::to_vector(iter2.children()), cm::Equals<int>({5}));
+    REQUIRE_THAT(f.roots(), ct::EqualsRange({1, 2}));
+    REQUIRE_THAT(iter1.children(), ct::EqualsRange({4, 3}));
+    REQUIRE_THAT(iter2.children(), ct::EqualsRange({5}));
     REQUIRE_FALSE(iter1.is_leaf());
     REQUIRE(iter1.children().begin().is_leaf());
 }
@@ -54,9 +54,9 @@ TEST_CASE("forest traversal", "[forest]")
     const auto iter6 = f.insert_children_back(iter1.next_sibling(), {6, 7, 8});
     f.emplace_child_back(iter6.next_sibling(), 9);
     // { 1: { 4, 5 }, 2: { 6, 7: { 9 }, 8 }, 3 }
-    REQUIRE_THAT(ct::to_vector(f), cm::Equals<int>({1, 4, 5, 2, 6, 7, 9, 8, 3}));
-    REQUIRE_THAT(ct::to_vector(f.full_order_traverse()),
-        cm::Equals<int>({1, 4, 4, 5, 5, 1, 2, 6, 6, 7, 9, 9, 7, 8, 8, 2, 3, 3}));
+    REQUIRE_THAT(f, ct::EqualsRange({1, 4, 5, 2, 6, 7, 9, 8, 3}));
+    REQUIRE_THAT(f.full_order_traverse(), //
+        ct::EqualsRange({1, 4, 4, 5, 5, 1, 2, 6, 6, 7, 9, 9, 7, 8, 8, 2, 3, 3}));
 }
 
 TEST_CASE("forest insert children/siblings", "[forest]")
@@ -66,10 +66,10 @@ TEST_CASE("forest insert children/siblings", "[forest]")
     f.insert_children_back(root, {2, 3, 4});
     f.insert_children_front(root, {5, 6, 7});
     const auto iter8 = f.insert_children_back(root, {8, 9});
-    REQUIRE_THAT(ct::to_vector(root.children()), cm::Equals<int>({5, 6, 7, 2, 3, 4, 8, 9}));
+    REQUIRE_THAT(root.children(), ct::EqualsRange({5, 6, 7, 2, 3, 4, 8, 9}));
     f.insert_siblings_after(iter8, {10, 11});
     f.insert_siblings_before(iter8, {12});
-    REQUIRE_THAT(ct::to_vector(root.children()), cm::Equals<int>({5, 6, 7, 2, 3, 4, 12, 8, 10, 11, 9}));
+    REQUIRE_THAT(root.children(), ct::EqualsRange({5, 6, 7, 2, 3, 4, 12, 8, 10, 11, 9}));
 }
 
 TEST_CASE("forest detach", "[forest]")
@@ -80,13 +80,13 @@ TEST_CASE("forest detach", "[forest]")
     f.insert_children_back(iter1, {4, 5});
     f.insert_children_back(iter2, {4, 5});
     const auto g = f.detach(iter1);
-    REQUIRE_THAT(ct::to_vector(f.roots()), cm::Equals<int>({2}));
-    REQUIRE_THAT(ct::to_vector(g.roots()), cm::Equals<int>({1}));
-    REQUIRE_THAT(ct::to_vector(g.begin().children()), cm::Equals<int>({4, 5}));
+    REQUIRE_THAT(f.roots(), ct::EqualsRange({2}));
+    REQUIRE_THAT(g.roots(), ct::EqualsRange({1}));
+    REQUIRE_THAT(g.begin().children(), ct::EqualsRange({4, 5}));
     const auto h = f.detach_children(iter2);
-    REQUIRE_THAT(ct::to_vector(f.roots()), cm::Equals<int>({2}));
+    REQUIRE_THAT(f.roots(), ct::EqualsRange({2}));
     REQUIRE(iter2.is_leaf());
-    REQUIRE_THAT(ct::to_vector(h.roots()), cm::Equals<int>({4, 5}));
+    REQUIRE_THAT(h.roots(), ct::EqualsRange({4, 5}));
 }
 
 TEST_CASE("forest copy part", "[forest]")
@@ -102,10 +102,10 @@ TEST_CASE("forest copy part", "[forest]")
     }();
 
     const auto g = f.copy_subtree(f.begin());
-    REQUIRE_THAT(ct::to_vector(g.roots()), cm::Equals<int>({1}));
-    REQUIRE_THAT(ct::to_vector(g.begin().children()), cm::Equals<int>({4, 5}));
+    REQUIRE_THAT(g.roots(), ct::EqualsRange({1}));
+    REQUIRE_THAT(g.begin().children(), ct::EqualsRange({4, 5}));
     const auto h = f.copy_children(f.begin().next_sibling());
-    REQUIRE_THAT(ct::to_vector(h.roots()), cm::Equals<int>({4, 5}));
+    REQUIRE_THAT(h.roots(), ct::EqualsRange({4, 5}));
 }
 
 TEST_CASE("forest attach", "[forest]")
@@ -116,5 +116,5 @@ TEST_CASE("forest attach", "[forest]")
     g.insert_children_back(g.begin(), {3, 4});
     f.attach_children_back(f.end(), g); // { 1: { 3, 4 }, 2 }
     f.attach_siblings_before(std::next(f.begin()), std::move(g)); // { 1: { 1: { 3, 4 }, 2, 3, 4 }, 2 }
-    REQUIRE_THAT(ct::to_vector(f), cm::Equals<int>({1, 1, 3, 4, 2, 3, 4, 2}));
+    REQUIRE_THAT(f, ct::EqualsRange({1, 1, 3, 4, 2, 3, 4, 2}));
 }

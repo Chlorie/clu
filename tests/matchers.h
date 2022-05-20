@@ -1,29 +1,30 @@
 #pragma once
 
-#include <vector>
-#include <ranges>
 #include <algorithm>
+#include <catch2/matchers/catch_matchers_templated.hpp>
 
 namespace clu::testing
 {
-    template <std::ranges::input_range Range>
-    auto to_vector(Range&& range)
+    template <std::ranges::input_range R>
+    struct EqualsRangeMatcher : Catch::Matchers::MatcherGenericBase
     {
-        std::vector<std::ranges::range_value_t<Range>> result;
-        if constexpr (std::ranges::sized_range<Range>)
-            result.reserve(std::ranges::size(range));
-        {
-            auto&& begin = range.begin();
-            auto&& end = range.end();
-            while (true)
-            {
-                const bool is_end = begin == end;
-                if (is_end) break;
-                result.emplace_back(*begin);
-                ++begin;
-            }
-        }
-        // std::ranges::copy(static_cast<Range&&>(range), std::back_inserter(result));
-        return result;
+        explicit EqualsRangeMatcher(const R& range): range_{range} {}
+        bool match(const std::ranges::input_range auto& other) const { return std::ranges::equal(range_, other); }
+        std::string describe() const override { return "Equals: " + Catch::rangeToString(range_); }
+
+    private:
+        const R& range_;
+    };
+
+    template <std::ranges::input_range Range>
+    auto EqualsRange(const Range& range)
+    {
+        return EqualsRangeMatcher<Range>{range};
     }
-}
+
+    template <typename T>
+    auto EqualsRange(const std::initializer_list<T> ilist)
+    {
+        return EqualsRangeMatcher<std::initializer_list<T>>{ilist};
+    }
+} // namespace clu::testing

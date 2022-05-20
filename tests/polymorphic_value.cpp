@@ -1,9 +1,11 @@
 #include <numbers>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 
 #include "clu/polymorphic_value.h"
 
 using namespace Catch::literals;
+using Catch::Approx;
 
 class Shape
 {

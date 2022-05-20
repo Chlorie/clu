@@ -1,13 +1,7 @@
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 
-#include <clu/execution_contexts.h>
-#include <clu/async.h>
-#include <clu/chrono_utils.h>
-#include <clu/task.h>
-#include <clu/indices.h>
-#include <clu/random.h>
-// #include "clu/execution/algorithms.h"
-// #include "clu/execution_contexts.h"
+#include "clu/execution/algorithms.h"
+#include "clu/execution_contexts.h"
 
 namespace ex = clu::exec;
 namespace tt = clu::this_thread;

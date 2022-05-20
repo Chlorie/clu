@@ -1,11 +1,10 @@
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 #include "clu/static_vector.h"
 #include "lifetime_counter.h"
 #include "matchers.h"
 
 namespace ct = clu::testing;
-namespace cm = Catch::Matchers;
 
 TEST_CASE("static vector constructors", "[static_vector]")
 {
@@ -36,10 +35,10 @@ TEST_CASE("static vector constructors", "[static_vector]")
         {
             const vecint vec1(size);
             REQUIRE(vec1.size() == size);
-            REQUIRE_THAT(ct::to_vector(vec1), cm::Equals<int>({0, 0, 0}));
+            REQUIRE_THAT(vec1, ct::EqualsRange({0, 0, 0}));
             const vecint vec2(size, 42);
             REQUIRE(vec2.size() == size);
-            REQUIRE_THAT(ct::to_vector(vec2), cm::Equals<int>({42, 42, 42}));
+            REQUIRE_THAT(vec2, ct::EqualsRange({42, 42, 42}));
         }
         {
             ct::LifetimeCounter counter;
@@ -66,10 +65,10 @@ TEST_CASE("static vector constructors", "[static_vector]")
         using vector_t = clu::static_vector<int, 4>;
         const std::vector arr{1, 2, 3};
         const vector_t common(arr.begin(), arr.end());
-        REQUIRE_THAT(ct::to_vector(common), cm::Equals<int>(arr));
+        REQUIRE_THAT(common, ct::EqualsRange(arr));
         auto view = std::views::filter(arr, [](const int i) { return i % 2 != 0; });
         const vector_t uncommon(view.begin(), view.end());
-        REQUIRE_THAT(ct::to_vector(uncommon), cm::Equals<int>({1, 3}));
+        REQUIRE_THAT(uncommon, ct::EqualsRange({1, 3}));
     }
 
     SECTION("range")
@@ -77,10 +76,10 @@ TEST_CASE("static vector constructors", "[static_vector]")
         using vector_t = clu::static_vector<int, 4>;
         const std::vector arr{1, 2, 3};
         const vector_t common(arr);
-        REQUIRE_THAT(ct::to_vector(common), cm::Equals<int>(arr));
+        REQUIRE_THAT(common, ct::EqualsRange(arr));
         auto view = std::views::filter(arr, [](const int i) { return i % 2 != 0; });
         const vector_t uncommon(view);
-        REQUIRE_THAT(ct::to_vector(uncommon), cm::Equals<int>({1, 3}));
+        REQUIRE_THAT(uncommon, ct::EqualsRange({1, 3}));
     }
 }
 

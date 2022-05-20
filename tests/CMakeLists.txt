@@ -5,8 +5,6 @@ enable_testing()
 find_package(Catch2 CONFIG REQUIRED)
 
 add_executable(tests
-    "main.cpp" # with CATCH_CONFIG_MAIN
-
     "async.cpp"
     "expected.cpp"
     "flags.cpp"
@@ -32,7 +30,7 @@ add_executable(tests
 target_link_libraries(tests PRIVATE
     project_options
     clu
-    Catch2::Catch2
+    Catch2::Catch2WithMain
 )
 target_set_cxx_std(tests)
 target_set_output_dirs(tests)

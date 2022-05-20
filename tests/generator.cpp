@@ -1,11 +1,10 @@
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <ranges>
 
 #include "clu/generator.h"
 #include "matchers.h"
 
 namespace ct = clu::testing;
-namespace cm = Catch::Matchers;
 namespace sv = std::views;
 
 TEST_CASE("infinite generator", "[generator]")
@@ -15,15 +14,13 @@ TEST_CASE("infinite generator", "[generator]")
         for (int i = 0;; i++)
             co_yield i;
     };
-    REQUIRE_THAT(ct::to_vector(infinite() | sv::take(5)), //
-        cm::Equals<int>({0, 1, 2, 3, 4}));
+    REQUIRE_THAT(infinite() | sv::take(5), ct::EqualsRange({0, 1, 2, 3, 4}));
 }
 
 TEST_CASE("single generator", "[generator]")
 {
     const auto single = []() -> clu::generator<int> { co_yield 42; };
-    REQUIRE_THAT(ct::to_vector(single()), //
-        cm::Equals<int>({42}));
+    REQUIRE_THAT(single(), ct::EqualsRange({42}));
 }
 
 TEST_CASE("recursive generator", "[generator]")
@@ -40,8 +37,7 @@ TEST_CASE("recursive generator", "[generator]")
             co_yield clu::elements_of(f());
             co_yield 3;
         };
-        REQUIRE_THAT(ct::to_vector(g()), //
-            cm::Equals<int>({1, 2, 3}));
+        REQUIRE_THAT(g(), ct::EqualsRange({1, 2, 3}));
     }
 
     SECTION("with other ranges")
@@ -52,7 +48,6 @@ TEST_CASE("recursive generator", "[generator]")
             co_yield clu::elements_of(vec);
             co_yield 3;
         };
-        REQUIRE_THAT(ct::to_vector(g()), //
-            cm::Equals<int>({1, 2, 3}));
+        REQUIRE_THAT(g(), ct::EqualsRange({1, 2, 3}));
     }
 }

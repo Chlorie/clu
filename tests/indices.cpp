@@ -1,17 +1,16 @@
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 #include "clu/indices.h"
 #include "matchers.h"
 
 namespace ct = clu::testing;
-namespace cm = Catch::Matchers;
 
 TEST_CASE("one dimensional index", "[indices]")
 {
     using arr = std::array<size_t, 1>;
     const std::vector<arr> elems{{0}, {1}, {2}, {3}, {4}};
     const auto idx = clu::indices(5);
-    REQUIRE_THAT(ct::to_vector(idx), cm::Equals(elems));
+    REQUIRE_THAT(idx, ct::EqualsRange(elems));
     REQUIRE(idx.size() == 5);
     REQUIRE(decltype(idx)::dimension() == 1);
     REQUIRE(idx.extents() == arr{5});
@@ -23,7 +22,7 @@ TEST_CASE("multi-dimensional indices", "[indices]")
     using arr = std::array<size_t, 2>;
     const std::vector<arr> elems{{0, 0}, {0, 1}, {0, 2}, {1, 0}, {1, 1}, {1, 2}};
     const auto idx = clu::indices(2, 3);
-    REQUIRE_THAT(ct::to_vector(idx), cm::Equals(elems));
+    REQUIRE_THAT(idx, ct::EqualsRange(elems));
     REQUIRE(idx.size() == 6);
     REQUIRE(decltype(idx)::dimension() == 2);
     REQUIRE(idx.extents() == (arr{2, 3}));
