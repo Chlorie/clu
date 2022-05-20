@@ -129,7 +129,7 @@ namespace clu::detail::static_tp
         const auto get_task = [=, this]
         {
             for (std::size_t i = index; i < index + size_; i++)
-                if (const auto task = res_[i].try_dequeue()) // acquired the lock
+                if (const auto task = res_[i % size_].try_dequeue()) // acquired the lock
                     return *task;
             return res_[index].dequeue();
         };

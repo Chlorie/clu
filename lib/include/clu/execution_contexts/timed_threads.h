@@ -69,11 +69,6 @@ namespace clu
             constexpr friend sigs<Env> tag_invoke(
                 exec::get_completion_signatures_t, snd_t, Env&&) noexcept { return {}; }
 
-            template <same_as_any_of<exec::set_value_t, exec::set_stopped_t> Cpo>
-            constexpr friend auto tag_invoke(
-                exec::get_completion_scheduler_t<Cpo>, snd_t) noexcept { return schd_t{}; }
-            // clang-format on
-
             template <typename R>
             friend auto tag_invoke(exec::connect_t, snd_t, R&& recv) //
                 CLU_SINGLE_RETURN(ops_t<R>(static_cast<R&&>(recv)));
@@ -195,10 +190,6 @@ namespace clu
             template <typename Env>
             constexpr friend sigs<Env> tag_invoke(
                 exec::get_completion_signatures_t, type, Env&&) noexcept { return {}; }
-
-            template <same_as_any_of<exec::set_value_t, exec::set_stopped_t> Cpo>
-            constexpr friend auto tag_invoke(
-                exec::get_completion_scheduler_t<Cpo>, type) noexcept { return schd_t{}; }
             // clang-format on
 
             template <typename R>
@@ -230,6 +221,13 @@ namespace clu
                 return new_thrd_ctx::make_timed_snd([=]() noexcept { return clock::now() + dur; });
             }
         };
+
+        // clang-format off
+        template <same_as_any_of<exec::set_value_t, exec::set_stopped_t> Cpo>
+        constexpr auto tag_invoke(exec::get_completion_scheduler_t<Cpo>, snd_t) noexcept { return schd_t{}; }
+        template <typename Fn, same_as_any_of<exec::set_value_t, exec::set_stopped_t> Cpo>
+        constexpr auto tag_invoke(exec::get_completion_scheduler_t<Cpo>, timed_snd_t<Fn>) noexcept { return schd_t{}; }
+        // clang-format on
     } // namespace detail::new_thrd_ctx
 
     using new_thread_scheduler = detail::new_thrd_ctx::schd_t;

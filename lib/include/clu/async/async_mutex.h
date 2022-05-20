@@ -63,7 +63,7 @@ namespace clu
             async_mutex* mut_;
 
             // clang-format off
-            constexpr friend exec::completion_signatures<exec::set_value_t()> tag_invoke(
+            friend exec::completion_signatures<exec::set_value_t()> tag_invoke(
                 exec::get_completion_signatures_t, snd_t, auto&&) noexcept { return {}; }
             // clang-format on
 

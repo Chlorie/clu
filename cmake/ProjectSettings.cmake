@@ -27,8 +27,7 @@ function (target_set_warnings TGT ACCESS)
 
     set(MSVC_SUPPRESS_EXTERNAL_WARNINGS
         # Ignore warnings from external includes
-        /experimental:external
-        /external:W0 /external:anglebrackets /external:templates-)
+        /external:W0 /external:anglebrackets)
 
     set(CLANG_WARNINGS
         -Wall -Wextra -Wpedantic

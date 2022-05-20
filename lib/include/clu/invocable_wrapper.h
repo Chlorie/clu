@@ -1,9 +1,7 @@
 #pragma once
 
-#include <functional>
-
 #include "concepts.h"
-#include "function_traits.h"
+#include "macros.h"
 
 namespace clu
 {

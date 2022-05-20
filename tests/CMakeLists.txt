@@ -30,8 +30,8 @@ add_executable(tests
     "execution/algorithms.cpp"
 )
 target_link_libraries(tests PRIVATE
-    clu
     project_options
+    clu
     Catch2::Catch2
 )
 target_set_cxx_std(tests)

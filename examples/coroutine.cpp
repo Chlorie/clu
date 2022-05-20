@@ -90,4 +90,8 @@ clu::task<void> task()
 int main() // NOLINT
 {
     clu::this_thread::sync_wait(task());
+    const auto res = clu::this_thread::sync_wait( //
+        ex::just(21) //
+        | ex::then([](const int v) { return v * 2; }) //
+    );
 }

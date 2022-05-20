@@ -92,7 +92,7 @@ namespace clu::exec
             {
             public:
                 // clang-format off
-                template <typename R2, typename... Us>
+                template <forwarding<R> R2, typename... Us>
                 explicit type(R2&& recv, Us&&... snds):
                     recv_(static_cast<R2&&>(recv)),
                     children_(when_all::connect_children<R>(
@@ -438,7 +438,7 @@ namespace clu::exec
             {
             public:
                 // clang-format off
-                template <typename R2, typename... Us>
+                template <forwarding<R> R2, typename... Us>
                 explicit type(R2&& recv, Us&&... snds):
                     recv_(static_cast<R2&&>(recv)),
                     children_(when_any::connect_children<R>(
