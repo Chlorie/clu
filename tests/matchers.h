@@ -9,7 +9,13 @@ namespace clu::testing
     struct EqualsRangeMatcher : Catch::Matchers::MatcherGenericBase
     {
         explicit EqualsRangeMatcher(const R& range): range_{range} {}
-        bool match(const std::ranges::input_range auto& other) const { return std::ranges::equal(range_, other); }
+
+        template <std::ranges::input_range R2>
+        bool match(R2&& other) const
+        {
+            return std::ranges::equal(range_, static_cast<R2&&>(other));
+        }
+
         std::string describe() const override { return "Equals: " + Catch::rangeToString(range_); }
 
     private:

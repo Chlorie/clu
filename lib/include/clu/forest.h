@@ -387,7 +387,7 @@ namespace clu
         static constexpr bool pocs = al_traits::propagate_on_container_swap::value;
         static constexpr bool al_always_equal = al_traits::is_always_equal::value;
 
-        [[no_unique_address]] al_node alloc_{};
+        CLU_NO_UNIQUE_ADDRESS al_node alloc_{};
         node_base root_;
 
         template <typename... Us>
@@ -894,7 +894,9 @@ namespace clu
         }
         constexpr void attach_children_back(const const_iter_base it, forest&& other) noexcept(al_always_equal)
         {
-            if (al_always_equal || alloc_ == other.alloc_)
+            if constexpr (al_always_equal)
+                attach_children_back_no_check(it, std::move(other)); // NOLINT(bugprone-branch-clone)
+            else if (alloc_ == other.alloc_)
                 attach_children_back_no_check(it, std::move(other));
             else
                 attach_children_back_no_check(it, forest(std::move(other), Alloc(alloc_)));
@@ -906,7 +908,9 @@ namespace clu
         }
         constexpr void attach_children_front(const const_iter_base it, forest&& other) noexcept(al_always_equal)
         {
-            if (al_always_equal || alloc_ == other.alloc_)
+            if constexpr (al_always_equal)
+                attach_children_front_no_check(it, std::move(other)); // NOLINT(bugprone-branch-clone)
+            else if (alloc_ == other.alloc_)
                 attach_children_front_no_check(it, std::move(other));
             else
                 attach_children_front_no_check(it, forest(std::move(other), Alloc(alloc_)));
@@ -918,7 +922,9 @@ namespace clu
         }
         constexpr void attach_siblings_after(const const_iter_base it, forest&& other) noexcept(al_always_equal)
         {
-            if (al_always_equal || alloc_ == other.alloc_)
+            if constexpr (al_always_equal)
+                attach_siblings_after_no_check(it, std::move(other)); // NOLINT(bugprone-branch-clone)
+            else if (alloc_ == other.alloc_)
                 attach_siblings_after_no_check(it, std::move(other));
             else
                 attach_siblings_after_no_check(it, forest(std::move(other), Alloc(alloc_)));
@@ -930,7 +936,9 @@ namespace clu
         }
         constexpr void attach_siblings_before(const const_iter_base it, forest&& other) noexcept(al_always_equal)
         {
-            if (al_always_equal || alloc_ == other.alloc_)
+            if constexpr (al_always_equal)
+                attach_siblings_before_no_check(it, std::move(other)); // NOLINT(bugprone-branch-clone)
+            else if (alloc_ == other.alloc_)
                 attach_siblings_before_no_check(it, std::move(other));
             else
                 attach_siblings_before_no_check(it, forest(std::move(other), Alloc(alloc_)));
