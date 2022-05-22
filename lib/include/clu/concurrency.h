@@ -6,12 +6,19 @@
 #include <thread>
 #include <functional>
 
+#include "concepts.h"
+#include "meta_algorithm.h"
+
 namespace clu
 {
-    template <typename T>
+    template <typename T, lockable L = std::shared_mutex>
     class locked
     {
     public:
+        using unique_lock = std::unique_lock<L>;
+        using shared_lock = meta::invoke<
+            conditional_t<shared_lockable<L>, meta::quote1<std::shared_lock>, meta::quote1<std::unique_lock>>, L>;
+
         locked() noexcept(std::is_nothrow_default_constructible_v<T>) requires std::default_initializable<T>
         {
             value_.construct();
@@ -32,13 +39,13 @@ namespace clu
 
         locked(const locked& other)
         {
-            std::shared_lock l(other.mutex_);
+            shared_lock l(other.mutex_);
             value_.construct(other.value_.value);
         }
 
         locked(locked&& other) noexcept(false)
         {
-            std::unique_lock l(other.mutex_);
+            unique_lock l(other.mutex_);
             value_.construct(static_cast<T&&>(other.value_.value));
         }
 
@@ -46,8 +53,8 @@ namespace clu
 
         locked& operator=(const locked& other)
         {
-            std::unique_lock l1(mutex_, std::defer_lock);
-            std::shared_lock l2(other.mutex_, std::defer_lock);
+            unique_lock l1(mutex_, std::defer_lock);
+            shared_lock l2(other.mutex_, std::defer_lock);
             std::lock(l1, l2);
             value_.value = other.value_.value;
             return *this;
@@ -55,8 +62,8 @@ namespace clu
 
         locked& operator=(locked&& other) noexcept(false)
         {
-            std::unique_lock l1(mutex_, std::defer_lock);
-            std::unique_lock l2(other.mutex_, std::defer_lock);
+            unique_lock l1(mutex_, std::defer_lock);
+            unique_lock l2(other.mutex_, std::defer_lock);
             std::lock(l1, l2);
             value_.value = static_cast<T&&>(other.value_.value);
             return *this;
@@ -64,8 +71,8 @@ namespace clu
 
         void swap(locked& other) noexcept(false)
         {
-            std::unique_lock l1(mutex_, std::defer_lock);
-            std::unique_lock l2(other.mutex_, std::defer_lock);
+            unique_lock l1(mutex_, std::defer_lock);
+            unique_lock l2(other.mutex_, std::defer_lock);
             std::lock(l1, l2);
             using std::swap;
             swap(value_.value, other.value_.value);
@@ -75,22 +82,22 @@ namespace clu
 
         [[nodiscard]] T operator*() const&
         {
-            std::shared_lock l(mutex_);
+            shared_lock l(mutex_);
             return value_.value;
         }
 
         [[nodiscard]] T operator*() &&
         {
-            std::unique_lock l(mutex_);
+            unique_lock l(mutex_);
             return static_cast<T&&>(value_.value);
         }
 
-        [[nodiscard]] std::shared_mutex& mutex() const noexcept { return mutex_; }
+        [[nodiscard]] L& mutex() const noexcept { return mutex_; }
 
     private:
         struct locked_unique
         {
-            std::unique_lock<std::shared_mutex> lock;
+            unique_lock lock;
             T& value;
 
             T* operator->() noexcept { return std::addressof(value); }
@@ -98,15 +105,15 @@ namespace clu
 
         struct locked_shared
         {
-            std::shared_lock<std::shared_mutex> lock;
+            shared_lock lock;
             const T& value;
 
             const T* operator->() const noexcept { return std::addressof(value); }
         };
 
     public:
-        [[nodiscard]] locked_unique lock() { return {std::unique_lock(mutex_), value_.value}; }
-        [[nodiscard]] locked_shared lock_shared() const { return {std::shared_lock(mutex_), value_.value}; }
+        [[nodiscard]] locked_unique lock() { return {unique_lock(mutex_), value_.value}; }
+        [[nodiscard]] locked_shared lock_shared() const { return {shared_lock(mutex_), value_.value}; }
 
         [[nodiscard]] locked_unique operator->() { return lock(); }
         [[nodiscard]] locked_shared operator->() const { return lock_shared(); }
@@ -114,16 +121,19 @@ namespace clu
         template <std::invocable<T&> F>
         std::invoke_result_t<F, T&> invoke_with_lock(F&& func)
         {
-            std::unique_lock l(mutex_);
+            unique_lock l(mutex_);
             return std::invoke(static_cast<F&&>(func), value_.value);
         }
 
         template <std::invocable<const T&> F>
         std::invoke_result_t<F, const T&> invoke_with_shared_lock(F&& func) const
         {
-            std::shared_lock l(mutex_);
+            shared_lock l(mutex_);
             return std::invoke(static_cast<F&&>(func), value_.value);
         }
+
+        [[nodiscard]] T& get_without_lock() noexcept { return value_.value; }
+        [[nodiscard]] const T& get_without_lock() const noexcept { return value_.value; }
 
     private:
         union data_t
@@ -134,18 +144,16 @@ namespace clu
             data_t() noexcept: dummy() {}
             ~data_t() noexcept {}
 
-            // @formatter:off
             template <typename... Ts>
             void construct(Ts&&... args) noexcept(std::is_nothrow_constructible_v<T, Ts...>)
             {
                 new (std::addressof(value)) T(static_cast<Ts&&>(args)...);
             }
-            // @formatter:on
 
             void destruct() noexcept { value.~T(); }
         } value_;
 
-        mutable std::shared_mutex mutex_;
+        mutable L mutex_;
     };
 
     template <typename T>
@@ -156,6 +164,7 @@ namespace clu
     public:
         void lock() noexcept;
         void unlock() noexcept;
+        bool try_lock() noexcept;
 
     private:
         static constexpr int spin_count = 20;

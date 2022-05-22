@@ -1,10 +1,10 @@
-#include "clu/async/async_manual_reset_event.h"
+#include "clu/async/manual_reset_event.h"
 
-namespace clu
+namespace clu::async
 {
     using detail::amre::ops_base;
 
-    void async_manual_reset_event::set() noexcept
+    void manual_reset_event::set() noexcept
     {
         void* tail = tail_.exchange(this, std::memory_order::acq_rel);
         if (tail == this || tail == nullptr)
@@ -29,14 +29,14 @@ namespace clu
         }
     }
 
-    void async_manual_reset_event::reset() noexcept
+    void manual_reset_event::reset() noexcept
     {
         // We should only set tail to nullptr if tail is currently this
         void* expected = this;
         (void)tail_.compare_exchange_strong(expected, nullptr, std::memory_order::acq_rel);
     }
 
-    void start_ops(async_manual_reset_event& self, ops_base& ops)
+    void start_ops(manual_reset_event& self, ops_base& ops)
     {
         void* tail = self.tail_.load(std::memory_order::acquire);
         while (true)
@@ -53,4 +53,4 @@ namespace clu
                 return; // we succeeded
         }
     }
-} // namespace clu
+} // namespace clu::async

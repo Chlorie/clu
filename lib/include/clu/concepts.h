@@ -264,5 +264,41 @@ namespace clu
         detail::has_valid_allocator_ptr_operations<T> &&
         detail::has_valid_soccc<T> &&
         detail::has_valid_allocator_boolean_aliases<T>;
+
+    template <typename L>
+    concept basic_lockable = requires(L m)
+    {
+        m.lock();
+        { m.unlock() } noexcept;
+    };
+
+    template <typename L>
+    concept lockable =
+        basic_lockable<L> &&
+        requires(L m)
+        {
+            { m.try_lock() } -> boolean_testable;
+        };
+
+    template <typename L>
+    concept shared_lockable = requires(L m)
+    {
+        m.lock_shared();
+        { m.try_lock_shared() } -> boolean_testable;
+        { m.unlock_shared() } noexcept;
+    };
+
+    template <typename M>
+    concept mutex_like =
+        std::default_initializable<M> &&
+        std::destructible<M> &&
+        (!std::copyable<M>) &&
+        (!std::movable<M>) &&
+        lockable<M>;
+
+    template <typename M>
+    concept shared_mutex_like =
+        mutex_like<M> &&
+        shared_lockable<M>;
     // clang-format on
 } // namespace clu

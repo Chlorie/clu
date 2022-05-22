@@ -1,19 +1,21 @@
 #pragma once
 
 #include "../execution/execution_traits.h"
+#include "../concurrency.h"
 
-namespace clu
+namespace clu::async
 {
-    class async_mutex;
+    class shared_mutex;
 
-    namespace detail::async_mut
+    namespace detail::shmtx
     {
         class ops_base
         {
         public:
+            bool shared = false;
             ops_base* next = nullptr;
 
-            ops_base() noexcept = default;
+            explicit ops_base(const bool is_shared) noexcept: shared(is_shared) {}
             CLU_IMMOVABLE_TYPE(ops_base);
             virtual void set() noexcept = 0;
 
@@ -36,14 +38,14 @@ namespace clu
         public:
             // clang-format off
             template <typename R2>
-            type(async_mutex* mut, R2&& recv):
-                mut_(mut), recv_(static_cast<R2&&>(recv)) {}
+            type(shared_mutex* mut, const bool shared, R2&& recv):
+                ops_base(shared), mut_(mut), recv_(static_cast<R2&&>(recv)) {}
             // clang-format on
 
             void set() noexcept override { exec::set_value(static_cast<R&&>(recv_)); }
 
         private:
-            async_mutex* mut_;
+            shared_mutex* mut_;
             CLU_NO_UNIQUE_ADDRESS R recv_;
 
             friend void tag_invoke(exec::start_t, type& self) noexcept
@@ -56,10 +58,11 @@ namespace clu
         class snd_t
         {
         public:
-            explicit snd_t(async_mutex* mut) noexcept: mut_(mut) {}
+            explicit snd_t(shared_mutex* mut, const bool shared) noexcept: mut_(mut), shared_(shared) {}
 
         private:
-            async_mutex* mut_;
+            shared_mutex* mut_;
+            bool shared_;
 
             // clang-format off
             friend exec::completion_signatures<exec::set_value_t()> tag_invoke(
@@ -69,29 +72,36 @@ namespace clu
             template <typename R>
             friend auto tag_invoke(exec::connect_t, const snd_t self, R&& recv)
             {
-                return ops_t<R>(self.mut_, static_cast<R&&>(recv));
+                return ops_t<R>(self.mut_, self.shared_, static_cast<R&&>(recv));
             }
         };
-    } // namespace detail::async_mut
+    } // namespace detail::shmtx
 
-    class async_mutex
+    class shared_mutex
     {
     public:
-        async_mutex() noexcept = default;
-        CLU_IMMOVABLE_TYPE(async_mutex);
+        shared_mutex() noexcept = default;
+        CLU_IMMOVABLE_TYPE(shared_mutex);
 
         [[nodiscard]] bool try_lock() noexcept;
-        [[nodiscard]] auto lock_async() noexcept { return detail::async_mut::snd_t(this); }
+        [[nodiscard]] auto lock_async() noexcept { return detail::shmtx::snd_t(this, false); }
         void unlock() noexcept;
+        [[nodiscard]] bool try_lock_shared() noexcept;
+        [[nodiscard]] auto lock_shared_async() noexcept { return detail::shmtx::snd_t(this, true); }
+        void unlock_shared() noexcept;
 
     private:
-        using ops_base = detail::async_mut::ops_base;
+        using ops_base = detail::shmtx::ops_base;
+        static constexpr std::size_t unique_locked = static_cast<std::size_t>(-1);
 
-        // Stores this when the mutex is not held, stores the latest waiting
-        // operation state (or nullptr) otherwise
-        std::atomic<void*> waiting_{this};
+        spinlock mut_;
+        std::size_t shared_holder_ = 0;
+        ops_base* waiting_ = nullptr;
         ops_base* pending_ = nullptr;
 
-        friend bool start_ops(async_mutex& self, ops_base& ops) noexcept;
+        friend bool start_ops(shared_mutex& self, ops_base& ops) noexcept;
+        bool enqueue_unique(ops_base& ops) noexcept;
+        bool enqueue_shared(ops_base& ops) noexcept;
+        ops_base* get_resumption_ops() noexcept;
     };
-} // namespace clu
+} // namespace clu::async

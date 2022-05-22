@@ -2,9 +2,9 @@
 
 #include "../execution/execution_traits.h"
 
-namespace clu
+namespace clu::async
 {
-    class async_manual_reset_event;
+    class manual_reset_event;
 
     namespace detail::amre
     {
@@ -36,14 +36,14 @@ namespace clu
         public:
             // clang-format off
             template <typename R2>
-            type(async_manual_reset_event* ev, R2&& recv):
+            type(manual_reset_event* ev, R2&& recv):
                 ev_(ev), recv_(static_cast<R2&&>(recv)) {}
             // clang-format on
 
             void set() noexcept override { exec::set_value(static_cast<R&&>(recv_)); }
 
         private:
-            async_manual_reset_event* ev_;
+            manual_reset_event* ev_;
             CLU_NO_UNIQUE_ADDRESS R recv_;
 
             friend void tag_invoke(exec::start_t, type& self) noexcept { start_ops(*self.ev_, self); }
@@ -52,10 +52,10 @@ namespace clu
         class snd_t
         {
         public:
-            explicit snd_t(async_manual_reset_event* ev) noexcept: ev_(ev) {}
+            explicit snd_t(manual_reset_event* ev) noexcept: ev_(ev) {}
 
         private:
-            async_manual_reset_event* ev_;
+            manual_reset_event* ev_;
 
             // clang-format off
             friend exec::completion_signatures<exec::set_value_t()> tag_invoke(
@@ -70,13 +70,13 @@ namespace clu
         };
     } // namespace detail::amre
 
-    class async_manual_reset_event
+    class manual_reset_event
     {
     public:
-        explicit async_manual_reset_event(const bool start_set = false) noexcept: tail_(start_set ? this : nullptr) {}
-        async_manual_reset_event(async_manual_reset_event&&) = delete;
-        async_manual_reset_event(const async_manual_reset_event&) = delete;
-        ~async_manual_reset_event() noexcept = default;
+        explicit manual_reset_event(const bool start_set = false) noexcept: tail_(start_set ? this : nullptr) {}
+        manual_reset_event(manual_reset_event&&) = delete;
+        manual_reset_event(const manual_reset_event&) = delete;
+        ~manual_reset_event() noexcept = default;
 
         void set() noexcept;
         bool ready() const noexcept { return tail_.load(std::memory_order::acquire) == this; }
@@ -88,6 +88,6 @@ namespace clu
         // the last inserted pending ops_base* if there is any, or nullptr otherwise.
         std::atomic<void*> tail_{nullptr};
 
-        friend void start_ops(async_manual_reset_event& self, detail::amre::ops_base& ops);
+        friend void start_ops(manual_reset_event& self, detail::amre::ops_base& ops);
     };
-} // namespace clu
+} // namespace clu::async

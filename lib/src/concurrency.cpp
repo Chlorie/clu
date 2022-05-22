@@ -17,6 +17,7 @@ namespace clu
     }
 
     void spinlock::unlock() noexcept { locked_.clear(std::memory_order::release); }
+    bool spinlock::try_lock() noexcept { return !locked_.test_and_set(std::memory_order::acquire); }
 
     namespace detail::lck_ptr
     {

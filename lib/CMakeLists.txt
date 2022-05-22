@@ -33,7 +33,6 @@ add_headers(HEADERS
     "execution.h"
     "execution_contexts.h"
     "expected.h"
-    "export.h"
     "file.h"
     "fixed_string.h"
     "flags.h"
@@ -73,8 +72,11 @@ add_headers(HEADERS
     "uuid.h"
     "vector_utils.h"
 
-    "async/async_manual_reset_event.h"
-    "async/async_scope.h"
+    "async/lock.h"
+    "async/manual_reset_event.h"
+    "async/mutex.h"
+    "async/scope.h"
+    "async/shared_mutex.h"
 
     "execution/algorithms.h"
     "execution/any_scheduler.h"
@@ -104,9 +106,10 @@ add_sources(SOURCES
     "uri.cpp"
     "uuid.cpp"
 
-    "async/async_manual_reset_event.cpp"
-    "async/async_mutex.cpp"
-    "async/async_scope.cpp"
+    "async/manual_reset_event.cpp"
+    "async/mutex.cpp"
+    "async/scope.cpp"
+    "async/shared_mutex.cpp"
 
     "execution/run_loop.cpp"
     "execution/schedulers.cpp"

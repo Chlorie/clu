@@ -1,14 +1,14 @@
 #pragma once
 
-#include "async_manual_reset_event.h"
+#include "manual_reset_event.h"
 #include "../execution/utility.h"
 #include "../execution/algorithms/composed.h"
 
-namespace clu
+namespace clu::async
 {
-    class async_scope;
+    class scope;
 
-    namespace detail::async_scp
+    namespace detail::scp
     {
         class stop_token_env
         {
@@ -30,13 +30,13 @@ namespace clu
         class recv_base
         {
         public:
-            explicit recv_base(async_scope* scope) noexcept: scope_(scope) {}
+            explicit recv_base(scope* scope) noexcept: scope_(scope) {}
 
         protected:
-            async_scope* scope_ = nullptr;
+            scope* scope_ = nullptr;
 
             stop_token_env get_env() const noexcept;
-            static void decrease_counter(async_scope* scope) noexcept;
+            static void decrease_counter(scope* scope) noexcept;
         };
 
         template <typename S>
@@ -55,14 +55,14 @@ namespace clu
         class spawn_recv_t_<S>::type : public recv_base
         {
         public:
-            type(spawn_ops_wrapper<S>* ops, async_scope* scope) noexcept: recv_base(scope), ops_(ops) {}
+            type(spawn_ops_wrapper<S>* ops, scope* scope) noexcept: recv_base(scope), ops_(ops) {}
 
         private:
             spawn_ops_wrapper<S>* ops_;
 
             void finish() const noexcept
             {
-                async_scope* scope = this->scope_; // cache the member
+                scope* scope = this->scope_; // cache the member
                 delete ops_; // this is indirectly destructed here
                 decrease_counter(scope);
             }
@@ -78,7 +78,7 @@ namespace clu
         {
             // clang-format off
             template <typename S2>
-            explicit spawn_ops_wrapper(S2&& sender, async_scope* scope):
+            explicit spawn_ops_wrapper(S2&& sender, scope* scope):
                 ops(exec::connect(static_cast<S2&&>(sender), spawn_recv_t<S>(this, scope))) {}
             // clang-format on
 
@@ -102,7 +102,7 @@ namespace clu
         {
         public:
             // clang-format off
-            type(async_scope* scope, std::shared_ptr<future_ops_wrapper<S>> ops) noexcept:
+            type(scope* scope, std::shared_ptr<future_ops_wrapper<S>> ops) noexcept:
                 recv_base(scope), ops_(std::move(ops)) {}
             // clang-format on
 
@@ -124,7 +124,7 @@ namespace clu
 
             void finish() noexcept
             {
-                async_scope* scope = this->scope_; // cache the member
+                scope* scope = this->scope_; // cache the member
                 // Our work is done, the eager ops is no longer needed
                 // This reset will also delete this, just as a reminder
                 ops_->ops.reset();
@@ -170,7 +170,7 @@ namespace clu
             value_storage_t<S> value;
 
             template <typename S2>
-            void emplace_operation(async_scope* scope, S2&& snd)
+            void emplace_operation(scope* scope, S2&& snd)
             {
                 ops.emplace_with(
                     [&]
@@ -291,7 +291,7 @@ namespace clu
         public:
             // clang-format off
             template <typename S2>
-            type(async_scope* scope, S2&& snd):
+            type(scope* scope, S2&& snd):
                 ops_(std::make_shared<future_ops_wrapper<S>>())
             {
                 ops_->emplace_operation(scope, static_cast<S2&&>(snd));
@@ -299,7 +299,7 @@ namespace clu
             // clang-format on
 
         private:
-            friend async_scope;
+            friend scope;
 
             std::shared_ptr<future_ops_wrapper<S>> ops_;
 
@@ -318,24 +318,24 @@ namespace clu
 
             void start_eagerly() noexcept { exec::start(*ops_->ops); }
         };
-    } // namespace detail::async_scp
+    } // namespace detail::scp
 
-    class async_scope
+    class scope
     {
     public:
-        async_scope() = default;
-        CLU_IMMOVABLE_TYPE(async_scope);
+        scope() = default;
+        CLU_IMMOVABLE_TYPE(scope);
 
-        ~async_scope() noexcept
+        ~scope() noexcept
         {
             CLU_ASSERT(count_.load(std::memory_order::relaxed) == 0, //
                 "deplete_async() must be awaited before the destruction of async_scope");
         }
 
-        template <detail::async_scp::void_sender S>
+        template <detail::scp::void_sender S>
         void spawn(S&& sender)
         {
-            using wrapper_t = detail::async_scp::spawn_ops_wrapper<std::decay_t<S>>;
+            using wrapper_t = detail::scp::spawn_ops_wrapper<std::decay_t<S>>;
             wrapper_t* ptr = new wrapper_t(static_cast<S&&>(sender), this);
             // Following operations won't throw
             ev_.reset();
@@ -352,7 +352,7 @@ namespace clu
         template <typename S>
         auto spawn_future(S&& sender)
         {
-            detail::async_scp::future_snd_t<S> future(this, static_cast<S&&>(sender));
+            detail::scp::future_snd_t<S> future(this, static_cast<S&&>(sender));
             // Following operations won't throw
             ev_.reset();
             count_.fetch_add(1, std::memory_order::relaxed);
@@ -366,10 +366,10 @@ namespace clu
         in_place_stop_token get_stop_token() noexcept { return src_.get_token(); }
 
     private:
-        friend class detail::async_scp::recv_base;
+        friend class detail::scp::recv_base;
 
-        async_manual_reset_event ev_{true};
+        manual_reset_event ev_{true};
         in_place_stop_source src_;
         std::atomic_size_t count_{0};
     };
-} // namespace clu
+} // namespace clu::async

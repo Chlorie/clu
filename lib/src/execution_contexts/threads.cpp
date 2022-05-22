@@ -102,6 +102,7 @@ namespace clu::detail::static_tp
 
     pool::~pool() noexcept
     {
+        finish();
         std::destroy_n(res_, size_);
         aligned_free_for<thread_res>(res_, size_);
     }

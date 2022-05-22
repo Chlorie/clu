@@ -16,7 +16,7 @@ TEST_CASE("async_manual_reset_event", "[async]")
     clu::scope_exit g1{[&] { tp.finish(); }};
     clu::timer_thread_context timer;
     clu::scope_exit g2{[&] { timer.finish(); }};
-    clu::async_manual_reset_event ev;
+    clu::async::manual_reset_event ev;
     int value = 0;
 
     const auto producer = [&](const chr::milliseconds delay) -> clu::task<void>

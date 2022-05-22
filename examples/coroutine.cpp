@@ -10,6 +10,8 @@
 #include <clu/indices.h>
 #include <clu/random.h>
 
+#include <conio.h>
+
 using namespace std::literals;
 using namespace clu::literals;
 namespace chr = std::chrono;
@@ -46,45 +48,55 @@ std::string this_thread_id()
 
 auto get_timer()
 {
-    struct raii_guard
-    {
-        clu::timer_thread_context ctx;
-        ~raii_guard() noexcept { ctx.finish(); }
-    };
-    static raii_guard guard;
-    return guard.ctx.get_scheduler();
+    static clu::timer_thread_context ctx;
+    return ctx.get_scheduler();
 }
 
 auto get_pool()
 {
-    struct raii_guard
-    {
-        clu::static_thread_pool pool{8};
-        ~raii_guard() noexcept { pool.finish(); }
-    };
-    static raii_guard guard;
-    return guard.pool.get_scheduler();
+    static clu::static_thread_pool pool{8};
+    return pool.get_scheduler();
 }
 
-clu::async_mutex mut;
-int value = 0;
+clu::async::shared_mutex mut;
 
-clu::task<void> adder()
+clu::task<void> shared(const int id)
 {
-    co_await ex::schedule_after(get_timer(), chr::milliseconds(clu::randint(50, 100)));
-    co_await mut.lock_async();
-    clu::scope_exit guard{[] { mut.unlock(); }};
-    value++;
+    std::cout << std::format("[SHARED {}] Waiting for the lock\n", id);
+    {
+        auto _ = co_await lock_shared_scoped_async(mut);
+        std::cout << std::format("[SHARED {}] Got the lock\n", id);
+        co_await ex::schedule_after(get_timer(), 3s);
+    }
+    std::cout << std::format("[SHARED {}] Released the lock\n", id);
+}
+
+clu::task<void> unique(const int id)
+{
+    std::cout << std::format("[UNIQUE {}] Waiting for the lock\n", id);
+    {
+        auto _ = co_await lock_scoped_async(mut);
+        std::cout << std::format("[UNIQUE {}] Got the lock\n", id);
+        co_await ex::schedule_after(get_timer(), 3s);
+    }
+    std::cout << std::format("[UNIQUE {}] Released the lock\n", id);
 }
 
 clu::task<void> task()
 {
-    co_await ex::schedule(get_pool());
-    clu::async_scope scope;
-    for (auto _ : clu::indices(10000))
-        scope.spawn(adder());
+    clu::async::scope scope;
+    int id = 0;
+    while (true)
+    {
+        int c = _getch();
+        if (c == 's')
+            scope.spawn(ex::on(get_pool(), shared(id++)));
+        else if (c == 'u')
+            scope.spawn(ex::on(get_pool(), unique(id++)));
+        else if (c == 'q')
+            break;
+    }
     co_await scope.deplete_async();
-    std::cout << std::format("value = {}\n", value);
 }
 
 int main() // NOLINT
