@@ -71,6 +71,29 @@ TEST_CASE("uri construction", "[uri]")
         CHECK(uri.target() == "/forum/questions/?tag=networking&order=newest#top");
         CHECK(uri.is_absolute());
     }
+
+    SECTION("normalization")
+    {
+        // Example from Wikipedia
+        const clu::uri uri = "HTTPS://User@Example.COM/%7eFoo%2a/./bar/baz/../qux"_uri;
+        CHECK(!uri.empty());
+        CHECK(uri.scheme() == "https");
+        CHECK(uri.authority() == "User@example.com");
+        CHECK(uri.userinfo() == "User");
+        CHECK(uri.host() == "example.com");
+        CHECK(uri.origin() == "https://User@example.com");
+        CHECK(uri.port_component().undefined());
+        CHECK(uri.port() == 443);
+        CHECK(uri.path() == "/~Foo%2A/bar/qux");
+        CHECK(uri.query().undefined());
+        CHECK(uri.fragment().undefined());
+        CHECK(uri.path_and_query() == "/~Foo%2A/bar/qux");
+        CHECK(uri.target() == "/~Foo%2A/bar/qux");
+        CHECK(uri.is_absolute());
+
+        const clu::uri empty_path = "https://example.com"_uri;
+        CHECK(empty_path.path() == "/");
+    }
 }
 
 TEST_CASE("relative resolution", "[uri]")

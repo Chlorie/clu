@@ -33,7 +33,7 @@ namespace clu
         };
 
         constexpr uri() noexcept = default;
-        explicit uri(std::string str);
+        explicit uri(std::string_view str);
 
         [[nodiscard]] const std::string& full() const noexcept { return uri_; }
 
@@ -80,6 +80,7 @@ namespace clu
         relative_view query_;
         relative_view fragment_;
 
+        void lower_case_component(relative_view rv) noexcept;
         component from_relative(relative_view view) const noexcept;
 
         // Modifiers for reference resolution
@@ -94,7 +95,8 @@ namespace clu
     {
         ok = 0,
         bad_port,
-        uri_not_absolute
+        uri_not_absolute,
+        bad_percent_encoding
     };
 
     std::error_code make_error_code(uri_errc ec);

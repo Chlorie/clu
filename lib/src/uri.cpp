@@ -1,6 +1,8 @@
 #include "clu/uri.h"
 
 #include <stack>
+#include <array>
+#include <span>
 
 #include "clu/parse.h"
 
@@ -8,7 +10,84 @@ namespace clu
 {
     namespace
     {
+        using namespace std::literals;
+
         constexpr std::size_t npos = std::string_view::npos;
+
+        enum class percent_encode_type
+        {
+            must_encode = 0,
+            unreserved,
+            reserved
+        };
+
+        constexpr auto get_percent_encode_types() noexcept
+        {
+            constexpr std::size_t size = std::numeric_limits<unsigned char>::max() + 1;
+            std::array<percent_encode_type, size> result{};
+            for (const char ch : "!#$&'()*+,/:;=?@[]"sv)
+                result[static_cast<unsigned char>(ch)] = percent_encode_type::reserved;
+            for (const char ch : "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~"sv)
+                result[static_cast<unsigned char>(ch)] = percent_encode_type::unreserved;
+            return result;
+        }
+        constexpr auto percent_encode_types = get_percent_encode_types();
+
+        [[noreturn]] void throw_bad_percent()
+        {
+            throw std::system_error(make_error_code(uri_errc::bad_percent_encoding));
+        }
+
+        unsigned char decode_one_percent(const char* ptr)
+        {
+            constexpr auto decode_one_char = [](const char ch) -> int
+            {
+                if (ch >= '0' && ch <= '9')
+                    return ch - '0';
+                if (ch >= 'a' && ch <= 'f')
+                    return ch - 'a' + 10;
+                if (ch >= 'A' && ch <= 'F')
+                    return ch - 'A' + 10;
+                throw_bad_percent();
+            };
+            int result = decode_one_char(*++ptr);
+            result = result * 16 + decode_one_char(*++ptr);
+            return static_cast<unsigned char>(result);
+        }
+
+        void encode_one_percent(std::string& str, const unsigned char ch)
+        {
+            constexpr auto hex = "0123456789ABCDEF";
+            const char percent[3]{'%', hex[ch / 16], hex[ch % 16]};
+            str.append(percent, 3);
+        }
+
+        std::string appropriate_percent_encode(const std::string_view sv)
+        {
+            std::string result;
+            result.reserve(sv.size());
+            for (auto iter = sv.begin(); iter != sv.end(); ++iter)
+            {
+                if (*iter == '%')
+                {
+                    if (sv.end() - iter <= 2)
+                        throw_bad_percent();
+                    if (const unsigned char ch = decode_one_percent(&*iter);
+                        percent_encode_types[ch] == percent_encode_type::unreserved)
+                        result.push_back(static_cast<char>(ch));
+                    else
+                        encode_one_percent(result, ch);
+                    iter += 2;
+                    continue;
+                }
+                if (const auto ch = static_cast<unsigned char>(*iter);
+                    percent_encode_types[ch] == percent_encode_type::must_encode)
+                    encode_one_percent(result, ch);
+                else
+                    result.push_back(*iter);
+            }
+            return result;
+        }
 
         std::size_t find(const std::string_view sv, const char ch, //
             const std::size_t offset = 0) noexcept
@@ -98,6 +177,7 @@ namespace clu
                     case uri_errc::ok: return "ok";
                     case uri_errc::bad_port: return "bad port number";
                     case uri_errc::uri_not_absolute: return "base URI is not absolute";
+                    case uri_errc::bad_percent_encoding: return "bad percent encoding";
                     default: return "unknown error";
                 }
             }
@@ -118,17 +198,21 @@ namespace clu
         return *lhs == *rhs;
     }
 
-    uri::uri(std::string str): uri_(std::move(str))
+    uri::uri(const std::string_view str): uri_(appropriate_percent_encode(str))
     {
-        if (uri_.empty())
+        if (str.empty())
             return;
+
         std::size_t offset = 0;
+        // Parse scheme
         if (const auto colon = uri_.find(':'); //
             colon != npos && full().substr(0, colon).find('/') == npos) // has scheme
         {
             scheme_ = {0, colon};
             offset = colon + 1;
         }
+
+        // Parse authority
         if (starts_with(full().substr(offset), "//")) // has authority
         {
             offset += 2; // +2 for double slashes
@@ -150,9 +234,29 @@ namespace clu
                 host_ = {offset, slash};
             offset = slash;
         }
-        const auto path_delim = uri_.find_first_of("?#", offset); // find end of path
-        path_ = {offset, path_delim == npos ? uri_.size() : path_delim};
-        offset = path_.stop;
+
+        // Parse path
+        {
+            const auto path_delim = uri_.find_first_of("?#", offset); // find end of path
+            if (const auto path_end = path_delim == npos ? uri_.size() : path_delim;
+                authority_.undefined()) // no authority
+                path_ = {offset, path_end};
+            else if (path_end == offset) // has authority, empty path
+            {
+                uri_.insert(offset, 1, '/'); // Normalize to single slash
+                path_ = {offset, offset + 1};
+            }
+            else // has authority, remove dots
+            {
+                const std::string_view path_view{&uri_[offset], path_end - offset};
+                std::string new_path = remove_dots(path_view);
+                uri_.replace(offset, path_end - offset, new_path);
+                path_ = {offset, offset + new_path.size()};
+            }
+            offset = path_.stop;
+        }
+
+        // Parse query/fragment
         if (offset != uri_.size()) // has query and/or fragment
         {
             if (uri_[offset] == '?') // has query
@@ -165,6 +269,8 @@ namespace clu
             else // only fragment
                 fragment_ = {offset + 1, uri_.size()};
         }
+
+        // Default ports
         if (port_ == -1 && is_absolute()) // default port for http and https
         {
             const auto sch = *scheme();
@@ -173,6 +279,9 @@ namespace clu
             else if (sch == "https")
                 port_ = 443;
         }
+
+        lower_case_component(scheme_);
+        lower_case_component(host_);
     }
 
     uri::component uri::origin() const noexcept
@@ -252,11 +361,29 @@ namespace clu
         return result;
     }
 
+    void uri::lower_case_component(const relative_view rv) noexcept
+    {
+        if (rv.undefined())
+            return;
+        const std::span span{&uri_[rv.start], rv.size()};
+        for (auto iter = span.begin(); iter != span.end(); ++iter)
+        {
+            char& ch = *iter;
+            if (ch == '%')
+            {
+                iter += 2;
+                continue;
+            }
+            if (ch >= 'A' && ch <= 'Z')
+                ch += 32;
+        }
+    }
+
     uri::component uri::from_relative(const relative_view view) const noexcept
     {
         return view.undefined() //
             ? component{}
-            : component{uri_.data() + view.start, uri_.data() + view.stop};
+            : component{&uri_[view.start], &uri_[view.stop]};
     }
 
     void uri::append_scheme(const component comp)

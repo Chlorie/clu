@@ -28,7 +28,8 @@ TEST_CASE("parse int", "[parse]")
         std::string_view str = "42hello";
         REQUIRE_FALSE(clu::parse<int>(str));
         REQUIRE(clu::parse_consume<int>(str) == 42);
-        REQUIRE(str == "hello");
+        // TODO: revert to string_view after the catch2 vcpkg port is fixed
+        REQUIRE(std::string(str) == "hello");
     }
 }
 
@@ -58,6 +59,7 @@ TEST_CASE("parse float", "[parse]")
         std::string_view str = "42.f";
         REQUIRE_FALSE(clu::parse<float>(str));
         REQUIRE(clu::parse_consume<float>(str) == 42.f);
-        REQUIRE(str == "f");
+        // TODO: revert to string_view after the catch2 vcpkg port is fixed
+        REQUIRE(std::string(str) == "f");
     }
 }
