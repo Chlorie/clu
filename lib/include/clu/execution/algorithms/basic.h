@@ -55,7 +55,7 @@ namespace clu::exec
             {
             public:
                 // clang-format off
-                template <typename... Us>
+                template <forwarding<Ts>... Us>
                 constexpr explicit type(Us&&... args) noexcept(
                     std::is_nothrow_constructible_v<std::tuple<Ts...>, Us...>):
                     values_(static_cast<Us&&>(args)...) {}

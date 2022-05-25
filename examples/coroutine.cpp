@@ -7,10 +7,10 @@
 #include <clu/async.h>
 #include <clu/chrono_utils.h>
 #include <clu/task.h>
+#include <clu/flow.h>
 #include <clu/indices.h>
 #include <clu/random.h>
-
-#include <conio.h>
+#include <clu/execution/stream.h>
 
 using namespace std::literals;
 using namespace clu::literals;
@@ -58,48 +58,31 @@ auto get_pool()
     return pool.get_scheduler();
 }
 
-clu::async::shared_mutex mut;
-
-clu::task<void> shared(const int id)
+clu::flow<int> tick()
 {
-    std::cout << std::format("[SHARED {}] Waiting for the lock\n", id);
+    for (int i = 0;; i++)
     {
-        auto _ = co_await lock_shared_scoped_async(mut);
-        std::cout << std::format("[SHARED {}] Got the lock\n", id);
-        co_await ex::schedule_after(get_timer(), 3s);
+        co_yield i;
+        if (i >= 5)
+            co_await ex::stop();
+        co_await ex::schedule_after(get_timer(), 1s);
     }
-    std::cout << std::format("[SHARED {}] Released the lock\n", id);
-}
-
-clu::task<void> unique(const int id)
-{
-    std::cout << std::format("[UNIQUE {}] Waiting for the lock\n", id);
-    {
-        auto _ = co_await lock_scoped_async(mut);
-        std::cout << std::format("[UNIQUE {}] Got the lock\n", id);
-        co_await ex::schedule_after(get_timer(), 3s);
-    }
-    std::cout << std::format("[UNIQUE {}] Released the lock\n", id);
 }
 
 clu::task<void> task()
 {
-    clu::async::scope scope;
-    int id = 0;
+    auto stream = tick();
     while (true)
     {
-        int c = _getch();
-        if (c == 's')
-            scope.spawn(ex::on(get_pool(), shared(id++)));
-        else if (c == 'u')
-            scope.spawn(ex::on(get_pool(), unique(id++)));
-        else if (c == 'q')
-            break;
+        const auto value = co_await ex::next(stream);
+        std::cout << std::format("Got value: {}\n", value);
     }
-    co_await scope.deplete_async();
 }
 
 int main() // NOLINT
 {
-    clu::this_thread::sync_wait(task());
+    // clang-format off
+    try { clu::this_thread::sync_wait(task()); }
+    catch (const std::exception& exc) { std::cout << exc.what() << '\n'; }
+    // clang-format on
 }

@@ -1014,15 +1014,13 @@ namespace clu::exec
                 cont.resume();
             }
 
-            // @formatter:off
             template <typename Cpo, typename... Args>
                 requires recv_qry::fwd_recv_query<Cpo> && callable<Cpo, const P&, Args...>
-            friend decltype(auto) tag_invoke(const Cpo cpo, const type& self, Args&&... args) noexcept(
-                nothrow_callable<Cpo, const P&, Args...>)
+            friend decltype(auto) tag_invoke(const Cpo cpo, const type& self, Args&&... args) //
+                noexcept(nothrow_callable<Cpo, const P&, Args...>)
             {
                 return cpo(std::as_const(self.handle_.promise()), static_cast<Args&&>(args)...);
             }
-            // @formatter:on
         };
 
         template <typename S, typename P>
@@ -1046,7 +1044,7 @@ namespace clu::exec
             }
 
             // TODO: if the sender completes inline, return true from await_ready()
-            bool await_ready() const noexcept { return inline_sender<S>; }
+            bool await_ready() const noexcept { return false; }
             void await_suspend(coro::coroutine_handle<P>) noexcept { exec::start(state_); }
             auto await_resume()
             {
@@ -1064,12 +1062,18 @@ namespace clu::exec
         };
 
         // clang-format off
-        template <typename S, typename P>
-        concept awaitable_sender =
-            single_sender<S, env_of_t<P>> &&
-            sender_to<S, awaitable_receiver<S, P>> &&
-            requires(P& p) { { p.unhandled_stopped() } -> std::convertible_to<coro::coroutine_handle<>>; };
+        template <typename P>
+        concept stop_handler = requires(P& p)
+        {
+            { p.unhandled_stopped() } -> std::convertible_to<coro::coroutine_handle<>>;
+        };
         // clang-format on
+
+        template <typename S, typename P>
+        concept awaitable_sender = //
+            single_sender<S, env_of_t<P>> && //
+            sender_to<S, awaitable_receiver<S, P>> && //
+            stop_handler<P>;
 
         struct as_awaitable_t
         {

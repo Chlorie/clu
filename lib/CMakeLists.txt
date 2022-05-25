@@ -36,6 +36,7 @@ add_headers(HEADERS
     "file.h"
     "fixed_string.h"
     "flags.h"
+    "flow.h"
     "forest.h"
     "function_ref.h"
     "function_traits.h"
@@ -78,7 +79,6 @@ add_headers(HEADERS
     "async/scope.h"
     "async/shared_mutex.h"
 
-    "execution/algorithms.h"
     "execution/any_scheduler.h"
     "execution/awaitable_traits.h"
     "execution/execution_traits.h"
@@ -87,11 +87,16 @@ add_headers(HEADERS
     "execution/schedulers.h"
     "execution/utility.h"
 
+    "execution/algorithms.h"
     "execution/algorithms/basic.h"
     "execution/algorithms/composed.h"
     "execution/algorithms/consumers.h"
     "execution/algorithms/parallel.h"
     "execution/algorithms/scheduling.h"
+
+    "execution/stream.h"
+    "execution/stream/base.h"
+    "execution/stream/trivial_streams.h"
 
     "execution_contexts/threads.h"
     "execution_contexts/timed_threads.h"
