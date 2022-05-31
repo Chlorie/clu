@@ -10,7 +10,7 @@
 #include <clu/flow.h>
 #include <clu/indices.h>
 #include <clu/random.h>
-#include <clu/execution/stream.h>
+#include <clu/functional.h>
 
 using namespace std::literals;
 using namespace clu::literals;
@@ -46,37 +46,44 @@ std::string this_thread_id()
     return std::move(ss).str();
 }
 
-auto get_timer()
+auto timer()
 {
     static clu::timer_thread_context ctx;
     return ctx.get_scheduler();
 }
 
-auto get_pool()
+auto thread_pool()
 {
     static clu::static_thread_pool pool{8};
     return pool.get_scheduler();
 }
 
-clu::flow<int> tick()
+template <typename... Ts>
+void log(const std::string_view fmt, Ts&&... args)
 {
-    for (int i = 0;; i++)
+    std::cout << std::format("[{}] {}\n", //
+        clu::local_now(), std::vformat(fmt, std::make_format_args(args...)));
+}
+
+clu::flow<int> tick(const int max)
+{
+    for (int i = 1; i <= max; i++)
     {
+        log("Yielding {}...", i);
         co_yield i;
-        if (i >= 5)
-            co_await ex::stop();
-        co_await ex::schedule_after(get_timer(), 1s);
+        co_await (timer() | ex::schedule_after(0.25s));
     }
 }
 
 clu::task<void> task()
 {
-    auto stream = tick();
-    while (true)
-    {
-        const auto value = co_await ex::next(stream);
-        std::cout << std::format("Got value: {}\n", value);
-    }
+    const auto cleanup_log = ex::just_from([] { log("Executing clean up"); });
+    auto sum_task = tick(15) //
+        | ex::adapt_cleanup([&](auto&&) { return cleanup_log; }) //
+        | ex::reduce(1_uz, std::multiplies{} | clu::compose(ex::just));
+    auto timeout = timer() | ex::schedule_after(12s);
+    const auto sum = co_await ex::stop_when(std::move(sum_task), std::move(timeout));
+    log("15! = {}", sum);
 }
 
 int main() // NOLINT

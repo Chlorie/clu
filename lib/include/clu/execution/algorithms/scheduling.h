@@ -209,7 +209,8 @@ namespace clu::exec
             using storage_tuple_t = decltype(schd_from::storage_tuple_impl(static_cast<Sig*>(nullptr)));
             template <typename S, typename R>
             using storage_variant_t = meta::unpack_invoke<
-                meta::transform_l<completion_signatures_of_t<S, env_of_t<R>>, meta::quote1<storage_tuple_t>>,
+                meta::transform_l<add_sig<completion_signatures_of_t<S, env_of_t<R>>, set_error_t(std::exception_ptr)>,
+                    meta::quote1<storage_tuple_t>>,
                 meta::quote<nullable_variant>>;
 
             template <typename S, typename R, typename Schd>

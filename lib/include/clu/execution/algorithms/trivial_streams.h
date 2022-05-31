@@ -1,6 +1,6 @@
 #pragma once
 
-#include "base.h"
+#include "../execution_traits.h"
 
 namespace clu::exec
 {

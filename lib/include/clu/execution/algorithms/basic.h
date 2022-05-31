@@ -73,6 +73,8 @@ namespace clu::exec
                 {
                     return {};
                 }
+
+                friend std::true_type tag_invoke(completes_inline_t, const type&) noexcept { return {}; }
             };
 
             template <typename Cpo, typename... Ts>

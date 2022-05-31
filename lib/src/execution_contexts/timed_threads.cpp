@@ -64,7 +64,8 @@ namespace clu
                 uncle->recolor(black);
                 grandparent->recolor(red);
                 node = grandparent; // 2 levels (1 black level) higher
-            } while ((parent = node->parent()));
+                parent = node->parent();
+            } while (parent);
             // Case 3: ops is the red root, completes
         }
 

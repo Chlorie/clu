@@ -847,6 +847,47 @@ namespace clu::exec
                 }
             };
         } // namespace read
+
+        namespace jvs
+        {
+            template <typename R>
+            struct ops_t_
+            {
+                class type;
+            };
+
+            template <typename R>
+            using ops_t = typename ops_t_<std::decay_t<R>>::type;
+
+            template <typename R>
+            class ops_t_<R>::type
+            {
+            public:
+                // clang-format off
+                template <forwarding<R> R2>
+                explicit type(R2&& recv) noexcept(std::is_nothrow_constructible_v<R, R2>):
+                    recv_(static_cast<R2&&>(recv)) {}
+                // clang-format on
+
+            private:
+                R recv_;
+
+                friend void tag_invoke(start_t, type& self) noexcept { set_value(static_cast<R&&>(self.recv_)); }
+            };
+        } // namespace jvs
+
+        struct just_void_snd_t
+        {
+            // clang-format off
+            constexpr friend completion_signatures<set_value_t()> tag_invoke(
+                get_completion_signatures_t, just_void_snd_t, auto&&) noexcept { return {}; }
+            // clang-format on
+
+            template <typename R>
+            friend auto tag_invoke(connect_t, just_void_snd_t, R&& recv)
+                CLU_SINGLE_RETURN(jvs::ops_t<R>(static_cast<R&&>(recv)));
+        };
+        inline constexpr just_void_snd_t just_void{};
     } // namespace detail
 
     using detail::wo_thunk::without_await_thunk_t;
@@ -901,17 +942,29 @@ namespace clu::exec
                     "return type of schedule_at should satisfy sender");
                 return tag_invoke(*this, static_cast<S&&>(schd), tp);
             }
+
+            auto operator()(const time_point auto tp) const
+            {
+                return clu::make_piper( //
+                    clu::bind_back(*this, tp));
+            }
         };
 
         struct schedule_after_t
         {
-            template <typename S, typename D>
+            template <typename S, duration D>
                 requires tag_invocable<schedule_after_t, S, D>
             auto operator()(S&& schd, const D dur) const
             {
                 static_assert(sender<tag_invoke_result_t<schedule_after_t, S, D>>, //
                     "return type of schedule_after should satisfy sender");
                 return tag_invoke(*this, static_cast<S&&>(schd), dur);
+            }
+
+            auto operator()(const duration auto dur) const
+            {
+                return clu::make_piper( //
+                    clu::bind_back(*this, dur));
             }
         };
     } // namespace detail::time_schd
@@ -1277,6 +1330,54 @@ namespace clu::exec
     using detail::schd_qry::get_forward_progress_guarantee_t;
     inline constexpr forwarding_scheduler_query_t forwarding_scheduler_query{};
     inline constexpr get_forward_progress_guarantee_t get_forward_progress_guarantee{};
+
+    namespace detail::strm
+    {
+        struct next_t
+        {
+            template <typename S>
+                requires tag_invocable<next_t, S&>
+            auto operator()(S& stream) const //
+                noexcept(nothrow_tag_invocable<next_t, S&>)
+            {
+                static_assert(sender<tag_invoke_result_t<next_t, S&>>, //
+                    "next(stream) must produce a sender");
+                return tag_invoke(*this, stream);
+            }
+        };
+
+        struct cleanup_t
+        {
+            template <typename S>
+            auto operator()(S& stream) const noexcept
+            {
+                if constexpr (tag_invocable<cleanup_t, S&>)
+                {
+                    static_assert(nothrow_tag_invocable<cleanup_t, S&>, //
+                        "cleanup(stream) must not throw");
+                    using sender_t = tag_invoke_result_t<cleanup_t, S&>;
+                    static_assert(sender_of<sender_t, empty_env>, //
+                        "cleanup(stream) must produce a sender that sends nothing "
+                        "(like clu::task<void>)");
+                    return tag_invoke(*this, stream);
+                }
+                else
+                    return just_void;
+            }
+        };
+    } // namespace detail::strm
+
+    using detail::strm::next_t;
+    using detail::strm::cleanup_t;
+    inline constexpr next_t next{};
+    inline constexpr cleanup_t cleanup{};
+
+    template <typename S>
+    concept stream = callable<next_t, S&> && callable<cleanup_t, S&>;
+    template <stream S>
+    using next_result_t = call_result_t<next_t, S&>;
+    template <stream S>
+    using cleanup_result_t = call_result_t<cleanup_t, S&>;
 } // namespace clu::exec
 
 namespace clu::this_thread

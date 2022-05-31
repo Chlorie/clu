@@ -430,7 +430,8 @@ namespace clu
 
             friend void tag_invoke(exec::start_t, type& self) noexcept
             {
-                self.deadline = clock::now() + self.dur_; // Deadline decided at start time
+                self.deadline = std::chrono::time_point_cast<clock::duration>( //
+                    clock::now() + self.dur_); // Deadline decided at start time
                 self.start();
             }
         };

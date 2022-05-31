@@ -7,3 +7,5 @@
 #include "algorithms/consumers.h"
 #include "algorithms/parallel.h"
 #include "algorithms/composed.h"
+#include "algorithms/trivial_streams.h"
+#include "algorithms/stream_basic.h"

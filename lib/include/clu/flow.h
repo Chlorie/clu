@@ -1,6 +1,5 @@
 #pragma once
 
-#include "execution/stream.h"
 #include "task.h"
 
 namespace clu

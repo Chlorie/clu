@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdio>
 #include <stdexcept>
 
 #include "macros.h"
@@ -34,19 +33,10 @@ namespace clu
 
     namespace detail
     {
-        [[noreturn]] inline void assertion_failure(
-            const char* expr, const char* msg, const char* file, const size_t line)
-        {
-            std::fprintf(stderr, "Assertion %s failed in %s, line %zu: %s", expr, file, line, msg);
-            std::abort();
-        }
+        [[noreturn]] void assertion_failure(const char* expr, const char* msg, const char* file, size_t line);
     } // namespace detail
 
-    [[noreturn]] inline void unreachable()
-    {
-        std::fprintf(stderr, "Supposedly unreachable code reached");
-        std::abort();
-    }
+    [[noreturn]] void unreachable();
 } // namespace clu
 
 #define CLU_ASSERT(expr, msg) (void)(!!(expr) || (::clu::detail::assertion_failure(#expr, msg, __FILE__, __LINE__), 0))

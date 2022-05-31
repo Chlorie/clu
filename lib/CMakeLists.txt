@@ -40,6 +40,7 @@ add_headers(HEADERS
     "forest.h"
     "function_ref.h"
     "function_traits.h"
+    "functional.h"
     "generator.h"
     "hash.h"
     "indices.h"
@@ -93,16 +94,15 @@ add_headers(HEADERS
     "execution/algorithms/consumers.h"
     "execution/algorithms/parallel.h"
     "execution/algorithms/scheduling.h"
-
-    "execution/stream.h"
-    "execution/stream/base.h"
-    "execution/stream/trivial_streams.h"
+    "execution/algorithms/trivial_streams.h"
+    "execution/algorithms/stream_basic.h"
 
     "execution_contexts/threads.h"
     "execution_contexts/timed_threads.h"
 )
 add_sources(SOURCES
     # Source files here (relative to ./src/)
+    "assertion.cpp"
     "concurrency.cpp"
     "file.cpp"
     "random.cpp"
