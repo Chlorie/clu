@@ -9,3 +9,4 @@
 #include "algorithms/composed.h"
 #include "algorithms/trivial_streams.h"
 #include "algorithms/stream_basic.h"
+#include "algorithms/stream_composed.h"

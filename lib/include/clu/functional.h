@@ -33,7 +33,7 @@ namespace clu
         {
         public:
             // clang-format off
-            template <forwarding<F> F2, forwarding<G> G2>
+            template <typename F2, typename G2>
             constexpr compose_fn(F2&& f, G2&& g) noexcept(
                 std::is_nothrow_constructible_v<F, F2> && std::is_nothrow_constructible_v<G, G2>):
                 f_(static_cast<F2&&>(f)), g_(static_cast<G2&&>(g)) {}

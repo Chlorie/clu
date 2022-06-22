@@ -58,6 +58,21 @@ auto thread_pool()
     return pool.get_scheduler();
 }
 
+template <std::ranges::sized_range R>
+std::string to_string(R&& range)
+{
+    namespace sr = std::ranges;
+    if (sr::empty(range))
+        return "[]";
+    auto iter = sr::begin(range);
+    const auto sent = sr::end(range);
+    std::string result = std::format("[{}", *iter++);
+    for (; iter != sent; ++iter)
+        result += std::format(", {}", *iter);
+    result += ']';
+    return result;
+}
+
 template <typename... Ts>
 void log(const std::string_view fmt, Ts&&... args)
 {
@@ -65,25 +80,40 @@ void log(const std::string_view fmt, Ts&&... args)
         clu::local_now(), std::vformat(fmt, std::make_format_args(args...)));
 }
 
+bool is_prime(const int value)
+{
+    if (value < 2)
+        return false;
+    for (int i = 2; i * i <= value; i++)
+        if (value % i == 0)
+            return false;
+    return true;
+}
+
 clu::flow<int> tick(const int max)
 {
     for (int i = 1; i <= max; i++)
     {
-        log("Yielding {}...", i);
+        log("[->] {}", i);
         co_yield i;
-        co_await (timer() | ex::schedule_after(0.25s));
+        co_await (timer() | ex::schedule_after(0.2s));
     }
 }
 
 clu::task<void> task()
 {
-    const auto cleanup_log = ex::just_from([] { log("Executing clean up"); });
-    auto sum_task = tick(15) //
-        | ex::adapt_cleanup([&](auto&&) { return cleanup_log; }) //
-        | ex::reduce(1_uz, std::multiplies{} | clu::compose(ex::just));
-    auto timeout = timer() | ex::schedule_after(12s);
-    const auto sum = co_await ex::stop_when(std::move(sum_task), std::move(timeout));
-    log("15! = {}", sum);
+    const std::vector<int> vec = co_await ( //
+        tick(15) //
+        | ex::filter(is_prime | clu::compose(ex::just)) //
+        | ex::upon_each(
+              [](const int value)
+              {
+                  log("[<-] {}", value);
+                  return value;
+              }) //
+        | ex::into_vector() //
+    );
+    log("Collected vector: {}", to_string(vec));
 }
 
 int main() // NOLINT
