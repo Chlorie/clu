@@ -629,6 +629,7 @@ namespace clu::exec
 
         // TODO: merge: stream<T>... -> stream<T>
         // TODO: join: stream<T>... -> stream<T>
+        // TODO: debounce: stream<T>, time_scheduler, duration -> stream<T>
         // TODO: zip: stream<Ts>... -> stream<Ts...>
         // TODO: combine: stream<Ts>... -> stream<Ts...>
         // TODO: flatten: stream<stream<T>>, int? max_concurrency -> stream<T>
@@ -647,7 +648,6 @@ namespace clu::exec
             };
         } // namespace last
 
-        // TODO: debounce: stream<T>, time_scheduler, duration -> stream<T>
         // TODO: drop_while: stream<T>, (T -> sender<bool>) -> stream<T>
         // TODO: take_while: stream<T>, (T -> sender<bool>) -> stream<T>
 

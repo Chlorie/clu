@@ -171,7 +171,7 @@ namespace clu
 
         template <typename T>
         concept allocator_base =
-            std::copyable<T> &&
+            std::copy_constructible<T> &&
             std::equality_comparable<T> &&
             requires { typename T::value_type; } &&
             requires (

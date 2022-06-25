@@ -2,13 +2,16 @@
 #include <chrono>
 #include <mutex>
 #include <format>
+#include <memory_resource>
 
 #include <clu/execution_contexts.h>
 #include <clu/async.h>
+#include <clu/async/channel.h>
 #include <clu/chrono_utils.h>
 #include <clu/task.h>
 #include <clu/flow.h>
 #include <clu/indices.h>
+#include <clu/scope.h>
 #include <clu/random.h>
 #include <clu/functional.h>
 
@@ -116,10 +119,48 @@ clu::task<void> task()
     log("Collected vector: {}", to_string(vec));
 }
 
+class recording_memory_resource final : public std::pmr::memory_resource
+{
+public:
+    recording_memory_resource() = default;
+    std::size_t allocate_bytes() const noexcept { return allocated_; }
+
+private:
+    std::size_t allocated_ = 0;
+
+    void* do_allocate(const size_t bytes, const size_t align) override
+    {
+        clu::scope_success guard{[&]
+            {
+                log("Allocated {} bytes", bytes);
+                allocated_ += align;
+            }};
+        return std::pmr::get_default_resource()->allocate(bytes, align);
+    }
+
+    void do_deallocate(void* ptr, const size_t bytes, const size_t align) override
+    {
+        log("Deallocated {} bytes", bytes);
+        allocated_ -= bytes;
+        std::pmr::get_default_resource()->deallocate(ptr, bytes, align);
+    }
+
+    bool do_is_equal(const memory_resource&) const noexcept override { return false; }
+};
+
+clu::task<void> test()
+{
+    recording_memory_resource mem;
+    clu::async::scope scope;
+    (void)scope.spawn_future(ex::just_from([] { log("Test"); }), //
+        std::pmr::polymorphic_allocator(&mem));
+    co_await scope.deplete_async();
+}
+
 int main() // NOLINT
 {
     // clang-format off
-    try { clu::this_thread::sync_wait(task()); }
+    try { clu::this_thread::sync_wait(test()); }
     catch (const std::exception& exc) { std::cout << exc.what() << '\n'; }
     // clang-format on
 }

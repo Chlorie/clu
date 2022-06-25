@@ -10,22 +10,25 @@ namespace clu::async
 
     namespace detail::scp
     {
-        class stop_token_env
+        template <typename A>
+        class env
         {
         public:
-            explicit stop_token_env(const in_place_stop_token token) noexcept: token_(token) {}
+            // clang-format off
+            explicit env(const in_place_stop_token token, A alloc) noexcept:
+                token_(token), alloc_(static_cast<A&&>(alloc)) {}
+            // clang-format on
 
         private:
             in_place_stop_token token_;
+            CLU_NO_UNIQUE_ADDRESS A alloc_;
 
-            // clang-format off
-            friend in_place_stop_token tag_invoke(
-                exec::get_stop_token_t, const stop_token_env self) noexcept { return self.token_; }
-            // clang-format on
+            friend auto tag_invoke(exec::get_stop_token_t, const env& self) noexcept { return self.token_; }
+            friend A tag_invoke(exec::get_allocator_t, const env& self) noexcept { return self.alloc_; }
         };
 
-        template <typename S>
-        concept void_sender = exec::sender_of<S, stop_token_env>;
+        template <typename S, typename A>
+        concept void_sender = exec::sender_of<S, env<A>>;
 
         class recv_base
         {
@@ -35,36 +38,58 @@ namespace clu::async
         protected:
             scope* scope_ = nullptr;
 
-            stop_token_env get_env() const noexcept;
             static void decrease_counter(scope* scope) noexcept;
         };
 
-        template <typename S>
+        template <typename A>
+        class recv_alloc_base : public recv_base
+        {
+        public:
+            // clang-format off
+            explicit recv_alloc_base(scope* scope, A&& alloc) noexcept:
+                recv_base(scope), alloc_(static_cast<A&&>(alloc)) {}
+            // clang-format on
+
+        protected:
+            CLU_NO_UNIQUE_ADDRESS A alloc_;
+
+            env<A> get_env() const noexcept;
+        };
+
+        template <typename S, typename A>
         struct spawn_recv_t_
         {
             class type;
         };
 
-        template <typename S>
-        using spawn_recv_t = typename spawn_recv_t_<S>::type;
+        template <typename S, typename A>
+        using spawn_recv_t = typename spawn_recv_t_<S, A>::type;
 
-        template <typename S>
+        template <typename S, typename A>
         struct spawn_ops_wrapper;
 
-        template <typename S>
-        class spawn_recv_t_<S>::type : public recv_base
+        template <typename S, typename A>
+        class spawn_recv_t_<S, A>::type : public recv_alloc_base<A>
         {
         public:
-            type(spawn_ops_wrapper<S>* ops, scope* scope) noexcept: recv_base(scope), ops_(ops) {}
+            // clang-format off
+            type(spawn_ops_wrapper<S, A>* ops, scope* scope, A&& alloc) noexcept:
+                recv_alloc_base<A>(scope, static_cast<A&&>(alloc)), ops_(ops) {}
+            // clang-format on
 
         private:
-            spawn_ops_wrapper<S>* ops_;
+            spawn_ops_wrapper<S, A>* ops_;
 
             void finish() const noexcept
             {
+                using alloc_traits = typename std::allocator_traits<A> //
+                    ::template rebind_traits<spawn_ops_wrapper<S, A>>;
+                typename alloc_traits::allocator_type rebound = this->alloc_;
                 scope* scope = this->scope_; // cache the member
-                delete ops_; // this is indirectly destructed here
-                decrease_counter(scope);
+                // this is indirectly destructed here
+                alloc_traits::destroy(rebound, ops_);
+                alloc_traits::deallocate(rebound, ops_, 1);
+                recv_base::decrease_counter(scope);
             }
 
             friend auto tag_invoke(exec::set_value_t, type&& self) noexcept { self.finish(); }
@@ -73,41 +98,42 @@ namespace clu::async
             friend auto tag_invoke(exec::get_env_t, const type& self) noexcept { return self.get_env(); }
         };
 
-        template <typename S>
+        template <typename S, typename A>
         struct spawn_ops_wrapper
         {
             // clang-format off
             template <typename S2>
-            explicit spawn_ops_wrapper(S2&& sender, scope* scope):
-                ops(exec::connect(static_cast<S2&&>(sender), spawn_recv_t<S>(this, scope))) {}
+            explicit spawn_ops_wrapper(S2&& sender, scope* scope, A&& alloc):
+                ops(exec::connect(static_cast<S2&&>(sender),
+                    spawn_recv_t<S, A>(this, scope, static_cast<A&&>(alloc)))) {}
             // clang-format on
 
-            exec::connect_result_t<S, spawn_recv_t<S>> ops;
+            exec::connect_result_t<S, spawn_recv_t<S, A>> ops;
         };
 
-        template <typename S>
+        template <typename S, typename A>
         struct future_ops_wrapper;
 
-        template <typename S>
+        template <typename S, typename A>
         struct future_recv_t_
         {
             class type;
         };
 
-        template <typename S>
-        using future_recv_t = typename future_recv_t_<S>::type;
+        template <typename S, typename A>
+        using future_recv_t = typename future_recv_t_<S, A>::type;
 
-        template <typename S>
-        class future_recv_t_<S>::type : recv_base
+        template <typename S, typename A>
+        class future_recv_t_<S, A>::type : public recv_alloc_base<A>
         {
         public:
             // clang-format off
-            type(scope* scope, std::shared_ptr<future_ops_wrapper<S>> ops) noexcept:
-                recv_base(scope), ops_(std::move(ops)) {}
+            type(std::shared_ptr<future_ops_wrapper<S, A>> ops, scope* scope, A&& alloc) noexcept:
+                recv_alloc_base<A>(scope, static_cast<A&&>(alloc)), ops_(std::move(ops)) {}
             // clang-format on
 
         private:
-            std::shared_ptr<future_ops_wrapper<S>> ops_;
+            std::shared_ptr<future_ops_wrapper<S, A>> ops_;
 
             template <typename... Ts>
             friend void tag_invoke(exec::set_value_t, type&& self, Ts&&... args) noexcept
@@ -128,29 +154,29 @@ namespace clu::async
                 // Our work is done, the eager ops is no longer needed
                 // This reset will also delete this, just as a reminder
                 ops_->ops.reset();
-                decrease_counter(scope);
+                recv_base::decrease_counter(scope);
             }
         };
 
-        template <typename S>
-        using value_storage_t = std::optional<exec::value_types_of_t<S, stop_token_env>>;
+        template <typename S, typename A>
+        using value_storage_t = std::optional<exec::value_types_of_t<S, env<A>>>;
 
-        template <typename S>
+        template <typename S, typename A>
         class future_ops_base
         {
         public:
             future_ops_base() = default;
             CLU_IMMOVABLE_TYPE(future_ops_base);
-            virtual void set(value_storage_t<S>&& value) noexcept = 0;
+            virtual void set(value_storage_t<S, A>&& value) noexcept = 0;
 
         protected:
             virtual ~future_ops_base() noexcept = default;
         };
 
-        template <typename S>
-        struct future_ops_wrapper : std::enable_shared_from_this<future_ops_wrapper<S>>
+        template <typename S, typename A>
+        struct future_ops_wrapper : std::enable_shared_from_this<future_ops_wrapper<S, A>>
         {
-            using ops_t = exec::connect_result_t<S, future_recv_t<S>>;
+            using ops_t = exec::connect_result_t<S, future_recv_t<S, A>>;
 
             // ptr == nullptr:
             //    The value is not there, nor is an operation state
@@ -167,23 +193,23 @@ namespace clu::async
             std::atomic<void*> ptr{nullptr};
 
             exec::detail::ops_optional<ops_t> ops;
-            value_storage_t<S> value;
+            value_storage_t<S, A> value;
 
             template <typename S2>
-            void emplace_operation(scope* scope, S2&& snd)
+            void emplace_operation(S2&& snd, scope* scope, A&& alloc)
             {
                 ops.emplace_with(
                     [&]
                     {
                         return exec::connect(static_cast<S2&&>(snd), //
-                            future_recv_t<S>(scope, this->shared_from_this()));
+                            future_recv_t<S, A>(this->shared_from_this(), scope, static_cast<A&&>(alloc)));
                     });
             }
         };
 
-        template <typename S>
+        template <typename S, typename A>
         template <typename... Ts>
-        void future_recv_t_<S>::type::set_value(Ts&&... args) noexcept
+        void future_recv_t_<S, A>::type::set_value(Ts&&... args) noexcept
         {
             try
             {
@@ -199,15 +225,15 @@ namespace clu::async
                 !ops_->ptr.compare_exchange_strong(expected, ops_.get(), std::memory_order::acq_rel))
             {
                 // CAS failed, someone attached a receiver before us
-                auto* base = static_cast<future_ops_base<S>*>(expected);
+                auto* base = static_cast<future_ops_base<S, A>*>(expected);
                 base->set(std::move(ops_->value)); // Set value
             }
             // Or else, let the receiver set itself...
             finish();
         }
 
-        template <typename S>
-        void future_recv_t_<S>::type::set_stopped() noexcept
+        template <typename S, typename A>
+        void future_recv_t_<S, A>::type::set_stopped() noexcept
         {
             // Note that the value storage starts as nullopt,
             // so actually we don't need to store anything here.
@@ -215,35 +241,35 @@ namespace clu::async
                 !ops_->ptr.compare_exchange_strong(expected, ops_.get(), std::memory_order::acq_rel))
             {
                 // CAS failed, someone attached a receiver before us
-                auto* base = static_cast<future_ops_base<S>*>(expected);
+                auto* base = static_cast<future_ops_base<S, A>*>(expected);
                 base->set({}); // Set stopped
             }
             finish();
         }
 
-        template <typename S, typename R>
+        template <typename S, typename A, typename R>
         struct future_ops_t_
         {
             class type;
         };
 
-        template <typename S, typename R>
-        using future_ops_t = typename future_ops_t_<S, std::remove_cvref_t<R>>::type;
+        template <typename S, typename A, typename R>
+        using future_ops_t = typename future_ops_t_<S, A, std::remove_cvref_t<R>>::type;
 
-        template <typename S, typename R>
-        class future_ops_t_<S, R>::type final : public future_ops_base<S>
+        template <typename S, typename A, typename R>
+        class future_ops_t_<S, A, R>::type final : public future_ops_base<S, A>
         {
         public:
             // clang-format off
             template <typename R2>
-            type(std::shared_ptr<future_ops_wrapper<S>> ops, R2&& recv):
+            type(std::shared_ptr<future_ops_wrapper<S, A>> ops, R2&& recv):
                 ops_(std::move(ops)), recv_(recv) {}
             // clang-format on
 
-            void set(value_storage_t<S>&& value) noexcept override
+            void set(value_storage_t<S, A>&& value) noexcept override
             {
                 if constexpr ( // S does not send value (can only send stopped)
-                    exec::value_types_of_t<S, stop_token_env, meta::constant_q<void>::fn, meta::empty>::value)
+                    exec::value_types_of_t<S, env<A>, meta::constant_q<void>::fn, meta::empty>::value)
                     exec::set_stopped(static_cast<R&&>(recv_));
                 else if (value.has_value()) // S sent value
                     std::visit(
@@ -259,7 +285,7 @@ namespace clu::async
             }
 
         private:
-            std::shared_ptr<future_ops_wrapper<S>> ops_;
+            std::shared_ptr<future_ops_wrapper<S, A>> ops_;
             R recv_;
 
             friend void tag_invoke(exec::start_t, type& self) noexcept
@@ -273,45 +299,45 @@ namespace clu::async
             }
         };
 
-        template <typename S>
+        template <typename S, typename A>
         struct future_snd_t_
         {
             class type;
         };
 
-        template <typename S>
-        using future_snd_t = typename future_snd_t_<std::remove_cvref_t<S>>::type;
+        template <typename S, typename A>
+        using future_snd_t = typename future_snd_t_<std::remove_cvref_t<S>, A>::type;
 
         template <typename... Ts>
         using set_value_sig = exec::set_value_t(Ts...);
 
-        template <typename S>
-        class future_snd_t_<S>::type
+        template <typename S, typename A>
+        class future_snd_t_<S, A>::type
         {
         public:
             // clang-format off
             template <typename S2>
-            type(scope* scope, S2&& snd):
-                ops_(std::make_shared<future_ops_wrapper<S>>())
+            type(S2&& snd, scope* scope, A&& alloc):
+                ops_(std::allocate_shared<future_ops_wrapper<S, A>>(alloc))
             {
-                ops_->emplace_operation(scope, static_cast<S2&&>(snd));
+                ops_->emplace_operation(static_cast<S2&&>(snd), scope, static_cast<A&&>(alloc));
             }
             // clang-format on
 
         private:
             friend scope;
 
-            std::shared_ptr<future_ops_wrapper<S>> ops_;
+            std::shared_ptr<future_ops_wrapper<S, A>> ops_;
 
             template <typename R>
             friend auto tag_invoke(exec::connect_t, type&& self, R&& recv)
             {
-                return future_ops_t<S, R>(std::move(self.ops_), static_cast<R&&>(recv));
+                return future_ops_t<S, A, R>(std::move(self.ops_), static_cast<R&&>(recv));
             }
 
             // clang-format off
             friend exec::detail::add_sig<
-                exec::value_types_of_t<S, stop_token_env, set_value_sig, exec::completion_signatures>,
+                exec::value_types_of_t<S, env<A>, set_value_sig, exec::completion_signatures>,
                 exec::set_stopped_t()
             > tag_invoke(exec::get_completion_signatures_t, const type&, auto&&) { return {}; }
             // clang-format on
@@ -332,27 +358,33 @@ namespace clu::async
                 "deplete_async() must be awaited before the destruction of async_scope");
         }
 
-        template <detail::scp::void_sender S>
-        void spawn(S&& sender)
+        template <typename S, allocator A = std::allocator<std::byte>>
+            requires detail::scp::void_sender<S, A>
+        void spawn(S&& sender, A alloc = A{})
         {
-            using wrapper_t = detail::scp::spawn_ops_wrapper<std::decay_t<S>>;
-            wrapper_t* ptr = new wrapper_t(static_cast<S&&>(sender), this);
+            using wrapper_t = detail::scp::spawn_ops_wrapper<std::decay_t<S>, A>;
+            using alloc_traits = typename std::allocator_traits<A>::template rebind_traits<wrapper_t>;
+            typename alloc_traits::allocator_type rebound = alloc;
+            wrapper_t* ptr = alloc_traits::allocate(rebound, 1);
+            alloc_traits::construct(rebound, ptr, //
+                static_cast<S&&>(sender), this, static_cast<A&&>(alloc));
             // Following operations won't throw
             ev_.reset();
             count_.fetch_add(1, std::memory_order::relaxed);
             exec::start(ptr->ops);
         }
 
-        template <nothrow_invocable Fn>
-        void spawn_call(Fn&& func)
+        template <nothrow_invocable Fn, allocator A = std::allocator<std::byte>>
+        void spawn_call(Fn&& func, A alloc = A{})
         {
-            this->spawn(exec::just_from(static_cast<Fn&&>(func)));
+            this->spawn(exec::just_from(static_cast<Fn&&>(func)), static_cast<A&&>(alloc));
         }
 
-        template <typename S>
-        auto spawn_future(S&& sender)
+        template <exec::sender S, allocator A = std::allocator<std::byte>>
+        auto spawn_future(S&& sender, A alloc = A{})
         {
-            detail::scp::future_snd_t<S> future(this, static_cast<S&&>(sender));
+            detail::scp::future_snd_t<S, A> future(static_cast<S&&>(sender), //
+                this, static_cast<A&&>(alloc));
             // Following operations won't throw
             ev_.reset();
             count_.fetch_add(1, std::memory_order::relaxed);
@@ -366,10 +398,19 @@ namespace clu::async
         in_place_stop_token get_stop_token() noexcept { return src_.get_token(); }
 
     private:
-        friend class detail::scp::recv_base;
+        friend detail::scp::recv_base;
 
         manual_reset_event ev_{true};
         in_place_stop_source src_;
         std::atomic_size_t count_{0};
     };
+
+    namespace detail::scp
+    {
+        template <typename A>
+        env<A> recv_alloc_base<A>::get_env() const noexcept
+        {
+            return env(scope_->get_stop_token(), alloc_);
+        }
+    } // namespace detail::scp
 } // namespace clu::async

@@ -319,22 +319,22 @@ namespace clu
             uint32_t a = digest_[0], b = digest_[1], c = digest_[2], d = digest_[3];
 
             // clang-format off
-            r0( 0, a, b, c, d); r0( 1, d, a, b, c), r0( 2, c, d, a, b), r0( 3, b, c, d, a);
-            r0( 4, a, b, c, d); r0( 5, d, a, b, c), r0( 6, c, d, a, b), r0( 7, b, c, d, a);
-            r0( 8, a, b, c, d); r0( 9, d, a, b, c), r0(10, c, d, a, b), r0(11, b, c, d, a);
-            r0(12, a, b, c, d); r0(13, d, a, b, c), r0(14, c, d, a, b), r0(15, b, c, d, a);
-            r1( 0, a, b, c, d); r1( 1, d, a, b, c), r1( 2, c, d, a, b), r1( 3, b, c, d, a);
-            r1( 4, a, b, c, d); r1( 5, d, a, b, c), r1( 6, c, d, a, b), r1( 7, b, c, d, a);
-            r1( 8, a, b, c, d); r1( 9, d, a, b, c), r1(10, c, d, a, b), r1(11, b, c, d, a);
-            r1(12, a, b, c, d); r1(13, d, a, b, c), r1(14, c, d, a, b), r1(15, b, c, d, a);
-            r2( 0, a, b, c, d); r2( 1, d, a, b, c), r2( 2, c, d, a, b), r2( 3, b, c, d, a);
-            r2( 4, a, b, c, d); r2( 5, d, a, b, c), r2( 6, c, d, a, b), r2( 7, b, c, d, a);
-            r2( 8, a, b, c, d); r2( 9, d, a, b, c), r2(10, c, d, a, b), r2(11, b, c, d, a);
-            r2(12, a, b, c, d); r2(13, d, a, b, c), r2(14, c, d, a, b), r2(15, b, c, d, a);
-            r3( 0, a, b, c, d); r3( 1, d, a, b, c), r3( 2, c, d, a, b), r3( 3, b, c, d, a);
-            r3( 4, a, b, c, d); r3( 5, d, a, b, c), r3( 6, c, d, a, b), r3( 7, b, c, d, a);
-            r3( 8, a, b, c, d); r3( 9, d, a, b, c), r3(10, c, d, a, b), r3(11, b, c, d, a);
-            r3(12, a, b, c, d); r3(13, d, a, b, c), r3(14, c, d, a, b), r3(15, b, c, d, a);
+            r0( 0, a, b, c, d); r0( 1, d, a, b, c); r0( 2, c, d, a, b); r0( 3, b, c, d, a);
+            r0( 4, a, b, c, d); r0( 5, d, a, b, c); r0( 6, c, d, a, b); r0( 7, b, c, d, a);
+            r0( 8, a, b, c, d); r0( 9, d, a, b, c); r0(10, c, d, a, b); r0(11, b, c, d, a);
+            r0(12, a, b, c, d); r0(13, d, a, b, c); r0(14, c, d, a, b); r0(15, b, c, d, a);
+            r1( 0, a, b, c, d); r1( 1, d, a, b, c); r1( 2, c, d, a, b); r1( 3, b, c, d, a);
+            r1( 4, a, b, c, d); r1( 5, d, a, b, c); r1( 6, c, d, a, b); r1( 7, b, c, d, a);
+            r1( 8, a, b, c, d); r1( 9, d, a, b, c); r1(10, c, d, a, b); r1(11, b, c, d, a);
+            r1(12, a, b, c, d); r1(13, d, a, b, c); r1(14, c, d, a, b); r1(15, b, c, d, a);
+            r2( 0, a, b, c, d); r2( 1, d, a, b, c); r2( 2, c, d, a, b); r2( 3, b, c, d, a);
+            r2( 4, a, b, c, d); r2( 5, d, a, b, c); r2( 6, c, d, a, b); r2( 7, b, c, d, a);
+            r2( 8, a, b, c, d); r2( 9, d, a, b, c); r2(10, c, d, a, b); r2(11, b, c, d, a);
+            r2(12, a, b, c, d); r2(13, d, a, b, c); r2(14, c, d, a, b); r2(15, b, c, d, a);
+            r3( 0, a, b, c, d); r3( 1, d, a, b, c); r3( 2, c, d, a, b); r3( 3, b, c, d, a);
+            r3( 4, a, b, c, d); r3( 5, d, a, b, c); r3( 6, c, d, a, b); r3( 7, b, c, d, a);
+            r3( 8, a, b, c, d); r3( 9, d, a, b, c); r3(10, c, d, a, b); r3(11, b, c, d, a);
+            r3(12, a, b, c, d); r3(13, d, a, b, c); r3(14, c, d, a, b); r3(15, b, c, d, a);
 
             digest_[0] += a; digest_[1] += b; digest_[2] += c; digest_[3] += d;
             // clang-format on

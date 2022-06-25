@@ -2,8 +2,6 @@
 
 namespace clu::async::detail::scp
 {
-    stop_token_env recv_base::get_env() const noexcept { return stop_token_env(scope_->get_stop_token()); }
-
     void recv_base::decrease_counter(scope* scope) noexcept
     {
         if (scope->count_.fetch_sub(1, std::memory_order::relaxed) == 1)
