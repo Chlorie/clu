@@ -230,7 +230,7 @@ namespace clu::exec
                             std::visit(
                                 [&]<typename E>(E&& error) noexcept
                                 {
-                                    if constexpr (std::is_same_v<E, monostate>)
+                                    if constexpr (std::is_same_v<E, std::monostate>)
                                         unreachable();
                                     else
                                         exec::set_error(static_cast<R&&>(recv_), static_cast<E&&>(error));
@@ -935,7 +935,7 @@ namespace clu::exec
 
                 // clang-format off
                 template <typename Env>
-                constexpr friend make_completion_signatures<S, env_t<Env>,
+                friend make_completion_signatures<S, env_t<Env>,
                     make_completion_signatures<T, env_t<Env>,
                         completion_signatures<set_error_t(std::exception_ptr), set_stopped_t()>,
                         meta::constant_q<completion_signatures<>>::fn>>
@@ -959,6 +959,242 @@ namespace clu::exec
             };
         } // namespace stop_when
 
+        namespace dtch_cncl
+        {
+            template <typename S, typename R, typename F>
+            struct recv_t_
+            {
+                class type;
+            };
+
+            template <typename S, typename R, typename F>
+            using recv_t = typename recv_t_<S, std::decay_t<R>, F>::type;
+
+            template <typename S, typename R, typename F>
+            struct cleanup_recv_t_
+            {
+                class type;
+            };
+
+            template <typename S, typename R, typename F>
+            using cleanup_recv_t = typename cleanup_recv_t_<S, R, F>::type;
+
+            template <typename S, typename R, typename F>
+            struct ops_t_
+            {
+                class type;
+            };
+
+            template <typename S, typename R, typename F>
+            using ops_t = typename ops_t_<S, R, F>::type;
+
+            template <typename S, typename R, typename F>
+            struct shared_state;
+
+            template <typename S, typename R, typename F>
+            struct stop_callback
+            {
+                shared_state<S, R, F>& shst;
+                void operator()() const noexcept;
+            };
+
+            template <typename S, typename R, typename F>
+            struct shared_state
+            {
+                using callback_type =
+                    typename stop_token_of_t<env_of_t<R>>::template callback_type<stop_callback<S, R, F>>;
+
+                template <typename... Ts>
+                using ops_type_of_values = connect_result_t<std::invoke_result_t<F, Ts...>, cleanup_recv_t<S, R, F>>;
+
+                R recv;
+                F func;
+                std::atomic_flag value_sent;
+                ops_optional<connect_result_t<S, recv_t<S, R, F>>> ops;
+                value_types_of_t<S, env_of_t<R>, ops_type_of_values, nullable_ops_variant> cleanup_ops;
+                std::optional<callback_type> cb;
+
+                // clang-format off
+                template <typename R2, typename F2>
+                shared_state(R2&& recv, F2&& func):
+                    recv(static_cast<R2&&>(recv)), func(static_cast<F2&&>(func)) {}
+                // clang-format on
+            };
+
+            template <typename S, typename R, typename F>
+            class ops_t_<S, R, F>::type
+            {
+            public:
+                template <typename S2, typename R2, typename F2>
+                type(S2&& snd, R2&& recv, F2&& func):
+                    shst_(std::allocate_shared< //
+                        shared_state<S, R, F>, call_result_t<get_allocator_t, env_of_t<R>>>(
+                        get_allocator(get_env(recv)), //
+                        static_cast<R2&&>(recv), static_cast<F2&&>(func)))
+                {
+                    shst_->ops.emplace_with( //
+                        [&] { return connect(static_cast<S2&&>(snd), recv_t<S, R, F>(shst_)); });
+                }
+
+            private:
+                std::shared_ptr<shared_state<S, R, F>> shst_;
+
+                friend void tag_invoke(start_t, type& self) noexcept
+                {
+                    // Cache the shared state in case we get destroyed by starting the operation
+                    const auto shst = std::move(self.shst_);
+                    shst->cb.emplace(get_stop_token(get_env(shst->recv)), stop_callback<S, R, F>{*shst});
+                    start(*shst->ops);
+                }
+            };
+
+            template <typename S, typename R, typename F>
+            void stop_callback<S, R, F>::operator()() const noexcept
+            {
+                if (shst.value_sent.test_and_set(std::memory_order_release)) // We're not the first
+                    return;
+                // Send a stopped signal to the receiver and let the detached operation run till completion
+                set_stopped(static_cast<R&&>(shst.recv));
+            }
+
+            template <typename S, typename R, typename F>
+            class recv_t_<S, R, F>::type
+            {
+            public:
+                explicit type(std::shared_ptr<shared_state<S, R, F>> shst) noexcept: shst_(std::move(shst)) {}
+
+            private:
+                std::shared_ptr<shared_state<S, R, F>> shst_;
+
+                template <recvs::completion_cpo Cpo, typename... Ts>
+                friend void tag_invoke(Cpo, type&& self, Ts&&... args) noexcept
+                {
+                    // We're detached, forward the results to the cleanup factory
+                    if (self.shst_->value_sent.test_and_set(std::memory_order_release))
+                    {
+                        if constexpr (std::is_same_v<Cpo, set_value_t>)
+                            self.set_value_detached(static_cast<Ts&&>(args)...);
+                        else if constexpr (std::is_same_v<Cpo, set_error_t>)
+                            std::terminate();
+                        else // set_stopped
+                            self.shst_.reset();
+                    }
+                    // All is good, forward the args to the upstream receiver
+                    else
+                    {
+                        Cpo{}(static_cast<R&&>(self.shst_->recv), static_cast<Ts&&>(args)...);
+                        self.shst_.reset(); // This effectively destroys *this
+                    }
+                }
+
+                friend env_of_t<R> tag_invoke(get_env_t, const type& self) noexcept
+                {
+                    return get_env(self.shst_->recv);
+                }
+
+                template <typename... Ts>
+                void set_value_detached(Ts&&... args) noexcept;
+            };
+
+            template <typename S, typename R, typename F>
+            class cleanup_recv_t_<S, R, F>::type
+            {
+            public:
+                // clang-format off
+                explicit type(std::shared_ptr<shared_state<S, R, F>> shst) noexcept:
+                    shst_(std::move(shst)),
+                    env_(exec::make_env(get_env(shst_->recv), get_stop_token, never_stop_token{})) {}
+                // clang-format on
+
+            private:
+                std::shared_ptr<shared_state<S, R, F>> shst_;
+                CLU_NO_UNIQUE_ADDRESS adapted_env_t<env_of_t<R>, get_stop_token_t, never_stop_token> env_{};
+
+                friend void tag_invoke(set_value_t, type&& self) noexcept { self.shst_.reset(); }
+                friend void tag_invoke(set_error_t, type&&, auto&&) noexcept { std::terminate(); }
+                friend void tag_invoke(set_stopped_t, type&& self) noexcept { self.shst_.reset(); }
+                friend const auto& tag_invoke(get_env_t, const type& self) noexcept { return self.env_; }
+            };
+
+            template <typename S, typename R, typename F>
+            template <typename... Ts>
+            void recv_t_<S, R, F>::type::set_value_detached(Ts&&... args) noexcept
+            {
+                using shst_t = shared_state<S, R, F>;
+                using cleanup_ops_t = typename shst_t::template ops_type_of_values<Ts...>;
+                shst_t& shst = *shst_;
+                start(shst.cleanup_ops.template emplace<cleanup_ops_t>(copy_elider{[&]
+                    {
+                        return connect( //
+                            std::invoke(static_cast<F&&>(shst.func), static_cast<Ts&&>(args)...),
+                            cleanup_recv_t<S, R, F>(std::move(shst_)));
+                    }}));
+            }
+
+            template <typename S, typename F>
+            struct snd_t_
+            {
+                class type;
+            };
+
+            template <typename S, typename F>
+            using snd_t = typename snd_t_<std::decay_t<S>, std::decay_t<F>>::type;
+
+            template <typename S, typename F>
+            class snd_t_<S, F>::type
+            {
+            public:
+                // clang-format off
+                template <typename S2, typename F2>
+                type(S2&& snd, F2&& func): snd_(static_cast<S2&&>(snd)), func_(static_cast<F2&&>(func)) {}
+                // clang-format on
+
+            private:
+                S snd_;
+                F func_;
+
+                template <typename R> // TODO: constrain R s.t. F is a cleanup factory for (S, Env)
+                friend auto tag_invoke(connect_t, type&& self, R&& recv)
+                {
+                    return ops_t<S, R, F>( //
+                        static_cast<S&&>(self.snd_), static_cast<R&&>(recv), static_cast<F&&>(self.func_));
+                }
+
+                // clang-format off
+                template <typename Env>
+                friend make_completion_signatures<S, Env,
+                    completion_signatures<set_error_t(std::exception_ptr), set_stopped_t()>>
+                tag_invoke(get_completion_signatures_t, const type&, Env&&) noexcept { return {}; }
+                // clang-format on
+            };
+
+            inline constexpr auto noop_cleanup_factory = [](auto&&...) noexcept { return just_void; };
+            using noop_cleanup_factory_t = decltype(noop_cleanup_factory);
+
+            struct detach_on_stop_request_t
+            {
+                template <sender S, typename F>
+                auto operator()(S&& snd, F&& cleanup_factory) const
+                {
+                    return snd_t<S, F>(static_cast<S&&>(snd), static_cast<F&&>(cleanup_factory));
+                }
+
+                template <sender S>
+                auto operator()(S&& snd) const
+                {
+                    return (*this)(static_cast<S&&>(snd), noop_cleanup_factory);
+                }
+
+                template <typename F>
+                auto operator()(F&& cleanup_factory) const
+                {
+                    return clu::make_piper(clu::bind_back(*this, cleanup_factory));
+                }
+
+                auto operator()() const noexcept { return (*this)(noop_cleanup_factory); }
+            };
+        } // namespace dtch_cncl
+
         namespace bulk
         {
             // TODO: implement
@@ -973,8 +1209,13 @@ namespace clu::exec
     using detail::when_all::when_all_t;
     using detail::when_any::when_any_t;
     using detail::stop_when::stop_when_t;
+    using detail::dtch_cncl::detach_on_stop_request_t;
 
     inline constexpr when_all_t when_all{};
     inline constexpr when_any_t when_any{};
     inline constexpr stop_when_t stop_when{};
+    inline constexpr detach_on_stop_request_t detach_on_stop_request{};
+
+    using detail::dtch_cncl::noop_cleanup_factory_t;
+    using detail::dtch_cncl::noop_cleanup_factory;
 } // namespace clu::exec

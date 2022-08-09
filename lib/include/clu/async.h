@@ -1,5 +1,6 @@
 #pragma once
 
+#include "async/channel.h"
 #include "async/lock.h"
 #include "async/manual_reset_event.h"
 #include "async/mutex.h"

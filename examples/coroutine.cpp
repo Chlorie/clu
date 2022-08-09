@@ -6,7 +6,6 @@
 
 #include <clu/execution_contexts.h>
 #include <clu/async.h>
-#include <clu/async/channel.h>
 #include <clu/chrono_utils.h>
 #include <clu/task.h>
 #include <clu/flow.h>
@@ -18,6 +17,8 @@
 using namespace std::literals;
 using namespace clu::literals;
 namespace chr = std::chrono;
+namespace ex = clu::exec;
+namespace async = clu::async;
 
 template <typename T>
 struct print;
@@ -39,8 +40,6 @@ void print_thread_id()
     std::scoped_lock lock(cout_mutex);
     std::cout << "Thread ID: " << std::this_thread::get_id() << '\n';
 }
-
-namespace ex = clu::exec;
 
 std::string this_thread_id()
 {
@@ -148,13 +147,35 @@ private:
     bool do_is_equal(const memory_resource&) const noexcept override { return false; }
 };
 
+namespace bop = async::buffer_overflow_policies;
+
+clu::task<void> producer(async::channel<std::size_t, bop::drop_oldest_t>& chan)
+{
+    for (auto [i] : clu::indices(5))
+    {
+        co_await chan.send_async(i);
+        log("[->] {}", i);
+    }
+}
+
+clu::task<void> consumer(async::channel<std::size_t, bop::drop_oldest_t>& chan)
+{
+    for (auto _ : clu::indices(5))
+    {
+        co_await (timer() | ex::schedule_after(1s));
+        const auto value = co_await chan.receive_async();
+        log("[<-] {}", value);
+    }
+}
+
 clu::task<void> test()
 {
-    recording_memory_resource mem;
-    clu::async::scope scope;
-    (void)scope.spawn_future(ex::just_from([] { log("Test"); }), //
-        std::pmr::polymorphic_allocator(&mem));
-    co_await scope.deplete_async();
+    namespace bop = async::buffer_overflow_policies;
+    auto chan = async::make_channel<std::size_t>(3, bop::drop_oldest);
+    co_await ex::when_all( //
+        producer(chan), consumer(chan), //
+        timer() | ex::schedule_after(6s) | ex::then([&] { chan.cancel(); }) //
+    );
 }
 
 int main() // NOLINT

@@ -139,8 +139,8 @@ namespace clu::meta
     template <typename First, typename... Rest>
     struct compose_q<First, Rest...>
     {
-        template <typename T>
-        using fn = typename compose_q<Rest...>::template fn<typename First::template fn<T>>;
+        template <typename... Ts>
+        using fn = typename compose_q<Rest...>::template fn<typename First::template fn<Ts...>>;
     };
 
     namespace detail

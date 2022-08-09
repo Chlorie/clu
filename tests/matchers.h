@@ -2,13 +2,18 @@
 
 #include <algorithm>
 #include <catch2/matchers/catch_matchers_templated.hpp>
+#include "clu/concepts.h"
 
 namespace clu::testing
 {
     template <std::ranges::input_range R>
-    struct EqualsRangeMatcher : Catch::Matchers::MatcherGenericBase
+    class EqualsRangeMatcher final : public Catch::Matchers::MatcherGenericBase
     {
-        explicit EqualsRangeMatcher(const R& range): range_{range} {}
+    public:
+        template <similar_to<R> R2>
+        explicit EqualsRangeMatcher(R2&& range): range_(static_cast<R2&&>(range))
+        {
+        }
 
         template <std::ranges::input_range R2>
         bool match(R2&& other) const
@@ -19,13 +24,13 @@ namespace clu::testing
         std::string describe() const override { return "Equals: " + Catch::rangeToString(range_); }
 
     private:
-        const R& range_;
+        R range_;
     };
 
     template <std::ranges::input_range Range>
-    auto EqualsRange(const Range& range)
+    auto EqualsRange(Range&& range)
     {
-        return EqualsRangeMatcher<Range>{range};
+        return EqualsRangeMatcher<Range>(static_cast<Range&&>(range));
     }
 
     template <typename T>

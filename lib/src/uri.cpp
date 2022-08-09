@@ -270,6 +270,9 @@ namespace clu
                 fragment_ = {offset + 1, uri_.size()};
         }
 
+        lower_case_component(scheme_);
+        lower_case_component(host_);
+
         // Default ports
         if (port_ == -1 && is_absolute()) // default port for http and https
         {
@@ -279,9 +282,6 @@ namespace clu
             else if (sch == "https")
                 port_ = 443;
         }
-
-        lower_case_component(scheme_);
-        lower_case_component(host_);
     }
 
     uri::component uri::origin() const noexcept

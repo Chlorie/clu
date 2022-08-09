@@ -18,8 +18,8 @@
                 "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
                 "_VCPKG_INSTALLED_DIR": "${sourceDir}/out/vcpkg_installed",
                 "VCPKG_MANIFEST_FEATURES": "testing",
-                "BUILD_TESTS": "True",
-                "BUILD_DOCS": "True"
+                "CLU_BUILD_TESTS": "True",
+                "CLU_BUILD_DOCS": "True"
             },
             "vendor": { "microsoft.com/VisualStudioSettings/CMake/1.0": { "hostOS": [ "Windows" ] } }
         },
@@ -40,8 +40,8 @@
                 "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
                 "_VCPKG_INSTALLED_DIR": "${sourceDir}/out/vcpkg_installed",
                 "VCPKG_MANIFEST_FEATURES": "testing",
-                "BUILD_TESTS": "True",
-                "BUILD_DOCS": "True"
+                "CLU_BUILD_TESTS": "True",
+                "CLU_BUILD_DOCS": "True"
             },
             "vendor": { "microsoft.com/VisualStudioSettings/CMake/1.0": { "hostOS": [ "Windows" ] } }
         },
@@ -64,8 +64,8 @@
                 "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
                 "_VCPKG_INSTALLED_DIR": "${sourceDir}/out/vcpkg_installed",
                 "VCPKG_MANIFEST_FEATURES": "testing",
-                "BUILD_TESTS": "True",
-                "BUILD_DOCS": "True"
+                "CLU_BUILD_TESTS": "True",
+                "CLU_BUILD_DOCS": "True"
             },
             "vendor": {
                 "microsoft.com/VisualStudioSettings/CMake/1.0": {
@@ -93,8 +93,8 @@
                 "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
                 "_VCPKG_INSTALLED_DIR": "${sourceDir}/out/vcpkg_installed",
                 "VCPKG_MANIFEST_FEATURES": "testing",
-                "BUILD_TESTS": "True",
-                "BUILD_DOCS": "True"
+                "CLU_BUILD_TESTS": "True",
+                "CLU_BUILD_DOCS": "True"
             },
             "vendor": {
                 "microsoft.com/VisualStudioSettings/CMake/1.0": {
@@ -119,7 +119,7 @@
                 },
                 "_VCPKG_INSTALLED_DIR": "${sourceDir}/out/vcpkg_installed",
                 "VCPKG_MANIFEST_FEATURES": "testing",
-                "BUILD_TESTS": "True"
+                "CLU_BUILD_TESTS": "True"
             },
             "vendor": {
                 "microsoft.com/VisualStudioSettings/CMake/1.0": { "hostOS": [ "Linux" ] },
@@ -144,7 +144,7 @@
                 },
                 "_VCPKG_INSTALLED_DIR": "${sourceDir}/out/vcpkg_installed",
                 "VCPKG_MANIFEST_FEATURES": "testing",
-                "BUILD_TESTS": "True"
+                "CLU_BUILD_TESTS": "True"
             },
             "vendor": {
                 "microsoft.com/VisualStudioSettings/CMake/1.0": { "hostOS": [ "Linux" ] },

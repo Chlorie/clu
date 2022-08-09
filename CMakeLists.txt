@@ -2,7 +2,7 @@
 
 cmake_minimum_required(VERSION 3.20)
 
-project(clu LANGUAGES CXX VERSION 0.36.0)
+project(clu LANGUAGES CXX VERSION 0.37.0)
 
 set(CMAKE_SCRIPTS "${PROJECT_SOURCE_DIR}/cmake")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SCRIPTS})
@@ -13,22 +13,21 @@ target_set_warnings(project_options INTERFACE)
 target_set_options(project_options INTERFACE)
 
 option(BUILD_SHARED_LIBS "Build library as shared library" OFF)
-option(ENABLE_INSTALL "Enable to install the project" ON)
 
 add_subdirectory(lib)
 
-option(BUILD_EXAMPLES "Build code examples" ON)
-if (BUILD_EXAMPLES)
+option(CLU_BUILD_EXAMPLES "Build code examples" ON)
+if (CLU_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif ()
 
-option(BUILD_DOCS "Build documentation using Doxygen & Sphinx" OFF)
-if (BUILD_DOCS)
+option(CLU_BUILD_DOCS "Build documentation using Doxygen & Sphinx" OFF)
+if (CLU_BUILD_DOCS)
     add_subdirectory(docs)
 endif ()
 
-option(BUILD_TESTS "Build unit tests" OFF)
-if (BUILD_TESTS)
+option(CLU_BUILD_TESTS "Build unit tests" OFF)
+if (CLU_BUILD_TESTS)
     list(APPEND VCPKG_MANIFEST_FEATURES "unit-test")
     add_subdirectory(tests)
 endif ()
