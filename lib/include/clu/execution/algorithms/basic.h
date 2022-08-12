@@ -147,8 +147,13 @@ namespace clu::exec
                         return ops_t<R>(static_cast<R&&>(recv));
                 }
 
+                // clang-format off
+                friend completion_signatures<set_value_t()> tag_invoke(
+                    get_completion_signatures_t, snd_t, no_env) noexcept { return {}; }
+                // clang-format on
+
                 template <typename Env>
-                friend auto tag_invoke(get_completion_signatures_t, snd_t, Env) noexcept
+                friend auto tag_invoke(get_completion_signatures_t, snd_t, Env&&) noexcept
                 {
                     if constexpr (unstoppable_token<stop_token_of_t<Env>>)
                         return completion_signatures<set_value_t()>{};

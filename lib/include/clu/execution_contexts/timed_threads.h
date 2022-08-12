@@ -1,6 +1,7 @@
 #pragma once
 
 #include <thread>
+#include <optional>
 
 #include "timed_threads.h"
 #include "../execution/execution_traits.h"

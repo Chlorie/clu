@@ -3,6 +3,7 @@
 #include <deque>
 
 #include "../execution/utility.h"
+#include "../scope.h"
 
 namespace clu::async
 {

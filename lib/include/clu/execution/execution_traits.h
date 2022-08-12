@@ -1005,13 +1005,11 @@ namespace clu::exec
     namespace detail::coro_utils
     {
         template <typename S, typename E = no_env>
-        using single_sender_value_type = value_types_of_t<S, E, collapse_types_t, collapse_types_t>;
+        using single_sender_value_type = std::decay_t<value_types_of_t<S, E, collapse_types_t, collapse_types_t>>;
 
         // clang-format off
         template <typename S, typename E = no_env>
-        concept single_sender =
-            sender<S, E> &&
-            requires { typename single_sender_value_type<S, E>; };
+        concept single_sender = sender<S, E> && requires { typename single_sender_value_type<S, E>; };
         // clang-format on
 
         template <typename S, typename P>

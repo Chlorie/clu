@@ -129,6 +129,7 @@ namespace clu::async
                     ptr_->unlock_shared();
                 else
                     ptr_->unlock();
+                locked_ = false;
             }
         };
     } // namespace detail

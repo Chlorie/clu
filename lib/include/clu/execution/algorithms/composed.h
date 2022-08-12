@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 #include "basic.h"
 #include "scheduling.h"
 #include "../../piper.h"
@@ -69,25 +71,29 @@ namespace clu::exec
         template <sender S>
         auto operator()(S&& snd) const
         {
-            using detail::coro_utils::single_sender;
-            using detail::coro_utils::single_sender_value_type;
-            return read(std::identity{}) |
-                let_value(
-                    // clang-format off
-                    [snd = static_cast<S&&>(snd)]<class E>
-                        requires single_sender<S, E>
-                        (const E&) mutable
-                    {
-                        using opt = std::optional<std::decay_t<single_sender_value_type<S, E>>>;
-                        return static_cast<S&&>(snd)
-                            | then([]<class T>(T&& t) { return opt{static_cast<T&&>(t)}; })
-                            | let_stopped([]() noexcept { return just(opt{}); });
-                    }
-                    // clang-format on
-                );
+            return read(std::identity{}) //
+                | let_value(let_value_cb<std::decay_t<S>>{static_cast<S&&>(snd)});
         }
 
         constexpr auto operator()() const noexcept { return make_piper(*this); }
+
+    private:
+        template <typename S>
+        struct let_value_cb
+        {
+            S snd;
+
+            template <typename E>
+                requires detail::coro_utils::single_sender<S, E>
+            auto operator()(const E&)
+            {
+                using value_t = detail::coro_utils::single_sender_value_type<S, E>;
+                using optional_t = std::optional<value_t>;
+                return static_cast<S&&>(snd) //
+                    | then([]<typename T>(T&& t) { return optional_t{static_cast<T&&>(t)}; }) //
+                    | let_stopped([]() noexcept { return just(optional_t{}); });
+            }
+        };
     };
     inline constexpr stopped_as_optional_t stopped_as_optional{};
 
@@ -130,21 +136,7 @@ namespace clu::exec
         {
             return static_cast<S&&>(src) //
                 | materialize() //
-                | let_value(
-                      [c = static_cast<C&&>(cleanup)]<typename Cpo, typename... Ts>(Cpo, Ts&&... values) mutable
-                      {
-                          return with_stop_token(std::move(c), never_stop_token{}) //
-                              | materialize() //
-                              | let_value(
-                                    [... vs = static_cast<Ts&&>(values)]<typename Cpo2, typename... Us>(
-                                        Cpo2, Us&&... err) mutable
-                                    {
-                                        if constexpr (std::is_same_v<Cpo2, set_value_t>) // Clean up succeeded
-                                            return detail::just::snd_t<Cpo, Ts...>(std::move(vs)...);
-                                        else // Clean up finished with error/stopped
-                                            return detail::just::snd_t<Cpo2, Us...>(static_cast<Us&&>(err)...);
-                                    });
-                      });
+                | let_value(let_value_cb<std::decay_t<C>>{static_cast<C&&>(cleanup)});
         }
 
         template <sender C>
@@ -152,6 +144,29 @@ namespace clu::exec
         {
             return clu::make_piper(clu::bind_back(*this, static_cast<C&&>(cleanup)));
         }
+
+    private:
+        template <typename C>
+        struct let_value_cb
+        {
+            C cleanup;
+
+            template <typename Cpo, typename... Ts>
+            auto operator()(Cpo, Ts&&... values)
+            {
+                return with_stop_token(std::move(cleanup), never_stop_token{}) //
+                    | materialize() //
+                    | let_value(
+                          [... vs = static_cast<Ts&&>(values)]<typename Cpo2, typename... Us>(Cpo2, Us&&... err) mutable
+                          {
+                              using detail::just::snd_t;
+                              if constexpr (std::is_same_v<Cpo2, set_value_t>) // Clean up succeeded
+                                  return snd_t<Cpo, Ts...>(std::move(vs)...);
+                              else // Clean up finished with error/stopped
+                                  return snd_t<Cpo2, Us...>(static_cast<Us&&>(err)...);
+                          });
+            }
+        };
     };
     inline constexpr finally_t finally{};
 

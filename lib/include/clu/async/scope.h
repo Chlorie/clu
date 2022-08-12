@@ -85,10 +85,11 @@ namespace clu::async
                 using alloc_traits = typename std::allocator_traits<A> //
                     ::template rebind_traits<spawn_ops_wrapper<S, A>>;
                 typename alloc_traits::allocator_type rebound = this->alloc_;
-                scope* scope = this->scope_; // cache the member
-                // this is indirectly destructed here
-                alloc_traits::destroy(rebound, ops_);
-                alloc_traits::deallocate(rebound, ops_, 1);
+                // Caches the members
+                scope* scope = this->scope_;
+                auto* ops = ops_;
+                alloc_traits::destroy(rebound, ops); // *this is indirectly destructed here
+                alloc_traits::deallocate(rebound, ops, 1);
                 recv_base::decrease_counter(scope);
             }
 

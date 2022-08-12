@@ -2,6 +2,7 @@
 
 #include <thread>
 #include <mutex>
+#include <optional>
 
 #include "clu/scope.h"
 #include "clu/new.h"

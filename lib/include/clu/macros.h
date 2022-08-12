@@ -27,9 +27,7 @@
 
 // Attributes
 
-#if defined(CLU_MSVC) && !defined(CLU_CLANG) && _MSC_FULL_VER >= 192829913 // has [[msvc::no_unique_address]]
-#define CLU_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
-#elif __has_cpp_attribute(no_unique_address)
+#if __has_cpp_attribute(no_unique_address)
 #define CLU_NO_UNIQUE_ADDRESS [[no_unique_address]]
 #else
 #define CLU_NO_UNIQUE_ADDRESS
