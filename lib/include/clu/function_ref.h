@@ -67,14 +67,14 @@ namespace clu
 
         R operator()(Ts... args) const
         {
-            // clang-format off
             if (ptr_)
                 return fptr_(ptr_, std::forward<Ts>(args)...);
             else
+            {
                 CLU_GCC_WNO_CAST_FUNCTION_TYPE
                 return reinterpret_cast<fptr_t>(fptr_)(std::forward<Ts>(args)...);
                 CLU_GCC_RESTORE_WARNING
-            // clang-format on
+            }
         }
 
         constexpr void swap(function_ref& other) noexcept

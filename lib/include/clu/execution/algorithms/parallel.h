@@ -37,6 +37,9 @@ namespace clu::exec
             template <typename R, typename S, std::size_t I, typename... Ts>
             using recv_t = typename recv_t_<R, S, I, Ts...>::type;
 
+            template <typename R>
+            using recv_env_t = env_t<env_of_t<R>>; // gcc bug workaround
+
             template <typename R, typename S, std::size_t I, typename... Ts>
             class recv_t_<R, S, I, Ts...>::type
             {
@@ -47,7 +50,7 @@ namespace clu::exec
                 ops_t<R, Ts...>* ops_;
 
                 const R& get_base() const noexcept;
-                env_t<env_of_t<R>> get_env() const noexcept;
+                recv_env_t<R> get_env() const noexcept;
                 friend auto tag_invoke(get_env_t, const type& self) noexcept { return self.get_env(); }
 
                 template <recvs::completion_cpo SetCpo, typename... Args>
@@ -273,7 +276,7 @@ namespace clu::exec
             }
 
             template <typename R, typename S, std::size_t I, typename... Ts>
-            env_t<env_of_t<R>> recv_t_<R, S, I, Ts...>::type::get_env() const noexcept
+            recv_env_t<R> recv_t_<R, S, I, Ts...>::type::get_env() const noexcept
             {
                 return ops_->get_recv_env();
             }
@@ -386,6 +389,9 @@ namespace clu::exec
             template <typename R, typename S, std::size_t I, typename... Ts>
             using recv_t = typename recv_t_<R, S, I, Ts...>::type;
 
+            template <typename R>
+            using recv_env_t = env_t<env_of_t<R>>; // gcc 12.2 bug workaround
+
             template <typename R, typename S, std::size_t I, typename... Ts>
             class recv_t_<R, S, I, Ts...>::type
             {
@@ -396,7 +402,7 @@ namespace clu::exec
                 ops_t<R, Ts...>* ops_;
 
                 const R& get_base() const noexcept;
-                env_t<env_of_t<R>> get_env() const noexcept;
+                recv_env_t<R> get_env() const noexcept;
                 friend auto tag_invoke(get_env_t, const type& self) noexcept { return self.get_env(); }
 
                 template <recvs::completion_cpo SetCpo, typename... Args>
@@ -613,7 +619,7 @@ namespace clu::exec
             }
 
             template <typename R, typename S, std::size_t I, typename... Ts>
-            env_t<env_of_t<R>> recv_t_<R, S, I, Ts...>::type::get_env() const noexcept
+            recv_env_t<R> recv_t_<R, S, I, Ts...>::type::get_env() const noexcept
             {
                 return ops_->get_recv_env();
             }
@@ -736,6 +742,9 @@ namespace clu::exec
             template <typename S, typename T, typename R>
             using ops_t = typename ops_t_<S, T, R>::type;
 
+            template <typename R>
+            using recv_env_t = env_t<env_of_t<R>>; // gcc 12.2 bug workaround
+
             // TODO: recv_t and trig_recv_t should share some code
 
             template <typename S, typename T, typename R>
@@ -749,7 +758,7 @@ namespace clu::exec
 
                 const R& get_base() const noexcept;
 
-                env_t<env_of_t<R>> get_env() const noexcept;
+                recv_env_t<R> get_env() const noexcept;
                 friend auto tag_invoke(get_env_t, const type& self) noexcept { return self.get_env(); }
 
                 template <recvs::completion_cpo Cpo, typename... Ts>
@@ -778,7 +787,7 @@ namespace clu::exec
 
                 const R& get_base() const noexcept;
 
-                env_t<env_of_t<R>> get_env() const noexcept;
+                recv_env_t<R> get_env() const noexcept;
                 friend auto tag_invoke(get_env_t, const type& self) noexcept { return self.get_env(); }
 
                 template <recvs::completion_cpo Cpo, typename... Ts>
@@ -886,7 +895,7 @@ namespace clu::exec
             }
 
             template <typename S, typename T, typename R>
-            env_t<env_of_t<R>> recv_t_<S, T, R>::type::get_env() const noexcept
+            recv_env_t<R> recv_t_<S, T, R>::type::get_env() const noexcept
             {
                 return ops_->get_recv_env();
             }
@@ -898,7 +907,7 @@ namespace clu::exec
             }
 
             template <typename S, typename T, typename R>
-            env_t<env_of_t<R>> trig_recv_t_<S, T, R>::type::get_env() const noexcept
+            recv_env_t<R> trig_recv_t_<S, T, R>::type::get_env() const noexcept
             {
                 return ops_->get_recv_env();
             }

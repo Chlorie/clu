@@ -12,8 +12,8 @@ namespace clu::exec
             template <typename Env, typename Schd>
             using env_t = adapted_env_t<Env, get_scheduler_t, Schd>;
 
-            template <typename Env, typename Schd>
-            auto replace_schd(Env&& env, Schd&& schd) noexcept
+            template <typename Schd, typename Env>
+            auto replace_schd(Env&& env, Schd schd) noexcept
             {
                 return exec::make_env(static_cast<Env&&>(env), //
                     get_scheduler, static_cast<Schd&&>(schd));
@@ -61,6 +61,9 @@ namespace clu::exec
             using recv2_t = typename recv2_t_<S, R, Schd>::type;
 
             template <typename S, typename R, typename Schd>
+            using recv2_env_t = env_t<env_of_t<R>, Schd>;
+
+            template <typename S, typename R, typename Schd>
             class recv2_t_<S, R, Schd>::type : public receiver_adaptor<type>
             {
             public:
@@ -68,7 +71,7 @@ namespace clu::exec
 
                 const R& base() const& noexcept;
                 R&& base() && noexcept;
-                env_t<env_of_t<R>, Schd> get_env() const noexcept;
+                recv2_env_t<S, R, Schd> get_env() const noexcept;
 
             private:
                 ops_t<S, R, Schd>* ops_;
@@ -137,9 +140,9 @@ namespace clu::exec
             }
 
             template <typename S, typename R, typename Schd>
-            env_t<env_of_t<R>, Schd> recv2_t_<S, R, Schd>::type::get_env() const noexcept
+            recv2_env_t<S, R, Schd> recv2_t_<S, R, Schd>::type::get_env() const noexcept
             {
-                return on::replace_schd(exec::get_env(base()), ops_->schd_);
+                return on::replace_schd<Schd>(exec::get_env(base()), ops_->schd_);
             }
 
             template <typename Schd, typename Snd>

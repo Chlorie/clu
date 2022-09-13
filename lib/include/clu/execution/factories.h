@@ -220,7 +220,7 @@ namespace clu::exec
                 CLU_NO_UNIQUE_ADDRESS Fn func_;
 
                 template <typename R>
-                friend void tag_invoke(connect_t, type&& self, R&& recv) //
+                friend auto tag_invoke(connect_t, type&& self, R&& recv) //
                     CLU_SINGLE_RETURN(ops_t<Fn, R>(static_cast<Fn&&>(self.func_), static_cast<R&&>(recv)));
 
                 // clang-format off

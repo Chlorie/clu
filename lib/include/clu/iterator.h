@@ -90,13 +90,12 @@ namespace clu
         using value_type = typename decltype(get_value_type())::type;
         using difference_type = typename decltype(get_difference_type())::type;
 
+        // clang-format off
         template <typename... Ts>
             requires std::constructible_from<It, Ts&&...>
-        constexpr explicit(!enable_implicit_ctor<Ts...>()) iterator_adapter(Ts&&... args): It(std::forward<Ts>(args)...)
-        {
-        }
+        constexpr explicit(!enable_implicit_ctor<Ts...>())
+            iterator_adapter(Ts&&... args): It(std::forward<Ts>(args)...) {}
 
-        // clang-format off
         [[nodiscard]] constexpr friend bool operator==(const iterator_adapter&, const iterator_adapter&)
             requires std::equality_comparable<It> = default;
 

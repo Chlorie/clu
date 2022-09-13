@@ -303,14 +303,17 @@ namespace clu
             return insert(pos, init.begin(), init.end());
         }
 
+        // clang-format off
         template <typename... Args>
-            requires std::constructible_from<T, Args&&...> iterator emplace(const const_iterator pos, Args&&... args)
-            {
-                const iterator iter = move_one_place(pos);
-                iter->~T();
-                new (std::addressof(*iter)) T(std::forward<Args>(args)...);
-                return iter;
-            }
+            requires std::constructible_from<T, Args...>
+        iterator emplace(const const_iterator pos, Args&&... args)
+        {
+            const iterator iter = move_one_place(pos);
+            iter->~T();
+            new (std::addressof(*iter)) T(std::forward<Args>(args)...);
+            return iter;
+        }
+        // clang-format on
 
         iterator erase(const const_iterator pos)
         {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <deque>
+#include <optional>
 
 #include "../execution/utility.h"
 #include "../scope.h"
@@ -249,7 +250,7 @@ namespace clu::async
                 }
             }
 
-            T* peak() noexcept { return head_; }
+            T* peek() noexcept { return head_; }
 
             T* pop() noexcept
             {

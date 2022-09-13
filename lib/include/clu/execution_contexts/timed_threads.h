@@ -2,6 +2,7 @@
 
 #include <thread>
 #include <optional>
+#include <condition_variable>
 
 #include "timed_threads.h"
 #include "../execution/execution_traits.h"
@@ -400,7 +401,7 @@ namespace clu
             // clang-format off
             template <typename R2>
             type(timer_loop* loop, R2&& recv, const time_point tp):
-                ops_recv_base(loop, static_cast<R2&&>(recv)) { this->deadline = tp; }
+                ops_recv_base<R>(loop, static_cast<R2&&>(recv)) { this->deadline = tp; }
             // clang-format on
 
         private:

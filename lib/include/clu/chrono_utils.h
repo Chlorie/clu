@@ -6,8 +6,6 @@
 
 namespace clu
 {
-    inline auto local_now() { return std::chrono::current_zone()->to_local(std::chrono::system_clock::now()); }
-
     template <typename Func, typename... Args>
         requires callable<Func, Args...>
     auto timeit(Func&& func, Args&&... args)
@@ -17,6 +15,9 @@ namespace clu
         const auto end = std::chrono::high_resolution_clock::now();
         return end - start;
     }
+
+#if __cpp_lib_chrono >= 201907L // Calendars and time zones
+    inline auto local_now() { return std::chrono::current_zone()->to_local(std::chrono::system_clock::now()); }
 
     namespace chrono_constants
     {
@@ -41,4 +42,5 @@ namespace clu
         using std::chrono::Friday;
         using std::chrono::Saturday;
     } // namespace chrono_constants
+#endif
 } // namespace clu

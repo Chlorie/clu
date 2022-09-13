@@ -1,6 +1,10 @@
 #include "clu/semver.h"
 #include "clu/parse.h"
 
+#if !CLU_HAS_STD_FORMAT
+#include <sstream>
+#endif
+
 namespace clu
 {
     void semver::error(const char* desc) noexcept(false) { throw std::runtime_error(desc); }
@@ -11,7 +15,7 @@ namespace clu
             return 0;
         if (!std::ranges::all_of(str, is_valid_char))
             throw std::runtime_error("invalid semver string");
-        return std::ranges::count(str, '.') + 1;
+        return static_cast<size_t>(std::ranges::count(str, '.')) + 1;
     }
 
     void semver::throw_on_numeric_with_leading_zero(const std::string_view str)
@@ -162,12 +166,18 @@ namespace clu
 
     std::string semver::to_string() const
     {
-        // clang-format off
-        return std::format("{}.{}.{}{}{}{}{}",
-            major_, minor_, patch_,
-            prerelease_.empty() ? "" : "-", prerelease_,
+#if CLU_HAS_STD_FORMAT
+        return std::format("{}.{}.{}{}{}{}{}", //
+            major_, minor_, patch_, //
+            prerelease_.empty() ? "" : "-", prerelease_, //
             build_.empty() ? "" : "+", build_);
-        // clang-format on
+#else
+        std::ostringstream oss;
+        oss << major_ << '.' << minor_ << '.' << patch_ //
+            << (prerelease_.empty() ? "" : "-") << prerelease_ //
+            << (build_.empty() ? "" : "+") << build_;
+        return std::move(oss).str();
+#endif
     }
 
     std::weak_ordering operator<=>(const semver& lhs, const semver& rhs)

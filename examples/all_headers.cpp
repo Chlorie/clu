@@ -18,6 +18,7 @@
 #include <clu/hash.h>
 #include <clu/indices.h>
 #include <clu/integer_literals.h>
+#include <clu/intrusive_list.h>
 #include <clu/invocable_wrapper.h>
 #include <clu/iterator.h>
 #include <clu/manual_lifetime.h>
@@ -36,6 +37,7 @@
 #include <clu/tag_invoke.h>
 #include <clu/task.h>
 #include <clu/type_traits.h>
+#include <clu/ordered_hash_set.h>
 #include <clu/parse.h>
 #include <clu/piper.h>
 #include <clu/polymorphic_value.h>

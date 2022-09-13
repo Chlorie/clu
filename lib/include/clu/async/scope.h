@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include "manual_reset_event.h"
 #include "../execution/utility.h"
 #include "../execution/algorithms/composed.h"
@@ -271,7 +273,7 @@ namespace clu::async
             {
                 if constexpr ( // S does not send value (can only send stopped)
                     exec::value_types_of_t<S, env<A>, meta::constant_q<void>::fn, meta::empty>::value)
-                    exec::set_stopped(static_cast<R&&>(recv_));
+                    exec::set_stopped(static_cast<R&&>(recv_)); // NOLINT(bugprone-branch-clone)
                 else if (value.has_value()) // S sent value
                     std::visit(
                         [&]<typename Tup>(Tup&& tuple)

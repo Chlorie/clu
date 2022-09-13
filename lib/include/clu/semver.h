@@ -2,9 +2,9 @@
 
 #include <vector>
 #include <string>
-#include <format>
 #include <algorithm>
 
+#include "macros.h"
 #include "integer_literals.h"
 
 namespace clu
@@ -12,7 +12,7 @@ namespace clu
     class semver
     {
     public:
-        constexpr semver() noexcept = default; /// Initialize the version to 0.1.0
+        semver() noexcept = default; /// Initialize the version to 0.1.0
         semver(u32 major, u32 minor, u32 patch, std::string prerelease = "", std::string build = "");
 
         [[nodiscard]] static semver from_string(std::string_view ver);
@@ -81,6 +81,10 @@ namespace clu
     } // namespace literals
 } // namespace clu
 
+#if CLU_HAS_STD_FORMAT
+
+#include <format>
+
 template <>
 struct std::formatter<clu::semver> : std::formatter<std::string_view>
 {
@@ -90,3 +94,5 @@ struct std::formatter<clu::semver> : std::formatter<std::string_view>
         return std::formatter<std::string_view>::format(ver.to_string(), ctx);
     }
 };
+
+#endif

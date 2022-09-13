@@ -3,6 +3,7 @@
 #include <stack>
 #include <array>
 #include <span>
+#include <limits>
 
 #include "clu/parse.h"
 

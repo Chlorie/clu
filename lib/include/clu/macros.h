@@ -33,6 +33,14 @@
 #define CLU_NO_UNIQUE_ADDRESS
 #endif
 
+// Version checks
+
+#if __cpp_lib_format >= 201907L
+#define CLU_HAS_STD_FORMAT 1
+#else
+#define CLU_HAS_STD_FORMAT 0
+#endif
+
 // Boilerplate generators
 
 #define CLU_SINGLE_RETURN_TRAILING(...)                                                                                \

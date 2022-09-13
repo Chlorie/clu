@@ -1,6 +1,8 @@
 #pragma once
 
 #include <span>
+#include <bit>
+#include <cstring>
 
 #include "assertion.h"
 #include "concepts.h"

@@ -6,16 +6,18 @@ namespace clu
     {
         class seed_generator
         {
-        private:
-            std::random_device dev_;
-
         public:
+            using result_type = std::random_device::result_type;
+
             template <typename It>
             void generate(It begin, It end)
             {
                 for (; begin != end; ++begin)
                     *begin = dev_();
             }
+
+        private:
+            std::random_device dev_;
         };
     } // namespace
 
