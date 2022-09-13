@@ -41,6 +41,10 @@ coroutine facilities. `clu` provides a `<clu/coroutine.h>` for this use case.
 The `clu::coro` namespace alias refers to `std` or `std::experimental`
 depending on your standand library. For Visual Studio users, clang-cl works
 with the MSVC STL's coroutine implementation, so you can use that.
-- As per the time of writing, neither gcc (libstdc++) nor clang (libc++)
-implements C++20 string formatting (`<format>`) fully. So non-Windows support
-is missing at this point of time.
+- Several classes provided by this library (e.g. `uri`, `semver`) supports
+standard string formatting by specializing the standard library class template
+`std::formatter`, together with convenient `to_string` member functions. But as
+per the time of writing, neither gcc 12.2 (libstdc++) nor clang (libc++) 14.0.0
+implements C++20 string formatting (`<format>`) in its complete form. In that
+case, the `to_string` functions are instead implemented via `ostringstream`,
+and the corresponding `std::formatter` specializations are not provided.
