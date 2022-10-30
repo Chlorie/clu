@@ -44,7 +44,7 @@ with the MSVC STL's coroutine implementation, so you can use that.
 - Several classes provided by this library (e.g. `uri`, `semver`) supports
 standard string formatting by specializing the standard library class template
 `std::formatter`, together with convenient `to_string` member functions. But as
-per the time of writing, neither gcc 12.2 (libstdc++) nor clang (libc++) 14.0.0
+per the time of writing, neither gcc 12.2 (libstdc++) nor clang 14.0.0 (libc++)
 implements C++20 string formatting (`<format>`) in its complete form. In that
 case, the `to_string` functions are instead implemented via `ostringstream`,
 and the corresponding `std::formatter` specializations are not provided.

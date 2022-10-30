@@ -9,6 +9,7 @@ include(Catch)
 add_executable(all_tests)
 target_sources(all_tests PRIVATE
     "async.cpp"
+    "event.cpp"
     "expected.cpp"
     "flags.cpp"
     "forest.cpp"

@@ -16,7 +16,9 @@ namespace clu
 
             template <typename... Ts>
                 requires std::constructible_from<Key, Ts...>
-            explicit key_holder(Ts&&... args): key(static_cast<Ts&&>(args)...) {}
+            explicit key_holder(Ts&&... args): key(static_cast<Ts&&>(args)...)
+            {
+            }
         };
 
         template <typename Key, typename Hash>
@@ -445,8 +447,7 @@ namespace clu
     // clang-format on
     {
     private:
-        using base = detail::ordered_hash_set_impl<Key, KeyHash, KeyEqual, Alloc, std::unordered_set,
-            ordered_hash_set<Key, KeyHash, KeyEqual, Alloc>>;
+        using base = detail::ordered_hash_set_impl<Key, KeyHash, KeyEqual, Alloc, std::unordered_set, ordered_hash_set>;
         friend base;
 
     public:
@@ -481,7 +482,7 @@ namespace clu
     {
     private:
         using base = detail::ordered_hash_set_impl<Key, KeyHash, KeyEqual, Alloc, std::unordered_multiset,
-            ordered_hash_multiset<Key, KeyHash, KeyEqual, Alloc>>;
+            ordered_hash_multiset>;
         friend base;
 
     public:
