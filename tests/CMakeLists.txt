@@ -23,6 +23,7 @@ target_sources(all_tests PRIVATE
     "overload.cpp"
     "parse.cpp"
     "polymorphic_value.cpp"
+    "rational.cpp"
     "scope.cpp"
     "semver.cpp"
     "static_vector.cpp"

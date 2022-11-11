@@ -30,6 +30,7 @@
 #include <clu/optional_ref.h>
 #include <clu/overload.h>
 #include <clu/random.h>
+#include <clu/rational.h>
 #include <clu/scope.h>
 #include <clu/semver.h>
 #include <clu/static_for.h>
