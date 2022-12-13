@@ -11,11 +11,11 @@ namespace clu
 {
     /**
      * \brief Read contents of a binary file into a `std::vector`.
-     * \tparam T Value type of the result vector. It must be a trivial type.
+     * \tparam T Value type of the result vector. It must be trivially copyable.
      * \param path The path to the file to read from.
      */
     template <typename T = std::byte>
-        requires std::is_trivial_v<T>
+        requires trivially_copyable<T>
     [[nodiscard]] std::vector<T> read_all_bytes(const std::filesystem::path& path)
     {
         std::ifstream fs(path, std::ios::in | std::ios::binary);
@@ -31,6 +31,15 @@ namespace clu
             throw std::runtime_error("failed to read binary file");
         return buffer;
     }
+
+    /**
+     * \brief Read contents of a binary file into a `mutable_buffer`.
+     * If the file is larger than the buffer, it is read until the buffer is full.
+     * \param path The path to the file to read from.
+     * \param bytes The buffer to write into.
+     * \return Number of bytes written into the buffer.
+     */
+    std::size_t read_bytes(const std::filesystem::path& path, mutable_buffer bytes);
 
     /**
      * \brief Reads contents of a text file into a `std::string`.
