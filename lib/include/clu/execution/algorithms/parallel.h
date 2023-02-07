@@ -188,10 +188,10 @@ namespace clu::exec
                 using callback_t = typename stop_token_of_t<env_of_t<R>>::template callback_type<stop_callback>;
 
                 R recv_;
+                in_place_stop_source stop_src_;
                 children_ops_t<R, Ts...> children_;
                 std::atomic_size_t finished_count_{};
                 std::atomic<final_signal> signal_{};
-                in_place_stop_source stop_src_;
                 std::optional<callback_t> callback_;
                 CLU_NO_UNIQUE_ADDRESS values_t values_;
                 error_t error_;
@@ -535,10 +535,10 @@ namespace clu::exec
                 using callback_t = typename stop_token_of_t<env_of_t<R>>::template callback_type<stop_callback>;
 
                 R recv_;
+                in_place_stop_source stop_src_;
                 children_ops_t<R, Ts...> children_;
                 std::atomic_size_t finished_count_{};
                 std::atomic<final_signal> signal_{};
-                in_place_stop_source stop_src_;
                 std::optional<callback_t> callback_;
                 CLU_NO_UNIQUE_ADDRESS values_t values_;
                 error_t error_;
