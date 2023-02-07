@@ -6,7 +6,8 @@
 
 namespace clu
 {
-    std::mt19937& random_engine();
+    [[deprecated("Renamed as thread_rng()")]] std::mt19937& random_engine();
+    std::mt19937& thread_rng();
     void reseed();
     void reseed(std::mt19937::result_type seed);
 
@@ -18,12 +19,12 @@ namespace clu
         {
             using int_type = std::conditional_t<std::is_signed_v<T>, int16_t, uint16_t>;
             std::uniform_int_distribution<int_type> dist(static_cast<int_type>(low), static_cast<int_type>(high));
-            return static_cast<T>(dist(random_engine()));
+            return static_cast<T>(dist(thread_rng()));
         }
         else
         {
             std::uniform_int_distribution<T> dist(low, high);
-            return dist(random_engine());
+            return dist(thread_rng());
         }
     }
 
@@ -31,6 +32,6 @@ namespace clu
     T randfloat(const T low, const T high)
     {
         std::uniform_real_distribution<T> dist(low, high);
-        return dist(random_engine());
+        return dist(thread_rng());
     }
 } // namespace clu

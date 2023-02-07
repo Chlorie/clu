@@ -53,13 +53,13 @@ namespace clu
 
         template <typename F>
             requires(invocable_of<F, R, Ts...> && !similar_to<F, function_ref>)
-        explicit(false) function_ref(F&& func) noexcept { assign(std::forward<F>(func)); }
+        explicit(false) function_ref(F&& func) noexcept { this->assign(std::forward<F>(func)); }
 
         template <typename F>
             requires(invocable_of<F, R, Ts...> && !similar_to<F, function_ref>)
         function_ref& operator=(F&& func) noexcept
         {
-            assign(std::forward<F>(func));
+            this->assign(std::forward<F>(func));
             return *this;
         }
 

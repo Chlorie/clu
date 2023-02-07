@@ -77,9 +77,10 @@ namespace clu::exec
             in_place_stop_token token_;
 
             friend void tag_invoke(set_value_t, proxy_recv_t&& self) noexcept { self.vfptr_->set_value(self.ptr_); }
-            friend void tag_invoke(set_error_t, proxy_recv_t&& self, const std::exception_ptr& eptr) noexcept
+            template <typename E>
+            friend void tag_invoke(set_error_t, proxy_recv_t&& self, E&& error) noexcept
             {
-                self.vfptr_->set_error(self.ptr_, eptr);
+                self.vfptr_->set_error(self.ptr_, detail::make_exception_ptr(static_cast<E&&>(error)));
             }
             friend void tag_invoke(set_stopped_t, proxy_recv_t&& self) noexcept { self.vfptr_->set_stopped(self.ptr_); }
             friend env_t tag_invoke(get_env_t, const proxy_recv_t& self) noexcept { return {self.token_}; }

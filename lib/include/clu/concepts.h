@@ -106,6 +106,9 @@ namespace clu
     concept enumeration = std::is_enum_v<T>;
 
     template <typename T>
+    concept arithmetic = std::integral<T> || std::floating_point<T>;
+
+    template <typename T>
     concept trivially_copyable = std::copyable<T> && std::is_trivially_copyable_v<T>;
 
     // clang-format off

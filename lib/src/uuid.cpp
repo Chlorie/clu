@@ -41,7 +41,7 @@ namespace clu
         parse_error();
     }
 
-    uuid uuid::generate_random() { return generate_random(random_engine()); }
+    uuid uuid::generate_random() { return generate_random(thread_rng()); }
 
     uuid uuid::generate_name_based_md5(const uuid& namespace_, const std::string_view name) noexcept
     {

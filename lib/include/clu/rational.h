@@ -1,8 +1,9 @@
 #pragma once
 
-#include <concepts>
 #include <numeric>
 #include <compare>
+
+#include "concepts.h"
 
 namespace clu
 {
@@ -55,7 +56,7 @@ namespace clu
         constexpr rational& operator*=(const rational other) noexcept { return *this = (*this * other); }
         constexpr rational& operator/=(const rational other) noexcept { return *this = (*this / other); }
 
-        template <std::floating_point F>
+        template <arithmetic F>
         constexpr explicit operator F() const noexcept
         {
             return F(num_) / F(den_);

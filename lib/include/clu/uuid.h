@@ -39,14 +39,12 @@ namespace clu
         {
             constexpr auto shift_byte = [](const u64 value, const int shift)
             { return static_cast<std::byte>(value >> shift); };
-            // clang-format off
             data_ = {
                 shift_byte(first, 56), shift_byte(first, 48), shift_byte(first, 40), shift_byte(first, 32),
                 shift_byte(first, 24), shift_byte(first, 16), shift_byte(first, 8), shift_byte(first, 0),
                 shift_byte(second, 56), shift_byte(second, 48), shift_byte(second, 40), shift_byte(second, 32),
-                shift_byte(second, 24), shift_byte(second, 16), shift_byte(second, 8), shift_byte(second, 0)
+                shift_byte(second, 24), shift_byte(second, 16), shift_byte(second, 8), shift_byte(second, 0) //
             };
-            // clang-format on
         }
 
         [[nodiscard]] constexpr friend bool operator==(uuid, uuid) noexcept = default;
