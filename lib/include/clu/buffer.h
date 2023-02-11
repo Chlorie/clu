@@ -158,7 +158,7 @@ namespace clu
 
         constexpr size_t copy_to(const mutable_type dest) const noexcept
         {
-            const size_t copy_size = std::min(size_, dest.size());
+            const size_t copy_size = (std::min)(size_, dest.size());
             clu::memmove(dest.data(), data(), copy_size);
             return copy_size;
         }

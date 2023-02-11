@@ -409,7 +409,7 @@ namespace clu::exec
         private:
             // ReSharper disable once CppUninitializedNonStaticDataMember
             std::size_t index_ = 0;
-            alignas(Ts...) std::byte data_[std::max({sizeof(Ts)...})];
+            alignas(Ts...) std::byte data_[(std::max)({sizeof(Ts)...})];
 
             template <std::size_t I, forwarding<ops_variant<Ts...>> Self>
             friend auto&& get(Self&& self)
