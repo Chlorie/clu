@@ -12,14 +12,12 @@ namespace clu
     template <typename T>
     concept char_type = same_as_any_of<T, char, unsigned char, signed char, char8_t, char16_t, char32_t>;
 
-    // clang-format off
-    template <typename Range> requires
-        std::ranges::contiguous_range<Range> &&
-        std::ranges::sized_range<Range> &&
+    template <typename Range>
+        requires std::ranges::contiguous_range<Range> && //
+        std::ranges::sized_range<Range> && //
         char_type<std::ranges::range_value_t<Range>>
     [[nodiscard]] constexpr auto to_string_view(const Range& range) noexcept
         -> std::basic_string_view<std::ranges::range_value_t<Range>>
-    // clang-format on
     {
         constexpr auto diff = static_cast<std::size_t>(std::is_array_v<Range>); // null terminator
         return {std::ranges::data(range), std::ranges::size(range) - diff};
@@ -34,10 +32,7 @@ namespace clu
     namespace detail
     {
         template <typename T>
-        concept sv_like = requires(const T& value)
-        {
-            clu::to_string_view(value);
-        };
+        concept sv_like = requires(const T& value) { clu::to_string_view(value); };
 
         template <typename T>
         using char_type_of_t = typename decltype(clu::to_string_view(std::declval<T>()))::value_type;
@@ -104,7 +99,7 @@ namespace clu
                 const auto diff = new_pos - pos;
                 std::ranges::copy_n(&source[pos], static_cast<std::ptrdiff_t>(diff), &source[write_pos]);
                 write_pos += diff;
-                std::ranges::copy(to_sv, &source[write_pos + diff]);
+                std::ranges::copy(to_sv, &source[write_pos]);
                 write_pos += to_sv.length();
                 pos = new_pos + from_sv.length();
             }
