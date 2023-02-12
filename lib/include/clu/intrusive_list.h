@@ -23,8 +23,8 @@ namespace clu
         };
         union
         {
-            intrusive_list_element_base<T>* next_ = nullptr;
-            intrusive_list_element_base<T>* head_; // head_ may be the sentinel node
+            intrusive_list_element_base* next_ = nullptr;
+            intrusive_list_element_base* head_; // head_ may be the sentinel node
         };
     };
 
@@ -72,7 +72,7 @@ namespace clu
             }
 
         private:
-            friend intrusive_list<T>;
+            friend intrusive_list;
             friend iters_impl<true>;
             using qualified_ptr = conditional_t<IsConst, const T*, T*>;
             using qualified_base_ptr = conditional_t<IsConst, const node_base_type*, node_base_type*>;

@@ -16,27 +16,23 @@ namespace clu
     template <typename T>
     concept alias_safe = same_as_any_of<T, unsigned char, char, std::byte>;
 
-    // clang-format off
     /**
      * \brief Specifies that a type is safe to be seen through by a buffer.
      * \details Buffer-safe types can be read from/written into buffers.
      */
     template <typename T>
-    concept buffer_safe = 
-        trivially_copyable<T> ||
+    concept buffer_safe = //
+        trivially_copyable<T> || //
         (std::is_array_v<T> && trivially_copyable<std::remove_all_extents_t<T>>);
 
     template <typename T>
-    concept trivial_range =
-        std::ranges::contiguous_range<T> &&
-        std::ranges::sized_range<T> &&
+    concept trivial_range = //
+        std::ranges::contiguous_range<T> && //
+        std::ranges::sized_range<T> && //
         trivially_copyable<std::ranges::range_value_t<T>>;
 
     template <typename T>
-    concept mutable_trivial_range =
-        trivial_range<T> &&
-        (!std::is_const_v<std::ranges::range_value_t<T>>);
-    // clang-format on
+    concept mutable_trivial_range = trivial_range<T> && (!std::is_const_v<std::ranges::range_value_t<T>>);
 
     /**
      * \brief Copies data between addresses, safe even when the destination overlaps the source.

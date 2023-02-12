@@ -447,7 +447,8 @@ namespace clu
     // clang-format on
     {
     private:
-        using base = detail::ordered_hash_set_impl<Key, KeyHash, KeyEqual, Alloc, std::unordered_set, ordered_hash_set>;
+        using base = detail::ordered_hash_set_impl<Key, KeyHash, KeyEqual, Alloc, //
+            std::unordered_set, ordered_hash_set>;
         friend base;
 
     public:
@@ -481,8 +482,8 @@ namespace clu
     // clang-format on
     {
     private:
-        using base = detail::ordered_hash_set_impl<Key, KeyHash, KeyEqual, Alloc, std::unordered_multiset,
-            ordered_hash_multiset>;
+        using base = detail::ordered_hash_set_impl<Key, KeyHash, KeyEqual, Alloc, //
+            std::unordered_multiset, ordered_hash_multiset>;
         friend base;
 
     public:

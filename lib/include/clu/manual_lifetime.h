@@ -9,15 +9,9 @@ namespace clu
     template <typename T>
     class manual_lifetime
     {
-    private:
-        union
-        {
-            T value_;
-        };
-
     public:
-        manual_lifetime() noexcept {} //< No-op constructor.
-        ~manual_lifetime() noexcept {} //< No-op destructor.
+        manual_lifetime() noexcept {} ///< No-op constructor.
+        ~manual_lifetime() noexcept {} ///< No-op destructor.
         manual_lifetime(const manual_lifetime&) = delete;
         manual_lifetime(manual_lifetime&&) = delete;
         manual_lifetime& operator=(const manual_lifetime&) = delete;
@@ -29,20 +23,23 @@ namespace clu
             return *new (std::addressof(value_)) T(std::forward<Args>(args)...);
         }
 
-        void destruct() noexcept { value_.~T(); } //< Destruct the controlled object.
+        void destruct() noexcept { value_.~T(); } ///< Destruct the controlled object.
 
         [[nodiscard]] T& get() & noexcept { return value_; }
         [[nodiscard]] const T& get() const& noexcept { return value_; }
         [[nodiscard]] T&& get() && noexcept { return std::move(value_); }
         [[nodiscard]] const T&& get() const&& noexcept { return std::move(value_); }
+
+    private:
+        union
+        {
+            T value_;
+        };
     };
 
     template <typename T>
     class manual_lifetime<T&>
     {
-    private:
-        T* ptr_ = nullptr;
-
     public:
         manual_lifetime() noexcept = default;
         ~manual_lifetime() noexcept = default;
@@ -55,14 +52,14 @@ namespace clu
         void destruct() noexcept {}
 
         [[nodiscard]] T& get() const noexcept { return *ptr_; }
+
+    private:
+        T* ptr_ = nullptr;
     };
 
     template <typename T>
     class manual_lifetime<T&&>
     {
-    private:
-        T* ptr_ = nullptr;
-
     public:
         manual_lifetime() noexcept = default;
         ~manual_lifetime() noexcept = default;
@@ -75,6 +72,9 @@ namespace clu
         void destruct() noexcept {}
 
         [[nodiscard]] T&& get() const noexcept { return std::move(*ptr_); }
+
+    private:
+        T* ptr_ = nullptr;
     };
 
     template <>

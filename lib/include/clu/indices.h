@@ -68,7 +68,7 @@ namespace clu
                     current_[0] += amount;
                 else if ((current_[i] += amount) >= extents_[i])
                 {
-                    add_at<i - 1>(amount / extents_[i]);
+                    this->add_at<i - 1>(amount / extents_[i]);
                     current_[i] %= extents_[i];
                 }
             }
@@ -83,7 +83,7 @@ namespace clu
                     const auto minus = amount - current_[i];
                     const auto multiple = (minus + extents_[i] - 1) / extents_[i];
                     current_[i] += multiple * extents_[i] - amount;
-                    subtract_at<i - 1>(multiple);
+                    this->subtract_at<i - 1>(multiple);
                 }
             }
 
@@ -93,7 +93,7 @@ namespace clu
                 if constexpr (i == 0)
                     return static_cast<std::ptrdiff_t>(current_[0]) - static_cast<std::ptrdiff_t>(other[0]);
                 else
-                    return static_cast<std::ptrdiff_t>(extents_[i]) * distance_at<i - 1>(other) +
+                    return static_cast<std::ptrdiff_t>(extents_[i]) * this->distance_at<i - 1>(other) +
                         static_cast<std::ptrdiff_t>(current_[i]) - static_cast<std::ptrdiff_t>(other[i]);
             }
 
@@ -146,13 +146,13 @@ namespace clu
             [[nodiscard]] constexpr difference_type operator-(const iter_impl& other) const noexcept
             {
                 CLU_ASSERT(extents_ == other.extents_, "the iterators have different extents");
-                return distance_at<N - 1>(other.current_);
+                return this->distance_at<N - 1>(other.current_);
             }
 
             [[nodiscard]] constexpr difference_type operator-(sentinel) const noexcept
             {
                 const value_type other{extents_[0]};
-                return distance_at<N - 1>(other);
+                return this->distance_at<N - 1>(other);
             }
         };
 
