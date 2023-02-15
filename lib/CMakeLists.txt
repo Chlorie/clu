@@ -82,6 +82,11 @@ add_headers(HEADERS
     "async/scope.h"
     "async/shared_mutex.h"
 
+    "concurrency/hazard_pointer.h"
+    "concurrency/locked.h"
+    "concurrency/locked_ptr.h"
+    "concurrency/spinlock.h"
+
     "execution/any_scheduler.h"
     "execution/awaitable_traits.h"
     "execution/execution_traits.h"
@@ -105,7 +110,6 @@ add_headers(HEADERS
 add_sources(SOURCES
     # Source files here (relative to ./src/)
     "assertion.cpp"
-    "concurrency.cpp"
     "file.cpp"
     "random.cpp"
     "semver.cpp"
@@ -117,6 +121,10 @@ add_sources(SOURCES
     "async/mutex.cpp"
     "async/scope.cpp"
     "async/shared_mutex.cpp"
+    
+    "concurrency/hazard_pointer.cpp"
+    "concurrency/locked_ptr.cpp"
+    "concurrency/spinlock.cpp"
 
     "execution/run_loop.cpp"
     "execution/schedulers.cpp"
