@@ -60,7 +60,7 @@ namespace clu::exec
             struct start_detached_t
             {
                 template <sender S>
-                constexpr void operator()(S&& snd) const
+                constexpr CLU_STATIC_CALL_OPERATOR(void)(S&& snd) 
                 {
                     if constexpr (requires {
                                       requires tag_invocable<start_detached_t,
@@ -89,7 +89,7 @@ namespace clu::exec
             struct execute_t
             {
                 template <scheduler S, std::invocable F>
-                void operator()(S&& schd, F&& func) const
+                CLU_STATIC_CALL_OPERATOR(void)(S&& schd, F&& func) 
                 {
                     if constexpr (tag_invocable<execute_t, S, F>)
                     {
@@ -200,7 +200,7 @@ namespace clu::this_thread
         struct sync_wait_t
         {
             template <sync_waitable_sender S>
-            result_t<S> operator()(S&& snd) const
+            CLU_STATIC_CALL_OPERATOR(result_t<S>)(S&& snd) 
             {
                 if constexpr (requires {
                                   requires tag_invocable<sync_wait_t,
@@ -246,7 +246,7 @@ namespace clu::this_thread
         {
             template <typename S>
                 requires sync_waitable_sender<into_var_snd_t<S>>
-            constexpr var_result_t<S> operator()(S&& snd) const
+            constexpr CLU_STATIC_CALL_OPERATOR(var_result_t<S>)(S&& snd) 
             {
                 if constexpr (requires {
                                   requires tag_invocable<sync_wait_with_variant_t,

@@ -25,7 +25,7 @@
 #define CLU_GCC_RESTORE_WARNING
 #endif
 
-// Attributes
+// C++ language/library support check
 
 #if __has_cpp_attribute(no_unique_address)
 #define CLU_NO_UNIQUE_ADDRESS [[no_unique_address]]
@@ -33,23 +33,31 @@
 #define CLU_NO_UNIQUE_ADDRESS
 #endif
 
-// Version checks
-
 #if __cpp_lib_format >= 201907L
 #define CLU_HAS_STD_FORMAT 1
 #else
 #define CLU_HAS_STD_FORMAT 0
 #endif
 
+#if __cpp_static_call_operator >= 202207L
+#define CLU_STATIC_CALL_OPERATOR_ARGS_(...) (__VA_ARGS__)
+#define CLU_STATIC_CALL_OPERATOR(...) static __VA_ARGS__ operator() CLU_STATIC_CALL_OPERATOR_ARGS_
+#else
+#define CLU_STATIC_CALL_OPERATOR_ARGS_(...) (__VA_ARGS__) const
+#define CLU_STATIC_CALL_OPERATOR(...) __VA_ARGS__ operator() CLU_STATIC_CALL_OPERATOR_ARGS_
+#endif
+
 // Boilerplate generators
 
+// clang-format off
 #define CLU_SINGLE_RETURN_TRAILING(...)                                                                                \
-    noexcept(noexcept(__VA_ARGS__))->decltype(__VA_ARGS__) { return __VA_ARGS__; }                                     \
+    noexcept(noexcept(__VA_ARGS__)) -> decltype(__VA_ARGS__) { return __VA_ARGS__; }                                   \
     static_assert(true)
 
 #define CLU_SINGLE_RETURN(...)                                                                                         \
     noexcept(noexcept(__VA_ARGS__)) { return __VA_ARGS__; }                                                            \
     static_assert(true)
+// clang-format on
 
 #define CLU_NON_COPYABLE_TYPE(type)                                                                                    \
     type(const type&) = delete;                                                                                        \

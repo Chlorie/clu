@@ -341,7 +341,8 @@ namespace clu::exec
             struct when_all_t
             {
                 template <sender... Ts>
-                auto operator()(Ts&&... snds) const
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (Ts&&... snds)
                 {
                     if constexpr (tag_invocable<when_all_t, Ts...>)
                     {
@@ -675,7 +676,8 @@ namespace clu::exec
             struct when_any_t
             {
                 template <sender... Ts>
-                auto operator()(Ts&&... snds) const
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (Ts&&... snds)
                 {
                     if constexpr (tag_invocable<when_any_t, Ts...>)
                     {
@@ -955,13 +957,15 @@ namespace clu::exec
             struct stop_when_t
             {
                 template <sender S, sender T>
-                auto operator()(S&& src, T&& trigger) const
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (S&& src, T&& trigger)
                 {
                     return snd_t<S, T>(static_cast<S&&>(src), static_cast<T&&>(trigger));
                 }
 
                 template <sender T>
-                auto operator()(T&& trigger) const
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (T&& trigger)
                 {
                     return clu::make_piper(clu::bind_back(*this, static_cast<T&&>(trigger)));
                 }
@@ -1183,24 +1187,27 @@ namespace clu::exec
             struct detach_on_stop_request_t
             {
                 template <sender S, typename F>
-                auto operator()(S&& snd, F&& cleanup_factory) const
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (S&& snd, F&& cleanup_factory)
                 {
                     return snd_t<S, F>(static_cast<S&&>(snd), static_cast<F&&>(cleanup_factory));
                 }
 
                 template <sender S>
-                auto operator()(S&& snd) const
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (S&& snd)
                 {
                     return (*this)(static_cast<S&&>(snd), noop_cleanup_factory);
                 }
 
                 template <typename F>
-                auto operator()(F&& cleanup_factory) const
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (F&& cleanup_factory)
                 {
                     return clu::make_piper(clu::bind_back(*this, cleanup_factory));
                 }
 
-                auto operator()() const noexcept { return (*this)(noop_cleanup_factory); }
+                CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return (*this)(noop_cleanup_factory); }
             };
         } // namespace dtch_cncl
 

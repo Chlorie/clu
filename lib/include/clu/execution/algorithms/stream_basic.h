@@ -62,13 +62,13 @@ namespace clu::exec
             struct adapt_next_t
             {
                 template <stream S, typename F>
-                auto operator()(S&& strm, F&& func) const
+                CLU_STATIC_CALL_OPERATOR(auto)(S&& strm, F&& func) 
                 {
                     return stream_t<S, F>(static_cast<S&&>(strm), static_cast<F&&>(func));
                 }
 
                 template <typename F>
-                auto operator()(F&& func) const
+                CLU_STATIC_CALL_OPERATOR(auto)(F&& func) 
                 {
                     return clu::make_piper(clu::bind_back(*this, static_cast<F&&>(func)));
                 }
@@ -107,13 +107,13 @@ namespace clu::exec
             struct adapt_cleanup_t
             {
                 template <stream S, typename F>
-                auto operator()(S&& strm, F&& func) const
+                CLU_STATIC_CALL_OPERATOR(auto)(S&& strm, F&& func) 
                 {
                     return stream_t<S, F>(static_cast<S&&>(strm), static_cast<F&&>(func));
                 }
 
                 template <typename F>
-                auto operator()(F&& func) const
+                CLU_STATIC_CALL_OPERATOR(auto)(F&& func) 
                 {
                     return clu::make_piper(clu::bind_back(*this, static_cast<F&&>(func)));
                 }
@@ -242,7 +242,7 @@ namespace clu::exec
                     T& current;
 
                     template <typename... Args>
-                    decltype(auto) operator()(Args&&... args) const
+                    CLU_STATIC_CALL_OPERATOR(decltype(auto))(Args&&... args) 
                     {
                         return func(current, static_cast<Args&&>(args)...);
                     }
@@ -352,14 +352,14 @@ namespace clu::exec
             struct reduce_t
             {
                 template <stream S, typename T, typename F>
-                auto operator()(S&& strm, T&& initial, F&& func) const
+                CLU_STATIC_CALL_OPERATOR(auto)(S&& strm, T&& initial, F&& func) 
                 {
                     return snd_t<S, T, F>( //
                         static_cast<S&&>(strm), static_cast<T&&>(initial), static_cast<F&&>(func));
                 }
 
                 template <typename T, typename F>
-                auto operator()(T&& initial, F&& func) const
+                CLU_STATIC_CALL_OPERATOR(auto)(T&& initial, F&& func) 
                 {
                     return clu::make_piper(clu::bind_back(*this, //
                         static_cast<T&&>(initial), static_cast<F&&>(func)));
@@ -614,13 +614,13 @@ namespace clu::exec
             struct filter_t
             {
                 template <stream S, typename F>
-                auto operator()(S&& strm, F&& func) const
+                CLU_STATIC_CALL_OPERATOR(auto)(S&& strm, F&& func) 
                 {
                     return stream_t<S, F>(static_cast<S&&>(strm), static_cast<F&&>(func));
                 }
 
                 template <typename F>
-                auto operator()(F&& func) const
+                CLU_STATIC_CALL_OPERATOR(auto)(F&& func) 
                 {
                     return clu::make_piper(clu::bind_back(*this, static_cast<F&&>(func)));
                 }
@@ -641,10 +641,10 @@ namespace clu::exec
             struct last_t
             {
                 template <stream S>
-                auto operator()(S&& strm) const
+                CLU_STATIC_CALL_OPERATOR(auto)(S&& strm) 
                 {
                 }
-                auto operator()() const noexcept { return make_piper(*this); }
+                CLU_STATIC_CALL_OPERATOR(auto)()  noexcept { return make_piper(*this); }
             };
         } // namespace last
 
@@ -881,11 +881,11 @@ namespace clu::exec
             struct into_vector_t
             {
                 template <stream S>
-                auto operator()(S&& strm) const
+                CLU_STATIC_CALL_OPERATOR(auto)(S&& strm) 
                 {
                     return snd_t<S>(static_cast<S&&>(strm));
                 }
-                auto operator()() const noexcept { return make_piper(*this); }
+                CLU_STATIC_CALL_OPERATOR(auto)()  noexcept { return make_piper(*this); }
             };
         } // namespace vec
 

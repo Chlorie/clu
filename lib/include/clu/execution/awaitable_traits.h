@@ -6,15 +6,15 @@
 
 namespace clu::exec
 {
-    // clang-format off
     namespace detail
     {
         template <typename T>
-        concept valid_await_suspend_type =
-            same_as_any_of<T, void, bool> ||
+        concept valid_await_suspend_type = //
+            same_as_any_of<T, void, bool> || //
             template_of<T, coro::coroutine_handle>;
     }
 
+    // clang-format off
     template <typename A, typename P = void>
     concept awaiter = requires(A&& a, coro::coroutine_handle<P> h)
     {
@@ -46,7 +46,7 @@ namespace clu::exec
             using awaiter_type = decltype(get_awt::impl(std::declval<A>(), priority_tag<2>{}));
 
             template <typename A>
-            constexpr auto operator()(A&& a) const
+            constexpr CLU_STATIC_CALL_OPERATOR(auto)(A&& a)
                 CLU_SINGLE_RETURN_TRAILING(get_awt::impl(static_cast<A&&>(a), priority_tag<2>{}));
         };
     } // namespace detail::get_awt
@@ -58,11 +58,11 @@ namespace clu::exec
     {
         template <typename P, typename A>
             requires requires(P& promise, A&& awaited) { promise.await_transform(static_cast<A&&>(awaited)); }
-        constexpr auto operator()(P& promise, A&& awaited) const
+        constexpr CLU_STATIC_CALL_OPERATOR(auto)(P& promise, A&& awaited)
             CLU_SINGLE_RETURN_TRAILING(promise.await_transform(static_cast<A&&>(awaited)));
 
         template <typename P, typename A>
-        constexpr A operator()(P&, A&& awaited) const noexcept
+        constexpr CLU_STATIC_CALL_OPERATOR(A)(P&, A&& awaited) noexcept
         {
             return static_cast<A&&>(awaited);
         }

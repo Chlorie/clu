@@ -190,7 +190,8 @@ namespace clu::exec
             struct on_t
             {
                 template <scheduler Schd, sender Snd>
-                auto operator()(Schd&& schd, Snd&& snd) const
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (Schd&& schd, Snd&& snd)
                 {
                     if constexpr (tag_invocable<on_t, Schd, Snd>)
                     {
@@ -422,7 +423,8 @@ namespace clu::exec
             struct schedule_from_t
             {
                 template <scheduler Schd, sender Snd>
-                auto operator()(Schd&& schd, Snd&& snd) const
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (Schd&& schd, Snd&& snd)
                 {
                     if constexpr (tag_invocable<schedule_from_t, Schd, Snd>)
                     {

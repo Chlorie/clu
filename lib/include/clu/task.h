@@ -371,10 +371,7 @@ namespace clu
                 exec::detail::collapse_types_t, exec::detail::collapse_types_t>;
 
             template <typename S>
-            concept task_convertible_sender = exec::sender<S> && requires
-            {
-                typename task_return_type_of<S>;
-            };
+            concept task_convertible_sender = exec::sender<S> && requires { typename task_return_type_of<S>; };
         } // namespace task
     } // namespace detail
 
@@ -384,7 +381,8 @@ namespace clu
     struct as_task_t
     {
         template <exec::sender S>
-        auto operator()(S&& sender) const
+        CLU_STATIC_CALL_OPERATOR(auto)
+        (S&& sender) const
         {
             static_assert(detail::task::task_convertible_sender<S>,
                 "Senders that send multiple sets of values, or those that send "
@@ -402,6 +400,6 @@ namespace clu
                 { co_return co_await static_cast<S&&>(snd); }(static_cast<S&&>(sender));
         }
 
-        constexpr auto operator()() const noexcept { return make_piper(*this); }
+        constexpr CLU_STATIC_CALL_OPERATOR(auto)() const noexcept { return make_piper(*this); }
     } inline constexpr as_task{};
 } // namespace clu

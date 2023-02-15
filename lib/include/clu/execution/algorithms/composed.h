@@ -21,7 +21,7 @@ namespace clu::exec
         }
 
         template <scheduler Schd>
-        constexpr auto operator()(Schd&& schd) const noexcept
+        constexpr CLU_STATIC_CALL_OPERATOR(auto)(Schd&& schd)  noexcept
         {
             return clu::make_piper(clu::bind_back(*this, static_cast<Schd&&>(schd)));
         }
@@ -48,7 +48,7 @@ namespace clu::exec
     struct just_from_t
     {
         template <std::invocable F>
-        constexpr auto operator()(F&& func) const
+        constexpr CLU_STATIC_CALL_OPERATOR(auto)(F&& func) 
         {
             return just() | then(static_cast<F&&>(func));
         }
@@ -59,7 +59,7 @@ namespace clu::exec
     {
         template <std::invocable F>
             requires sender<std::invoke_result_t<F>>
-        constexpr auto operator()(F&& func) const
+        constexpr CLU_STATIC_CALL_OPERATOR(auto)(F&& func) 
         { //
             return just() | let_value(static_cast<F&&>(func));
         }
@@ -75,7 +75,7 @@ namespace clu::exec
                 | let_value(let_value_cb<std::decay_t<S>>{static_cast<S&&>(snd)});
         }
 
-        constexpr auto operator()() const noexcept { return make_piper(*this); }
+        constexpr CLU_STATIC_CALL_OPERATOR(auto)()  noexcept { return make_piper(*this); }
 
     private:
         template <typename S>
@@ -107,7 +107,7 @@ namespace clu::exec
         }
 
         template <movable_value E>
-        constexpr auto operator()(E&& err) const
+        constexpr CLU_STATIC_CALL_OPERATOR(auto)(E&& err) 
         {
             return clu::make_piper(clu::bind_back(*this, static_cast<E&&>(err)));
         }
@@ -185,7 +185,7 @@ namespace clu::exec
             // clang-format on
         }
 
-        constexpr auto operator()() const noexcept { return make_piper(*this); }
+        constexpr CLU_STATIC_CALL_OPERATOR(auto)()  noexcept { return make_piper(*this); }
     };
     inline constexpr into_tuple_t into_tuple{};
 } // namespace clu::exec

@@ -28,7 +28,7 @@ namespace clu::exec
         {
             template <typename R>
                 requires tag_invocable<get_env_t, R>
-            decltype(auto) operator()(R&& recv) const noexcept
+            CLU_STATIC_CALL_OPERATOR(decltype(auto))(R&& recv) noexcept
             {
                 static_assert(nothrow_tag_invocable<get_env_t, R>, "get_env should be noexcept");
                 return tag_invoke(*this, static_cast<R&&>(recv));
@@ -38,7 +38,7 @@ namespace clu::exec
         struct forwarding_env_query_t
         {
             template <typename Cpo>
-            constexpr bool operator()(const Cpo cpo) const noexcept
+            constexpr CLU_STATIC_CALL_OPERATOR(bool)(const Cpo cpo) noexcept
             {
                 if constexpr (tag_invocable<forwarding_env_query_t, Cpo>)
                 {
@@ -80,7 +80,7 @@ namespace clu::exec
         {
             template <typename R, typename... Vals>
                 requires tag_invocable<set_value_t, R, Vals...>
-            void operator()(R&& recv, Vals&&... vals) const noexcept
+            CLU_STATIC_CALL_OPERATOR(void)(R&& recv, Vals&&... vals) noexcept
             {
                 static_assert(nothrow_tag_invocable<set_value_t, R, Vals...>, "set_value should be noexcept");
                 tag_invoke(*this, static_cast<R&&>(recv), static_cast<Vals&&>(vals)...);
@@ -91,7 +91,7 @@ namespace clu::exec
         {
             template <typename R, typename Err>
                 requires tag_invocable<set_error_t, R, Err>
-            void operator()(R&& recv, Err&& err) const noexcept
+            CLU_STATIC_CALL_OPERATOR(void)(R&& recv, Err&& err) noexcept
             {
                 static_assert(nothrow_tag_invocable<set_error_t, R, Err>, "set_error should be noexcept");
                 tag_invoke(*this, static_cast<R&&>(recv), static_cast<Err&&>(err));
@@ -102,7 +102,7 @@ namespace clu::exec
         {
             template <typename R>
                 requires tag_invocable<set_stopped_t, R>
-            void operator()(R&& recv) const noexcept
+            CLU_STATIC_CALL_OPERATOR(void)(R&& recv) noexcept
             {
                 static_assert(nothrow_tag_invocable<set_stopped_t, R>, "set_stopped should be noexcept");
                 tag_invoke(*this, static_cast<R&&>(recv));
@@ -183,7 +183,7 @@ namespace clu::exec
         struct get_completion_signatures_t
         {
             template <typename S, typename E>
-            constexpr auto operator()(S&&, E&&) const noexcept
+            constexpr CLU_STATIC_CALL_OPERATOR(auto)(S&&, E&&) noexcept
             {
                 if constexpr (tag_invocable<get_completion_signatures_t, S, E>)
                 {
@@ -255,7 +255,7 @@ namespace clu::exec
         struct forwarding_receiver_query_t
         {
             template <typename Cpo>
-            constexpr bool operator()(const Cpo cpo) const noexcept
+            constexpr CLU_STATIC_CALL_OPERATOR(bool)(const Cpo cpo) noexcept
             {
                 if constexpr (tag_invocable<forwarding_receiver_query_t, Cpo>)
                 {
@@ -284,7 +284,7 @@ namespace clu::exec
         {
             template <typename O>
                 requires tag_invocable<start_t, O&>
-            void operator()(O& ops) const noexcept
+            CLU_STATIC_CALL_OPERATOR(void)(O& ops) noexcept
             {
                 static_assert(nothrow_tag_invocable<start_t, O&>, "start should be noexcept");
                 tag_invoke(*this, ops);
@@ -516,7 +516,7 @@ namespace clu::exec
         {
             template <typename S, typename R>
                 requires connectable<S, R>
-            auto operator()(S&& snd, R&& recv) const noexcept(nothrow_connectable<S, R>)
+            CLU_STATIC_CALL_OPERATOR(auto)(S&& snd, R&& recv) noexcept(nothrow_connectable<S, R>)
             {
                 if constexpr (tag_connectable<S, R>)
                 {
@@ -595,7 +595,7 @@ namespace clu::exec
         struct forwarding_sender_query_t
         {
             template <typename Cpo>
-            constexpr bool operator()(const Cpo cpo) const noexcept
+            constexpr CLU_STATIC_CALL_OPERATOR(bool)(const Cpo cpo) noexcept
             {
                 if constexpr (tag_invocable<forwarding_sender_query_t, Cpo>)
                 {
@@ -619,7 +619,7 @@ namespace clu::exec
         {
             template <sender S>
                 requires tag_invocable<get_completion_scheduler_t, S>
-            auto operator()(const S& snd) const noexcept
+            CLU_STATIC_CALL_OPERATOR(auto)(const S& snd) noexcept
             {
                 static_assert(nothrow_tag_invocable<get_completion_scheduler_t, S>,
                     "get_completion_scheduler should be noexcept");
@@ -637,7 +637,7 @@ namespace clu::exec
         struct no_await_thunk_t
         {
             template <typename S>
-            constexpr auto operator()([[maybe_unused]] const S& snd) const noexcept
+            constexpr CLU_STATIC_CALL_OPERATOR(auto)([[maybe_unused]] const S& snd) noexcept
             {
                 if constexpr (tag_invocable<no_await_thunk_t, const S&>)
                 {
@@ -654,7 +654,7 @@ namespace clu::exec
         struct completes_inline_t
         {
             template <typename S>
-            constexpr auto operator()([[maybe_unused]] const S& snd) const noexcept
+            constexpr CLU_STATIC_CALL_OPERATOR(auto)([[maybe_unused]] const S& snd) noexcept
             {
                 if constexpr (tag_invocable<completes_inline_t, const S&>)
                 {
@@ -742,11 +742,12 @@ namespace clu::exec
             struct without_await_thunk_t
             {
                 template <sender S>
-                auto operator()(S&& snd) const
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (S&& snd)
                 {
                     return snd_t<S>(static_cast<S&&>(snd));
                 }
-                constexpr auto operator()() const noexcept { return make_piper(*this); }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(*this); }
             };
         } // namespace wo_thunk
 
@@ -756,7 +757,7 @@ namespace clu::exec
             {
                 template <typename S>
                     requires tag_invocable<schedule_t, S>
-                auto operator()(S&& schd) const
+                CLU_STATIC_CALL_OPERATOR(auto)(S&& schd)
                 {
                     static_assert(
                         sender<tag_invoke_result_t<schedule_t, S>>, "return type of schedule should satisfy sender");
@@ -840,7 +841,7 @@ namespace clu::exec
             struct read_t
             {
                 template <typename Cpo>
-                constexpr auto operator()(Cpo) const noexcept
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)(Cpo) noexcept
                 {
                     using snd_t = typename snd_t_<Cpo>::type;
                     return snd_t{};
@@ -924,7 +925,7 @@ namespace clu::exec
         {
             template <typename S>
                 requires tag_invocable<now_t, S>
-            auto operator()(S&& schd) const noexcept(nothrow_tag_invocable<now_t, S>)
+            CLU_STATIC_CALL_OPERATOR(auto)(S&& schd) noexcept(nothrow_tag_invocable<now_t, S>)
             {
                 static_assert(
                     time_point<tag_invoke_result_t<now_t, S>>, "return type of now should satisfy time_point");
@@ -936,14 +937,14 @@ namespace clu::exec
         {
             template <typename S, time_point T>
                 requires tag_invocable<schedule_at_t, S, T>
-            auto operator()(S&& schd, const T tp) const
+            CLU_STATIC_CALL_OPERATOR(auto)(S&& schd, const T tp)
             {
                 static_assert(sender<tag_invoke_result_t<schedule_at_t, S, T>>, //
                     "return type of schedule_at should satisfy sender");
                 return tag_invoke(*this, static_cast<S&&>(schd), tp);
             }
 
-            auto operator()(const time_point auto tp) const
+            CLU_STATIC_CALL_OPERATOR(auto)(const time_point auto tp)
             {
                 return clu::make_piper( //
                     clu::bind_back(*this, tp));
@@ -954,14 +955,14 @@ namespace clu::exec
         {
             template <typename S, duration D>
                 requires tag_invocable<schedule_after_t, S, D>
-            auto operator()(S&& schd, const D dur) const
+            CLU_STATIC_CALL_OPERATOR(auto)(S&& schd, const D dur)
             {
                 static_assert(sender<tag_invoke_result_t<schedule_after_t, S, D>>, //
                     "return type of schedule_after should satisfy sender");
                 return tag_invoke(*this, static_cast<S&&>(schd), dur);
             }
 
-            auto operator()(const duration auto dur) const
+            CLU_STATIC_CALL_OPERATOR(auto)(const duration auto dur)
             {
                 return clu::make_piper( //
                     clu::bind_back(*this, dur));
@@ -1130,7 +1131,7 @@ namespace clu::exec
         {
             template <typename T, typename P>
                 requires std::is_lvalue_reference_v<P>
-            decltype(auto) operator()(T&& value, P&& prms) const
+            CLU_STATIC_CALL_OPERATOR(decltype(auto))(T&& value, P&& prms)
             {
                 if constexpr (tag_invocable<as_awaitable_t, T, P>)
                 {
@@ -1195,7 +1196,7 @@ namespace clu::exec
             template <typename R> requires
                 (!std::same_as<R, no_env>) &&
                 tag_invocable<get_scheduler_t, R>
-            auto operator()(const R& r) const noexcept
+            CLU_STATIC_CALL_OPERATOR(auto)(const R& r) noexcept
             // clang-format on
             {
                 static_assert(nothrow_tag_invocable<get_scheduler_t, R>, "get_scheduler should be noexcept");
@@ -1204,7 +1205,7 @@ namespace clu::exec
                 return tag_invoke(*this, r);
             }
 
-            constexpr auto operator()() const noexcept { return exec::read(*this); }
+            constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return exec::read(*this); }
         };
 
         struct get_delegatee_scheduler_t
@@ -1213,7 +1214,7 @@ namespace clu::exec
             template <typename R> requires
                 (!std::same_as<R, no_env>) &&
                 tag_invocable<get_delegatee_scheduler_t, R>
-            auto operator()(const R& r) const noexcept
+            CLU_STATIC_CALL_OPERATOR(auto)(const R& r) noexcept
             // clang-format on
             {
                 static_assert(
@@ -1223,14 +1224,14 @@ namespace clu::exec
                 return tag_invoke(*this, r);
             }
 
-            constexpr auto operator()() const noexcept { return exec::read(*this); }
+            constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return exec::read(*this); }
         };
 
         struct get_allocator_t
         {
             template <typename R>
                 requires(!std::same_as<R, no_env>)
-            auto operator()(const R& r) const noexcept
+            CLU_STATIC_CALL_OPERATOR(auto)(const R& r) noexcept
             {
                 if constexpr (tag_invocable<get_allocator_t, R>)
                 {
@@ -1243,14 +1244,14 @@ namespace clu::exec
                     return std::allocator<std::byte>{};
             }
 
-            constexpr auto operator()() const noexcept { return exec::read(*this); }
+            constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return exec::read(*this); }
         };
 
         struct get_stop_token_t
         {
             template <typename R>
                 requires(!std::same_as<R, no_env>)
-            auto operator()(const R& r) const noexcept
+            CLU_STATIC_CALL_OPERATOR(auto)(const R& r) noexcept
             {
                 if constexpr (tag_invocable<get_stop_token_t, R>)
                 {
@@ -1263,7 +1264,7 @@ namespace clu::exec
                     return never_stop_token{};
             }
 
-            constexpr auto operator()() const noexcept { return exec::read(*this); }
+            constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return exec::read(*this); }
         };
     } // namespace detail::gnrl_qry
 
@@ -1291,7 +1292,7 @@ namespace clu::exec
         struct forwarding_scheduler_query_t
         {
             template <typename Cpo>
-            constexpr bool operator()(const Cpo cpo) const noexcept
+            constexpr CLU_STATIC_CALL_OPERATOR(bool)(const Cpo cpo) noexcept
             {
                 if constexpr (tag_invocable<forwarding_scheduler_query_t, Cpo>)
                 {
@@ -1308,7 +1309,7 @@ namespace clu::exec
         struct get_forward_progress_guarantee_t
         {
             template <scheduler S>
-            constexpr forwarding_progress_guarantee operator()(const S& schd) const noexcept
+            constexpr CLU_STATIC_CALL_OPERATOR(forwarding_progress_guarantee)(const S& schd) noexcept
             {
                 if constexpr (tag_invocable<get_forward_progress_guarantee_t, const S&>)
                 {
@@ -1335,7 +1336,7 @@ namespace clu::exec
         {
             template <typename S>
                 requires tag_invocable<next_t, S&>
-            auto operator()(S& stream) const //
+            CLU_STATIC_CALL_OPERATOR(auto)(S& stream) //
                 noexcept(nothrow_tag_invocable<next_t, S&>)
             {
                 static_assert(sender<tag_invoke_result_t<next_t, S&>>, //
@@ -1347,7 +1348,8 @@ namespace clu::exec
         struct cleanup_t
         {
             template <typename S>
-            auto operator()(S& stream) const noexcept
+            CLU_STATIC_CALL_OPERATOR(auto)
+            (S& stream) noexcept
             {
                 if constexpr (tag_invocable<cleanup_t, S&>)
                 {
@@ -1385,7 +1387,7 @@ namespace clu::this_thread
         struct execute_may_block_caller_t
         {
             template <exec::scheduler S>
-            constexpr bool operator()(const S& schd) const noexcept
+            constexpr CLU_STATIC_CALL_OPERATOR(bool)(const S& schd) noexcept
             {
                 if constexpr (tag_invocable<execute_may_block_caller_t, const S&>)
                 {

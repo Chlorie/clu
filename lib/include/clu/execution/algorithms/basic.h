@@ -83,7 +83,7 @@ namespace clu::exec
             struct just_t
             {
                 template <typename... Ts>
-                auto operator()(Ts&&... values) const
+                CLU_STATIC_CALL_OPERATOR(auto)(Ts&&... values) 
                 {
                     return snd_t<set_value_t, Ts...>(static_cast<Ts&&>(values)...);
                 }
@@ -92,7 +92,7 @@ namespace clu::exec
             struct just_error_t
             {
                 template <movable_value E>
-                auto operator()(E&& error) const
+                CLU_STATIC_CALL_OPERATOR(auto)(E&& error) 
                 {
                     return snd_t<set_error_t, E>(static_cast<E&&>(error));
                 }
@@ -100,7 +100,7 @@ namespace clu::exec
 
             struct just_stopped_t
             {
-                constexpr auto operator()() const noexcept { return snd_t<set_stopped_t>(); }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)()  noexcept { return snd_t<set_stopped_t>(); }
             };
         } // namespace just
 
@@ -164,7 +164,7 @@ namespace clu::exec
 
             struct stop_if_requested_t
             {
-                constexpr auto operator()() const noexcept { return snd_t{}; }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)()  noexcept { return snd_t{}; }
             };
         } // namespace stop_req
 
@@ -343,7 +343,7 @@ namespace clu::exec
             struct upon_t
             {
                 template <sender S, typename F>
-                constexpr auto operator()(S&& snd, F&& func) const
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)(S&& snd, F&& func) 
                 {
                     if constexpr (customized_sender_algorithm<UponCpo, SetCpo, S, F>)
                         return detail::invoke_customized_sender_algorithm<UponCpo, SetCpo>(
@@ -353,7 +353,7 @@ namespace clu::exec
                 }
 
                 template <typename F>
-                constexpr auto operator()(F&& func) const
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)(F&& func) 
                 {
                     return clu::make_piper(clu::bind_back(UponCpo{}, static_cast<F&&>(func)));
                 }
@@ -453,12 +453,12 @@ namespace clu::exec
             struct materialize_t
             {
                 template <sender S>
-                auto operator()(S&& snd) const noexcept( //
+                CLU_STATIC_CALL_OPERATOR(auto)(S&& snd)  noexcept( //
                     std::is_nothrow_constructible_v<std::decay_t<S>, S>)
                 {
                     return snd_t<S>(static_cast<S&&>(snd));
                 }
-                constexpr auto operator()() const noexcept { return make_piper(*this); }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)()  noexcept { return make_piper(*this); }
             };
         } // namespace mat
 
@@ -544,12 +544,12 @@ namespace clu::exec
             struct dematerialize_t
             {
                 template <sender S>
-                auto operator()(S&& snd) const noexcept( //
+                CLU_STATIC_CALL_OPERATOR(auto)(S&& snd)  noexcept( //
                     std::is_nothrow_constructible_v<std::decay_t<S>, S>)
                 {
                     return snd_t<S>(static_cast<S&&>(snd));
                 }
-                constexpr auto operator()() const noexcept { return make_piper(*this); }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)()  noexcept { return make_piper(*this); }
             };
         } // namespace demat
 
@@ -775,7 +775,7 @@ namespace clu::exec
                 template <sender S, typename F> requires
                     (!std::same_as<SetCpo, set_stopped_t>) ||
                     std::invocable<F>
-                auto operator()(S&& snd, F&& func) const
+                CLU_STATIC_CALL_OPERATOR(auto)(S&& snd, F&& func) 
                 // clang-format on
                 {
                     if constexpr (customized_sender_algorithm<LetCpo, SetCpo, S, F>)
@@ -786,7 +786,7 @@ namespace clu::exec
                 }
 
                 template <typename F>
-                constexpr auto operator()(F&& func) const
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)(F&& func) 
                 {
                     return clu::make_piper(clu::bind_back(LetCpo{}, static_cast<F&&>(func)));
                 }
@@ -867,13 +867,13 @@ namespace clu::exec
             struct with_query_value_t
             {
                 template <sender S, typename Q, typename T>
-                auto operator()(S&& snd, Q, T&& value) const
+                CLU_STATIC_CALL_OPERATOR(auto)(S&& snd, Q, T&& value) 
                 {
                     return snd_t<S, Q, T>(static_cast<S&&>(snd), static_cast<T&&>(value));
                 }
 
                 template <typename Q, typename T>
-                auto operator()(Q, T&& value) const
+                CLU_STATIC_CALL_OPERATOR(auto)(Q, T&& value) 
                 {
                     return clu::make_piper(clu::bind_back(*this, //
                         Q{}, static_cast<T&&>(value)));
@@ -989,11 +989,11 @@ namespace clu::exec
             struct into_variant_t
             {
                 template <sender S>
-                auto operator()(S&& snd) const
+                CLU_STATIC_CALL_OPERATOR(auto)(S&& snd) 
                 {
                     return snd_t<S>(static_cast<S&&>(snd));
                 }
-                constexpr auto operator()() const noexcept { return make_piper(*this); }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)()  noexcept { return make_piper(*this); }
             };
         } // namespace into_var
     } // namespace detail

@@ -113,11 +113,12 @@ namespace clu::exec
             struct single_stream_t
             {
                 template <sender S>
-                auto operator()(S&& snd) const
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (S&& snd)
                 {
                     return stream_t<S>(static_cast<S&&>(snd));
                 }
-                constexpr auto operator()() const noexcept { return make_piper(*this); }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(*this); }
             };
         } // namespace sngl
 
@@ -129,7 +130,7 @@ namespace clu::exec
             };
             struct empty_stream_t
             {
-                constexpr auto operator()() const noexcept { return stream_t{}; }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return stream_t{}; }
             };
         } // namespace empty_strm
 
@@ -171,16 +172,18 @@ namespace clu::exec
             struct as_stream_t
             {
                 template <typename T>
-                auto operator()(std::initializer_list<T> ilist) const noexcept
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (std::initializer_list<T> ilist) noexcept
                 {
                     return rng_strm::stream_t<std::initializer_list<T>>(std::move(ilist));
                 }
                 template <std::ranges::input_range R>
-                auto operator()(R&& range) const
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (R&& range)
                 {
                     return rng_strm::stream_t<R>(static_cast<R&&>(range));
                 }
-                constexpr auto operator()() const noexcept { return make_piper(*this); }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(*this); }
             };
         } // namespace as_strm
     } // namespace detail
