@@ -9,7 +9,7 @@ namespace clu::exec
         namespace when_all
         {
             template <typename Env>
-            using env_t = adapted_env_t<Env, get_stop_token_t, in_place_stop_token>;
+            using env_t = adapted_env_t<Env, query_value<get_stop_token_t, in_place_stop_token>>;
 
             template <typename... Ts>
             using one_or_zero_type = std::bool_constant<(sizeof...(Ts) < 2)>;
@@ -44,27 +44,21 @@ namespace clu::exec
             class recv_t_<R, S, I, Ts...>::type
             {
             public:
+                using is_receiver = void;
+
                 explicit type(ops_t<R, Ts...>* ops) noexcept: ops_(ops) {}
 
             private:
                 ops_t<R, Ts...>* ops_;
 
                 const R& get_base() const noexcept;
-                recv_env_t<R> get_env() const noexcept;
+                recv_env_t<R> get_env() const;
                 friend auto tag_invoke(get_env_t, const type& self) noexcept { return self.get_env(); }
 
                 template <recvs::completion_cpo SetCpo, typename... Args>
                 friend void tag_invoke(SetCpo, type&& self, Args&&... args) noexcept
                 {
                     self.ops_->template set<I>(SetCpo{}, static_cast<Args&&>(args)...);
-                }
-
-                template <recv_qry::fwd_recv_query Tag, typename... Args>
-                    requires callable<Tag, const R&, Args...>
-                constexpr friend decltype(auto) tag_invoke(Tag cpo, const type& self, Args&&... args) noexcept(
-                    nothrow_callable<Tag, const R&, Args...>)
-                {
-                    return cpo(self.get_base(), static_cast<Args&&>(args)...);
                 }
             };
 
@@ -103,12 +97,7 @@ namespace clu::exec
                 // clang-format on
 
                 const R& get_recv() const noexcept { return recv_; }
-
-                auto get_recv_env() noexcept
-                {
-                    return exec::make_env(exec::get_env(recv_), //
-                        get_stop_token, stop_src_.get_token());
-                }
+                auto get_recv_env() { return env_t<env_of_t<R>>{get_env(recv_), stop_src_.get_token()}; }
 
                 template <std::size_t I, typename... Us>
                 void set(set_value_t, [[maybe_unused]] Us&&... values) noexcept
@@ -187,6 +176,7 @@ namespace clu::exec
                     meta::quote<nullable_variant>>;
                 using callback_t = typename stop_token_of_t<env_of_t<R>>::template callback_type<stop_callback>;
 
+            private:
                 R recv_;
                 in_place_stop_source stop_src_;
                 children_ops_t<R, Ts...> children_;
@@ -199,8 +189,7 @@ namespace clu::exec
                 friend void tag_invoke(start_t, type& self) noexcept
                 {
                     self.callback_.emplace( // Propagate stop signal
-                        exec::get_stop_token(exec::get_env(self.recv_)), //
-                        stop_callback{self.stop_src_});
+                        get_stop_token(get_env(self.recv_)), stop_callback{self.stop_src_});
                     if (self.stop_src_.stop_requested()) // Shortcut when the operation is preemptively stopped
                     {
                         self.callback_.reset();
@@ -276,7 +265,7 @@ namespace clu::exec
             }
 
             template <typename R, typename S, std::size_t I, typename... Ts>
-            recv_env_t<R> recv_t_<R, S, I, Ts...>::type::get_env() const noexcept
+            recv_env_t<R> recv_t_<R, S, I, Ts...>::type::get_env() const
             {
                 return ops_->get_recv_env();
             }
@@ -294,6 +283,8 @@ namespace clu::exec
             class snd_t_<Ts...>::type
             {
             public:
+                using is_sender = void;
+
                 // clang-format off
                 template <typename... Us>
                 explicit type(Us&&... snds):
@@ -333,8 +324,6 @@ namespace clu::exec
                             return add_sig<non_value_sigs, value_sig>{};
                         }
                     }
-                    else
-                        return dependent_completion_signatures<Env>{};
                 }
             };
 
@@ -364,7 +353,7 @@ namespace clu::exec
         namespace when_any
         {
             template <typename Env>
-            using env_t = adapted_env_t<Env, get_stop_token_t, in_place_stop_token>;
+            using env_t = adapted_env_t<Env, query_value<get_stop_token_t, in_place_stop_token>>;
 
             template <typename... Ts>
             using sig_of_decayed_rref = set_value_t(std::decay_t<Ts>&&...);
@@ -397,27 +386,21 @@ namespace clu::exec
             class recv_t_<R, S, I, Ts...>::type
             {
             public:
+                using is_receiver = void;
+
                 explicit type(ops_t<R, Ts...>* ops) noexcept: ops_(ops) {}
 
             private:
                 ops_t<R, Ts...>* ops_;
 
                 const R& get_base() const noexcept;
-                recv_env_t<R> get_env() const noexcept;
+                recv_env_t<R> get_env() const;
                 friend auto tag_invoke(get_env_t, const type& self) noexcept { return self.get_env(); }
 
                 template <recvs::completion_cpo SetCpo, typename... Args>
                 friend void tag_invoke(SetCpo, type&& self, Args&&... args) noexcept
                 {
                     self.ops_->template set<I>(SetCpo{}, static_cast<Args&&>(args)...);
-                }
-
-                template <recv_qry::fwd_recv_query Tag, typename... Args>
-                    requires callable<Tag, const R&, Args...>
-                constexpr friend decltype(auto) tag_invoke(Tag cpo, const type& self, Args&&... args) noexcept(
-                    nothrow_callable<Tag, const R&, Args...>)
-                {
-                    return cpo(self.get_base(), static_cast<Args&&>(args)...);
                 }
             };
 
@@ -453,12 +436,7 @@ namespace clu::exec
                 // clang-format on
 
                 const R& get_recv() const noexcept { return recv_; }
-
-                auto get_recv_env() noexcept
-                {
-                    return exec::make_env(exec::get_env(recv_), //
-                        get_stop_token, stop_src_.get_token());
-                }
+                auto get_recv_env() { return env_t<env_of_t<R>>{get_env(recv_), stop_src_.get_token()}; }
 
                 template <std::size_t I, typename... Us>
                 void set(set_value_t, [[maybe_unused]] Us&&... values) noexcept
@@ -547,8 +525,7 @@ namespace clu::exec
                 friend void tag_invoke(start_t, type& self) noexcept
                 {
                     self.callback_.emplace( // Propagate stop signal
-                        exec::get_stop_token(exec::get_env(self.recv_)), //
-                        stop_callback{self.stop_src_});
+                        get_stop_token(get_env(self.recv_)), stop_callback{self.stop_src_});
                     if (self.stop_src_.stop_requested()) // Shortcut when the operation is preemptively stopped
                     {
                         self.callback_.reset();
@@ -620,7 +597,7 @@ namespace clu::exec
             }
 
             template <typename R, typename S, std::size_t I, typename... Ts>
-            recv_env_t<R> recv_t_<R, S, I, Ts...>::type::get_env() const noexcept
+            recv_env_t<R> recv_t_<R, S, I, Ts...>::type::get_env() const
             {
                 return ops_->get_recv_env();
             }
@@ -638,6 +615,8 @@ namespace clu::exec
             class snd_t_<Ts...>::type
             {
             public:
+                using is_sender = void;
+
                 // clang-format off
                 template <typename... Us>
                 explicit type(Us&&... snds):
@@ -699,7 +678,7 @@ namespace clu::exec
         namespace stop_when
         {
             template <typename Env>
-            using env_t = adapted_env_t<Env, get_stop_token_t, in_place_stop_token>;
+            using env_t = adapted_env_t<Env, query_value<get_stop_token_t, in_place_stop_token>>;
 
             template <typename S, typename T, typename Env>
             using comp_sigs = make_completion_signatures<S, env_t<Env>,
@@ -714,7 +693,7 @@ namespace clu::exec
 
             template <typename S, typename T, typename R>
             using storage_variant = meta::unpack_invoke< //
-                meta::transform_l<comp_sigs<S, T, env_of_t<R>>, meta::quote1<storage_tuple>>,
+                meta::transform_l<comp_sigs<S, T, env_of_t<R>>, meta::quote<storage_tuple>>,
                 meta::quote<nullable_variant>>;
 
             template <typename S, typename T, typename R>
@@ -753,6 +732,8 @@ namespace clu::exec
             class recv_t_<S, T, R>::type
             {
             public:
+                using is_receiver = void;
+
                 explicit type(ops_t<S, T, R>* ops) noexcept: ops_(ops) {}
 
             private:
@@ -760,21 +741,13 @@ namespace clu::exec
 
                 const R& get_base() const noexcept;
 
-                recv_env_t<R> get_env() const noexcept;
-                friend auto tag_invoke(get_env_t, const type& self) noexcept { return self.get_env(); }
+                recv_env_t<R> get_env() const;
+                friend auto tag_invoke(get_env_t, const type& self) { return self.get_env(); }
 
                 template <recvs::completion_cpo Cpo, typename... Ts>
                 friend void tag_invoke(Cpo, type&& self, Ts&&... args) noexcept
                 {
                     self.ops_->set(Cpo{}, static_cast<Ts&&>(args)...);
-                }
-
-                template <recv_qry::fwd_recv_query Tag, typename... Args>
-                    requires callable<Tag, const R&, Args...>
-                constexpr friend decltype(auto) tag_invoke(Tag cpo, const type& self, Args&&... args) noexcept(
-                    nothrow_callable<Tag, const R&, Args...>)
-                {
-                    return cpo(self.get_base(), static_cast<Args&&>(args)...);
                 }
             };
 
@@ -782,6 +755,8 @@ namespace clu::exec
             class trig_recv_t_<S, T, R>::type
             {
             public:
+                using is_receiver = void;
+
                 explicit type(ops_t<S, T, R>* ops) noexcept: ops_(ops) {}
 
             private:
@@ -789,8 +764,8 @@ namespace clu::exec
 
                 const R& get_base() const noexcept;
 
-                recv_env_t<R> get_env() const noexcept;
-                friend auto tag_invoke(get_env_t, const type& self) noexcept { return self.get_env(); }
+                recv_env_t<R> get_env() const;
+                friend auto tag_invoke(get_env_t, const type& self) { return self.get_env(); }
 
                 template <recvs::completion_cpo Cpo, typename... Ts>
                 friend void tag_invoke(Cpo, type&& self, Ts&&... args) noexcept
@@ -799,14 +774,6 @@ namespace clu::exec
                         self.ops_->set(set_error, static_cast<Ts&&>(args)...);
                     else // value and stopped all map to stopped for the trigger
                         self.ops_->set(set_stopped);
-                }
-
-                template <recv_qry::fwd_recv_query Tag, typename... Args>
-                    requires callable<Tag, const R&, Args...>
-                constexpr friend decltype(auto) tag_invoke(Tag cpo, const type& self, Args&&... args) noexcept(
-                    nothrow_callable<Tag, const R&, Args...>)
-                {
-                    return cpo(self.get_base(), static_cast<Args&&>(args)...);
                 }
             };
 
@@ -823,7 +790,7 @@ namespace clu::exec
                 // clang-format on
 
                 const R& get_recv() noexcept { return recv_; }
-                env_t<env_of_t<R>> get_recv_env() noexcept { return {get_env(recv_), stop_src_.get_token()}; }
+                env_t<env_of_t<R>> get_recv_env() { return {get_env(recv_), stop_src_.get_token()}; }
 
                 template <typename Cpo, typename... Ts>
                 void set(Cpo, Ts&&... args) noexcept
@@ -877,8 +844,7 @@ namespace clu::exec
                 friend void tag_invoke(start_t, type& self) noexcept
                 {
                     self.callback_.emplace( // Propagate stop signal
-                        exec::get_stop_token(exec::get_env(self.recv_)), //
-                        stop_callback{self.stop_src_});
+                        get_stop_token(get_env(self.recv_)), stop_callback{self.stop_src_});
                     if (self.stop_src_.stop_requested()) // Shortcut when the operation is preemptively stopped
                     {
                         self.callback_.reset();
@@ -897,7 +863,7 @@ namespace clu::exec
             }
 
             template <typename S, typename T, typename R>
-            recv_env_t<R> recv_t_<S, T, R>::type::get_env() const noexcept
+            recv_env_t<R> recv_t_<S, T, R>::type::get_env() const
             {
                 return ops_->get_recv_env();
             }
@@ -909,7 +875,7 @@ namespace clu::exec
             }
 
             template <typename S, typename T, typename R>
-            recv_env_t<R> trig_recv_t_<S, T, R>::type::get_env() const noexcept
+            recv_env_t<R> trig_recv_t_<S, T, R>::type::get_env() const
             {
                 return ops_->get_recv_env();
             }
@@ -927,6 +893,8 @@ namespace clu::exec
             class snd_t_<S, T>::type
             {
             public:
+                using is_sender = void;
+
                 // clang-format off
                 template <typename S2, typename T2>
                 type(S2&& src, T2&& trigger):
@@ -1074,6 +1042,8 @@ namespace clu::exec
             class recv_t_<S, R, F>::type
             {
             public:
+                using is_receiver = void;
+
                 explicit type(std::shared_ptr<shared_state<S, R, F>> shst) noexcept: shst_(std::move(shst)) {}
 
             private:
@@ -1116,12 +1086,13 @@ namespace clu::exec
                 // clang-format off
                 explicit type(std::shared_ptr<shared_state<S, R, F>> shst) noexcept:
                     shst_(std::move(shst)),
-                    env_(exec::make_env(get_env(shst_->recv), get_stop_token, never_stop_token{})) {}
+                    env_(get_env(shst_->recv), never_stop_token{}) {}
                 // clang-format on
 
             private:
                 std::shared_ptr<shared_state<S, R, F>> shst_;
-                CLU_NO_UNIQUE_ADDRESS adapted_env_t<env_of_t<R>, get_stop_token_t, never_stop_token> env_{};
+                CLU_NO_UNIQUE_ADDRESS
+                adapted_env_t<env_of_t<R>, query_value<get_stop_token_t, never_stop_token>> env_{};
 
                 friend void tag_invoke(set_value_t, type&& self) noexcept { self.shst_.reset(); }
                 friend void tag_invoke(set_error_t, type&&, auto&&) noexcept { std::terminate(); }
@@ -1157,6 +1128,8 @@ namespace clu::exec
             class snd_t_<S, F>::type
             {
             public:
+                using is_sender = void;
+
                 // clang-format off
                 template <typename S2, typename F2>
                 type(S2&& snd, F2&& func): snd_(static_cast<S2&&>(snd)), func_(static_cast<F2&&>(func)) {}
@@ -1179,6 +1152,9 @@ namespace clu::exec
                     completion_signatures<set_error_t(std::exception_ptr), set_stopped_t()>>
                 tag_invoke(get_completion_signatures_t, const type&, Env&&) noexcept { return {}; }
                 // clang-format on
+
+                friend auto tag_invoke(get_env_t, const type& self)
+                    CLU_SINGLE_RETURN(clu::adapt_env(get_env(self.snd_)));
             };
 
             inline constexpr auto noop_cleanup_factory = [](auto&&...) noexcept { return just_void; };

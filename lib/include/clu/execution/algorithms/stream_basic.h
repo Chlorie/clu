@@ -19,6 +19,8 @@ namespace clu::exec
         class cleanup_recv_t_<Ops>::type
         {
         public:
+            using is_receiver = void;
+
             explicit type(Ops* ops) noexcept: ops_(ops) {}
 
         private:
@@ -27,7 +29,6 @@ namespace clu::exec
             friend void tag_invoke(set_value_t, type&& self) noexcept { self.ops_->cleanup_done(); }
             friend void tag_invoke(set_error_t, type, auto&&) noexcept { std::terminate(); }
             friend void tag_invoke(set_stopped_t, type) noexcept { std::terminate(); }
-            friend empty_env tag_invoke(get_env_t, type) noexcept { return {}; }
         };
 
         namespace adpt_nxt
@@ -62,13 +63,15 @@ namespace clu::exec
             struct adapt_next_t
             {
                 template <stream S, typename F>
-                CLU_STATIC_CALL_OPERATOR(auto)(S&& strm, F&& func) 
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (S&& strm, F&& func)
                 {
                     return stream_t<S, F>(static_cast<S&&>(strm), static_cast<F&&>(func));
                 }
 
                 template <typename F>
-                CLU_STATIC_CALL_OPERATOR(auto)(F&& func) 
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (F&& func)
                 {
                     return clu::make_piper(clu::bind_back(*this, static_cast<F&&>(func)));
                 }
@@ -107,13 +110,15 @@ namespace clu::exec
             struct adapt_cleanup_t
             {
                 template <stream S, typename F>
-                CLU_STATIC_CALL_OPERATOR(auto)(S&& strm, F&& func) 
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (S&& strm, F&& func)
                 {
                     return stream_t<S, F>(static_cast<S&&>(strm), static_cast<F&&>(func));
                 }
 
                 template <typename F>
-                CLU_STATIC_CALL_OPERATOR(auto)(F&& func) 
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (F&& func)
                 {
                     return clu::make_piper(clu::bind_back(*this, static_cast<F&&>(func)));
                 }
@@ -144,12 +149,14 @@ namespace clu::exec
             class next_recv_t_<S, R, T, F>::type
             {
             public:
+                using is_receiver = void;
+
                 explicit type(ops_t<S, R, T, F>* ops) noexcept: ops_(ops) {}
 
             private:
                 ops_t<S, R, T, F>* ops_;
 
-                env_of_t<R> get_env() const noexcept; // Inherit stop token from parent receiver
+                adapted_env_t<env_of_t<R>> get_env() const; // Inherit stop token from parent receiver
 
                 template <recvs::completion_cpo Cpo, typename... Ts>
                 friend void tag_invoke(Cpo, type&& self, Ts&&... args) noexcept
@@ -169,10 +176,10 @@ namespace clu::exec
                 type(S2&& stream, R2&& recv, T2&& initial, F2&& func):
                     stream_(static_cast<S2&&>(stream)), recv_(static_cast<R2&&>(recv)),
                     current_(std::in_place_index<0>, static_cast<T2&&>(initial)),
-                    func_(static_cast<F2&&>(func)), stoken_(get_stop_token(exec::get_env(recv_))) {}
+                    func_(static_cast<F2&&>(func)), stoken_(get_stop_token(clu::get_env(recv_))) {}
                 // clang-format on
 
-                env_of_t<R> get_env() const noexcept { return exec::get_env(recv_); }
+                auto get_env() const { return clu::get_env(recv_); }
 
                 template <forwarding<T> U>
                 void next_done(set_value_t, U&& result) noexcept
@@ -242,7 +249,8 @@ namespace clu::exec
                     T& current;
 
                     template <typename... Args>
-                    CLU_STATIC_CALL_OPERATOR(decltype(auto))(Args&&... args) 
+                    CLU_STATIC_CALL_OPERATOR(decltype(auto))
+                    (Args&&... args)
                     {
                         return func(current, static_cast<Args&&>(args)...);
                     }
@@ -301,9 +309,9 @@ namespace clu::exec
             };
 
             template <typename S, typename R, typename T, typename F>
-            env_of_t<R> next_recv_t_<S, R, T, F>::type::get_env() const noexcept
+            adapted_env_t<env_of_t<R>> next_recv_t_<S, R, T, F>::type::get_env() const
             {
-                return ops_->get_env();
+                return clu::adapt_env(ops_->get_env());
             }
 
             template <typename S, typename T, typename F>
@@ -319,6 +327,8 @@ namespace clu::exec
             class snd_t_<S, T, F>::type
             {
             public:
+                using is_sender = void;
+
                 // clang-format off
                 template <typename S2, typename T2, typename F2>
                 type(S2&& stream, T2&& initial, F2&& func):
@@ -352,14 +362,16 @@ namespace clu::exec
             struct reduce_t
             {
                 template <stream S, typename T, typename F>
-                CLU_STATIC_CALL_OPERATOR(auto)(S&& strm, T&& initial, F&& func) 
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (S&& strm, T&& initial, F&& func)
                 {
                     return snd_t<S, T, F>( //
                         static_cast<S&&>(strm), static_cast<T&&>(initial), static_cast<F&&>(func));
                 }
 
                 template <typename T, typename F>
-                CLU_STATIC_CALL_OPERATOR(auto)(T&& initial, F&& func) 
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (T&& initial, F&& func)
                 {
                     return clu::make_piper(clu::bind_back(*this, //
                         static_cast<T&&>(initial), static_cast<F&&>(func)));
@@ -569,6 +581,8 @@ namespace clu::exec
             class snd_t_<S, F>::type
             {
             public:
+                using is_sender = void;
+
                 explicit type(stream_t<S, F>* strm) noexcept: stream_(strm) {}
 
             private:
@@ -614,13 +628,15 @@ namespace clu::exec
             struct filter_t
             {
                 template <stream S, typename F>
-                CLU_STATIC_CALL_OPERATOR(auto)(S&& strm, F&& func) 
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (S&& strm, F&& func)
                 {
                     return stream_t<S, F>(static_cast<S&&>(strm), static_cast<F&&>(func));
                 }
 
                 template <typename F>
-                CLU_STATIC_CALL_OPERATOR(auto)(F&& func) 
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (F&& func)
                 {
                     return clu::make_piper(clu::bind_back(*this, static_cast<F&&>(func)));
                 }
@@ -641,10 +657,11 @@ namespace clu::exec
             struct last_t
             {
                 template <stream S>
-                CLU_STATIC_CALL_OPERATOR(auto)(S&& strm) 
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (S&& strm)
                 {
                 }
-                CLU_STATIC_CALL_OPERATOR(auto)()  noexcept { return make_piper(*this); }
+                CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(*this); }
             };
         } // namespace last
 
@@ -675,6 +692,8 @@ namespace clu::exec
             class next_recv_t_<S, R>::type
             {
             public:
+                using is_receiver = void;
+
                 explicit type(ops_t<S, R>* ops) noexcept: ops_(ops) {}
 
             private:
@@ -683,7 +702,7 @@ namespace clu::exec
                 template <typename Cpo, typename... Ts>
                 void set(Cpo, Ts&&... args) noexcept;
 
-                env_of_t<R> get_env() const noexcept;
+                adapted_env_t<env_of_t<R>> get_env() const;
 
                 template <recvs::completion_cpo Cpo, typename... Ts>
                 friend void tag_invoke(Cpo, type&& self, Ts&&... args) noexcept
@@ -691,31 +710,26 @@ namespace clu::exec
                     self.set(Cpo{}, static_cast<Ts&&>(args)...);
                 }
 
-                friend env_of_t<R> tag_invoke(get_env_t, const type& self) noexcept { return self.get_env(); }
+                friend adapted_env_t<env_of_t<R>> tag_invoke(get_env_t, const type& self) { return self.get_env(); }
             };
 
             template <typename S, typename E>
             constexpr auto get_vector_type_impl() noexcept
             {
-                if constexpr (similar_to<E, no_env>)
-                    return type_tag<void>;
-                else
+                using next_type = next_result_t<S>;
+                if constexpr (requires { typename coro_utils::single_sender_value_type<next_type, E>; })
                 {
-                    using next_type = next_result_t<S>;
-                    if constexpr (requires { typename coro_utils::single_sender_value_type<next_type, E>; })
-                    {
-                        using value_type = coro_utils::single_sender_value_type<next_type, E>;
-                        using env_alloc_t = call_result_t<get_allocator_t, E>;
-                        using allocator_type =
-                            typename std::allocator_traits<env_alloc_t>::template rebind_alloc<value_type>;
-                        if constexpr (std::is_void_v<value_type>)
-                            return type_tag<void>;
-                        else
-                            return type_tag<std::vector<value_type, allocator_type>>;
-                    }
-                    else
+                    using value_type = coro_utils::single_sender_value_type<next_type, E>;
+                    using env_alloc_t = call_result_t<get_allocator_t, E>;
+                    using allocator_type =
+                        typename std::allocator_traits<env_alloc_t>::template rebind_alloc<value_type>;
+                    if constexpr (std::is_void_v<value_type>)
                         return type_tag<void>;
+                    else
+                        return type_tag<std::vector<value_type, allocator_type>>;
                 }
+                else
+                    return type_tag<void>;
             }
             template <typename S, typename E>
             using get_vector_type = typename decltype(get_vector_type_impl<S, E>())::type;
@@ -723,9 +737,7 @@ namespace clu::exec
             template <typename S, typename E>
             constexpr auto get_comp_sigs_impl() noexcept
             {
-                if constexpr (std::is_void_v<get_vector_type<S, E>>)
-                    return dependent_completion_signatures<E>{};
-                else
+                if constexpr (!std::is_void_v<get_vector_type<S, E>>)
                     return make_completion_signatures<next_result_t<S>, E,
                         completion_signatures<set_value_t(get_vector_type<S, E>), set_error_t(std::exception_ptr)>,
                         meta::constant_q<completion_signatures<>>::fn>{};
@@ -740,11 +752,11 @@ namespace clu::exec
                 type(S2&& strm, R2&& recv):
                     stream_(static_cast<S2&&>(strm)),
                     recv_(static_cast<R2&&>(recv)),
-                    stoken_(get_stop_token(exec::get_env(recv_))),
-                    result_(std::in_place_index<0>, get_allocator(exec::get_env(recv_))) {}
+                    stoken_(get_stop_token(clu::get_env(recv_))),
+                    result_(std::in_place_index<0>, get_allocator(clu::get_env(recv_))) {}
                 // clang-format on
 
-                env_of_t<R> get_env() const noexcept { return exec::get_env(recv_); }
+                env_of_t<R> get_env() const noexcept { return clu::get_env(recv_); }
 
                 // Got a new value
                 template <typename T>
@@ -839,9 +851,9 @@ namespace clu::exec
             }
 
             template <typename S, typename R>
-            env_of_t<R> next_recv_t_<S, R>::type::get_env() const noexcept
+            adapted_env_t<env_of_t<R>> next_recv_t_<S, R>::type::get_env() const
             {
-                return ops_->get_env();
+                return clu::adapt_env(ops_->get_env());
             }
 
             template <typename S>
@@ -857,6 +869,8 @@ namespace clu::exec
             class snd_t_<S>::type
             {
             public:
+                using is_sender = void;
+
                 // clang-format off
                 template <forwarding<S> S2>
                 explicit type(S2&& strm): stream_(static_cast<S2&&>(strm)) {}
@@ -881,11 +895,12 @@ namespace clu::exec
             struct into_vector_t
             {
                 template <stream S>
-                CLU_STATIC_CALL_OPERATOR(auto)(S&& strm) 
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (S&& strm)
                 {
                     return snd_t<S>(static_cast<S&&>(strm));
                 }
-                CLU_STATIC_CALL_OPERATOR(auto)()  noexcept { return make_piper(*this); }
+                CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(*this); }
             };
         } // namespace vec
 

@@ -63,6 +63,8 @@ namespace clu::exec
         class proxy_recv_t
         {
         public:
+            using is_receiver = void;
+
             // clang-format off
             template <typename R>
             proxy_recv_t(R& recv, const in_place_stop_token token):
@@ -143,7 +145,7 @@ namespace clu::exec
         struct stop_propagator
         {
             R recv;
-            in_place_stop_token get_token() const noexcept { return exec::get_stop_token(exec::get_env(recv)); }
+            in_place_stop_token get_token() const noexcept { return get_stop_token(get_env(recv)); }
         };
 
         template <typename R>
@@ -156,8 +158,8 @@ namespace clu::exec
 
         template <typename T>
         concept non_in_place_stoppable_token = //
-            (!std::same_as<T, in_place_stop_token>)&& //
-            (!unstoppable_token<T>)&& //
+            (!std::same_as<T, in_place_stop_token>) && //
+            (!unstoppable_token<T>) && //
             stoppable_token<T>;
 
         template <typename R>
@@ -236,6 +238,8 @@ namespace clu::exec
         class snd_t
         {
         public:
+            using is_sender = void;
+
             explicit snd_t(const pointer_t& ptr) noexcept: ptr_(ptr) {}
 
         private:
@@ -260,10 +264,10 @@ namespace clu::exec
             tag_invoke(get_completion_signatures_t, const snd_t&, auto&&) noexcept { return {}; }
             // clang-format on
 
-            friend any_scheduler tag_invoke( //
-                get_completion_scheduler_t<set_value_t>, const snd_t& self) noexcept
+            friend auto tag_invoke(get_env_t, const snd_t& self)
             {
-                return self.get_schd();
+                return adapt_env(empty_env{}, //
+                    query_value{get_completion_scheduler<set_value_t>, self.get_schd()});
             }
         };
 

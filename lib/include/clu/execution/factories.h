@@ -118,12 +118,14 @@ namespace clu::exec
             template <typename SchdSt, typename OpsSt, typename Callback>
             class snd_t_<SchdSt, OpsSt, Callback>::type
             {
+            public:
+                using is_sender = void;
+
                 CLU_CREATE_SCHD_MEMBERS;
 
-                friend auto tag_invoke(get_completion_scheduler_t<set_value_t>, const type& self) //
-                    CLU_SINGLE_RETURN(schd_t<SchdSt, OpsSt, Callback>(self.state_, self.callback_));
-                friend auto tag_invoke(get_completion_scheduler_t<set_stopped_t>, const type& self) //
-                    CLU_SINGLE_RETURN(schd_t<SchdSt, OpsSt, Callback>(self.state_, self.callback_));
+            private:
+                friend auto tag_invoke(get_env_t, const type& self)
+                    CLU_SINGLE_RETURN(comp_schd_env<schd_t<SchdSt, OpsSt, Callback>>({self.state_, self.callback_}));
 
                 template <typename Env>
                 constexpr friend auto tag_invoke(get_completion_signatures_t, const type&, Env&&) noexcept
@@ -210,6 +212,8 @@ namespace clu::exec
             class snd_t_<Fn, Sigs>::type
             {
             public:
+                using is_sender = void;
+
                 // clang-format off
                 template <typename Fn2>
                 explicit type(Fn2&& func) noexcept(std::is_nothrow_constructible_v<Fn, Fn2>):

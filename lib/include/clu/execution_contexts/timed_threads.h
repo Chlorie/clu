@@ -45,9 +45,9 @@ namespace clu
 
             void start() noexcept
             {
-                if constexpr (unstoppable_token<exec::stop_token_of_t<exec::env_of_t<R>>>)
+                if constexpr (unstoppable_token<stop_token_of_t<env_of_t<R>>>)
                     exec::set_value(static_cast<R&&>(recv_)); // NOLINT(bugprone-branch-clone)
-                else if (exec::get_stop_token(exec::get_env(recv_)).stop_requested())
+                else if (get_stop_token(get_env(recv_)).stop_requested())
                     exec::set_stopped(static_cast<R&&>(recv_));
                 else
                     exec::set_value(static_cast<R&&>(recv_));
@@ -66,6 +66,8 @@ namespace clu
 
         struct snd_t
         {
+            using is_sender = void;
+
             // clang-format off
             template <typename Env>
             constexpr friend sigs<Env> tag_invoke(
@@ -134,7 +136,7 @@ namespace clu
                 void operator()() const noexcept { self.cv_.notify_one(); }
             };
 
-            using stop_token_t = exec::stop_token_of_t<exec::env_of_t<R>>;
+            using stop_token_t = stop_token_of_t<env_of_t<R>>;
             using callback_t = typename stop_token_t::template callback_type<stop_callback>;
 
             Fn fn_;
@@ -158,7 +160,7 @@ namespace clu
 
             friend void tag_invoke(exec::start_t, type& self) noexcept
             {
-                const auto token = exec::get_stop_token(exec::get_env(self.recv_));
+                const auto token = get_stop_token(get_env(self.recv_));
                 self.callback_.emplace(token, stop_callback{self});
                 if (token.stop_requested())
                     exec::set_stopped(static_cast<R&&>(self.recv_));
@@ -167,7 +169,7 @@ namespace clu
         };
 
         template <typename Fn, typename R>
-        using timed_ops_t = typename conditional_t<unstoppable_token<exec::stop_token_of_t<exec::env_of_t<R>>>,
+        using timed_ops_t = typename conditional_t<unstoppable_token<stop_token_of_t<env_of_t<R>>>,
             timed_non_stop_ops_t_<Fn, std::decay_t<R>>, timed_stoppable_ops_t_<Fn, std::decay_t<R>>>::type;
 
         template <typename Fn>
@@ -183,6 +185,8 @@ namespace clu
         class timed_snd_t_<Fn>::type
         {
         public:
+            using is_sender = void;
+
             explicit type(Fn fn) noexcept: fn_(fn) {}
 
         private:
@@ -225,10 +229,9 @@ namespace clu
         };
 
         // clang-format off
-        template <same_as_any_of<exec::set_value_t, exec::set_stopped_t> Cpo>
-        constexpr auto tag_invoke(exec::get_completion_scheduler_t<Cpo>, snd_t) noexcept { return schd_t{}; }
-        template <typename Fn, same_as_any_of<exec::set_value_t, exec::set_stopped_t> Cpo>
-        constexpr auto tag_invoke(exec::get_completion_scheduler_t<Cpo>, timed_snd_t<Fn>) noexcept { return schd_t{}; }
+        inline auto tag_invoke(get_env_t, snd_t) noexcept { return exec::detail::comp_schd_env<schd_t>({}); }
+        template <typename Fn>
+        auto tag_invoke(get_env_t, timed_snd_t<Fn>) noexcept { return exec::detail::comp_schd_env<schd_t>({}); }
         // clang-format on
     } // namespace detail::new_thrd_ctx
 
@@ -237,6 +240,7 @@ namespace clu
 
     namespace detail::tm_loop
     {
+        using exec::detail::comp_schd_env;
         using clock = std::chrono::steady_clock;
         using time_point = clock::time_point;
 
@@ -343,7 +347,7 @@ namespace clu
             void set() noexcept override
             {
                 cb_.reset();
-                if (this->cancelled || exec::get_stop_token(exec::get_env(recv_)).stop_requested())
+                if (this->cancelled || get_stop_token(get_env(recv_)).stop_requested())
                     exec::set_stopped(static_cast<R&&>(recv_));
                 else
                     exec::set_value(static_cast<R&&>(recv_));
@@ -354,7 +358,7 @@ namespace clu
 
             void start() noexcept
             {
-                const auto token = exec::get_stop_token(exec::get_env(recv_));
+                const auto token = get_stop_token(get_env(recv_));
                 if (token.stop_requested())
                 {
                     exec::set_stopped(static_cast<R&&>(recv_));
@@ -378,7 +382,7 @@ namespace clu
                 ops_recv_base* self;
                 void operator()() noexcept { stop_ops(*self->loop_, *self); }
             };
-            using stop_callback_t = typename exec::stop_token_of_t<exec::env_of_t<R>>::template callback_type<callback>;
+            using stop_callback_t = typename stop_token_of_t<env_of_t<R>>::template callback_type<callback>;
 
             timer_loop* loop_;
             CLU_NO_UNIQUE_ADDRESS R recv_;
@@ -438,8 +442,6 @@ namespace clu
             }
         };
 
-        class schd_t;
-
         using sigs = exec::completion_signatures< //
             exec::set_value_t(), exec::set_error_t(std::exception_ptr), exec::set_stopped_t()>;
 
@@ -452,10 +454,53 @@ namespace clu
         template <typename Dur>
         using after_snd_t = typename after_snd_t_<Dur>::type;
 
+        class schd_t
+        {
+        public:
+            explicit schd_t(timer_loop* loop) noexcept: loop_(loop) {}
+
+        private:
+            class at_snd_t
+            {
+            public:
+                using is_sender = void;
+                using completion_signatures = sigs;
+                explicit at_snd_t(timer_loop* loop, const time_point tp) noexcept: loop_(loop), tp_(tp) {}
+
+            private:
+                timer_loop* loop_;
+                time_point tp_;
+
+                friend auto tag_invoke(get_env_t, const at_snd_t& self) noexcept
+                {
+                    return comp_schd_env<schd_t>(schd_t(self.loop_));
+                }
+
+                template <typename R>
+                friend auto tag_invoke(exec::connect_t, at_snd_t&& self, R&& recv)
+                {
+                    return at_ops_t<R>(self.loop_, static_cast<R&&>(recv), self.tp_);
+                }
+            };
+
+            timer_loop* loop_ = nullptr;
+
+            friend bool operator==(schd_t, schd_t) noexcept = default;
+
+            friend after_snd_t<std::chrono::seconds> tag_invoke(exec::schedule_t, schd_t self) noexcept;
+            friend auto tag_invoke(exec::schedule_at_t, const schd_t self, const time_point tp) noexcept
+            {
+                return at_snd_t(self.loop_, tp);
+            }
+            template <exec::duration Dur>
+            friend after_snd_t<Dur> tag_invoke(exec::schedule_after_t, schd_t self, Dur dur) noexcept;
+        };
+
         template <typename Dur>
         class after_snd_t_<Dur>::type
         {
         public:
+            using is_sender = void;
             using completion_signatures = sigs;
             explicit type(timer_loop* loop, const Dur dur) noexcept: loop_(loop), dur_(dur) {}
 
@@ -463,11 +508,9 @@ namespace clu
             timer_loop* loop_;
             Dur dur_;
 
-            template <same_as_any_of<exec::set_value_t, exec::set_stopped_t> Cpo>
-            friend auto tag_invoke(exec::get_completion_scheduler_t<Cpo>, const type& self) noexcept
+            friend comp_schd_env<schd_t> tag_invoke(get_env_t, const type& self) noexcept
             {
-                // ReSharper disable once CppClassIsIncomplete
-                return schd_t(self.loop_);
+                return comp_schd_env<schd_t>(schd_t(self.loop_));
             }
 
             template <typename R>
@@ -483,52 +526,11 @@ namespace clu
             return after_snd_t<Dur>(loop, dur);
         }
 
-        class schd_t
+        template <exec::duration Dur>
+        after_snd_t<Dur> tag_invoke(exec::schedule_after_t, const schd_t self, const Dur dur) noexcept
         {
-        public:
-            explicit schd_t(timer_loop* loop) noexcept: loop_(loop) {}
-
-        private:
-            class at_snd_t
-            {
-            public:
-                using completion_signatures = sigs;
-                explicit at_snd_t(timer_loop* loop, const time_point tp) noexcept: loop_(loop), tp_(tp) {}
-
-            private:
-                timer_loop* loop_;
-                time_point tp_;
-
-                template <same_as_any_of<exec::set_value_t, exec::set_stopped_t> Cpo>
-                friend auto tag_invoke(exec::get_completion_scheduler_t<Cpo>, const at_snd_t& self) noexcept
-                {
-                    return schd_t(self.loop_);
-                }
-
-                template <typename R>
-                friend auto tag_invoke(exec::connect_t, at_snd_t&& self, R&& recv)
-                {
-                    return at_ops_t<R>(self.loop_, static_cast<R&&>(recv), self.tp_);
-                }
-            };
-
-            timer_loop* loop_ = nullptr;
-
-            friend bool operator==(schd_t, schd_t) noexcept = default;
-
-            friend auto tag_invoke(exec::schedule_t, const schd_t self) noexcept
-            {
-                return make_after_snd(self.loop_, std::chrono::seconds{0});
-            }
-            friend auto tag_invoke(exec::schedule_at_t, const schd_t self, const time_point tp) noexcept
-            {
-                return at_snd_t(self.loop_, tp);
-            }
-            friend auto tag_invoke(exec::schedule_after_t, const schd_t self, const exec::duration auto dur) noexcept
-            {
-                return tm_loop::make_after_snd(self.loop_, dur);
-            }
-        };
+            return tm_loop::make_after_snd(self.loop_, dur);
+        }
     } // namespace detail::tm_loop
 
     class timer_loop

@@ -8,6 +8,10 @@ namespace clu::exec
 {
     namespace detail
     {
+#define CLU_EXEC_FWD_ENV(member)                                                                                       \
+    friend decltype(auto) tag_invoke(get_env_t, const type& self)                                                      \
+        CLU_SINGLE_RETURN(clu::adapt_env(get_env(self.member)))
+
         namespace just
         {
             template <typename R, typename Cpo, typename... Ts>
@@ -54,6 +58,8 @@ namespace clu::exec
             class snd_t_<Cpo, Ts...>::type
             {
             public:
+                using is_sender = void;
+
                 // clang-format off
                 template <forwarding<Ts>... Us>
                 constexpr explicit type(Us&&... args) noexcept(
@@ -83,7 +89,8 @@ namespace clu::exec
             struct just_t
             {
                 template <typename... Ts>
-                CLU_STATIC_CALL_OPERATOR(auto)(Ts&&... values) 
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (Ts&&... values)
                 {
                     return snd_t<set_value_t, Ts...>(static_cast<Ts&&>(values)...);
                 }
@@ -92,7 +99,8 @@ namespace clu::exec
             struct just_error_t
             {
                 template <movable_value E>
-                CLU_STATIC_CALL_OPERATOR(auto)(E&& error) 
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (E&& error)
                 {
                     return snd_t<set_error_t, E>(static_cast<E&&>(error));
                 }
@@ -100,7 +108,7 @@ namespace clu::exec
 
             struct just_stopped_t
             {
-                constexpr CLU_STATIC_CALL_OPERATOR(auto)()  noexcept { return snd_t<set_stopped_t>(); }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return snd_t<set_stopped_t>(); }
             };
         } // namespace just
 
@@ -138,6 +146,8 @@ namespace clu::exec
 
             struct snd_t
             {
+                using is_sender = void;
+
                 template <typename R>
                 friend auto tag_invoke(connect_t, snd_t, R&& recv) noexcept(std::is_nothrow_move_constructible_v<R>)
                 {
@@ -146,11 +156,6 @@ namespace clu::exec
                     else
                         return ops_t<R>(static_cast<R&&>(recv));
                 }
-
-                // clang-format off
-                friend completion_signatures<set_value_t()> tag_invoke(
-                    get_completion_signatures_t, snd_t, no_env) noexcept { return {}; }
-                // clang-format on
 
                 template <typename Env>
                 friend auto tag_invoke(get_completion_signatures_t, snd_t, Env&&) noexcept
@@ -164,7 +169,7 @@ namespace clu::exec
 
             struct stop_if_requested_t
             {
-                constexpr CLU_STATIC_CALL_OPERATOR(auto)()  noexcept { return snd_t{}; }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return snd_t{}; }
             };
         } // namespace stop_req
 
@@ -191,6 +196,8 @@ namespace clu::exec
             class recv_t_<R, Cpo, F>::type
             {
             public:
+                using is_receiver = void;
+
                 // clang-format off
                 template <typename R2, typename F2>
                 type(R2&& recv, F2&& func) noexcept(
@@ -218,26 +225,14 @@ namespace clu::exec
                     // clang-format on
                 }
 
-                // Pass through
-                friend auto tag_invoke(get_env_t, const type& self) noexcept { return exec::get_env(self.recv_); }
+                CLU_EXEC_FWD_ENV(recv_); // Pass through
 
-                template <recv_qry::fwd_recv_query Tag, typename... Args>
-                    requires callable<Tag, const R&, Args...>
-                constexpr friend decltype(auto) tag_invoke(Tag cpo, const type& self, Args&&... args) noexcept(
-                    nothrow_callable<Tag, const R&, Args...>)
-                {
-                    return cpo(self.recv_, static_cast<Args&&>(args)...);
-                }
-
-                // clang-format off
-                template <recvs::completion_cpo Tag, typename... Args> requires
-                    (!std::same_as<Tag, Cpo>) &&
-                    receiver_of<R, completion_signatures<Tag(Args...)>>
+                template <recvs::completion_cpo Tag, typename... Args>
+                    requires(!std::same_as<Tag, Cpo>) && receiver_of<R, completion_signatures<Tag(Args...)>>
                 constexpr friend void tag_invoke(Tag cpo, type&& self, Args&&... args) noexcept
                 {
                     cpo(static_cast<R&&>(self.recv_), static_cast<Args&&>(args)...);
                 }
-                // clang-format on
 
                 template <typename... Args>
                 constexpr void set_impl(Args&&... args) noexcept(nothrow_invocable<F, Args...>)
@@ -295,6 +290,8 @@ namespace clu::exec
             class snd_t_<S, Cpo, F>::type
             {
             public:
+                using is_sender = void;
+
                 // clang-format off
                 template <typename S2, typename F2>
                 constexpr type(S2&& snd, F2&& func) noexcept(
@@ -317,13 +314,7 @@ namespace clu::exec
                         recv_t<R, Cpo, F>(static_cast<R&&>(recv), static_cast<Self&&>(snd).func_));
                 }
 
-                template <snd_qry::fwd_snd_query Q, typename... Args>
-                    requires callable<Q, const S&, Args...>
-                constexpr friend auto tag_invoke(Q, const type& snd, Args&&... args) noexcept(
-                    nothrow_callable<Q, const S&, Args...>)
-                {
-                    return Q{}(snd.snd_, static_cast<Args&&>(args)...);
-                }
+                CLU_EXEC_FWD_ENV(snd_);
 
                 using make_sig = make_sig_impl<Cpo, F>;
 
@@ -343,7 +334,7 @@ namespace clu::exec
             struct upon_t
             {
                 template <sender S, typename F>
-                constexpr CLU_STATIC_CALL_OPERATOR(auto)(S&& snd, F&& func) 
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)(S&& snd, F&& func)
                 {
                     if constexpr (customized_sender_algorithm<UponCpo, SetCpo, S, F>)
                         return detail::invoke_customized_sender_algorithm<UponCpo, SetCpo>(
@@ -353,7 +344,7 @@ namespace clu::exec
                 }
 
                 template <typename F>
-                constexpr CLU_STATIC_CALL_OPERATOR(auto)(F&& func) 
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)(F&& func)
                 {
                     return clu::make_piper(clu::bind_back(UponCpo{}, static_cast<F&&>(func)));
                 }
@@ -429,6 +420,8 @@ namespace clu::exec
             class snd_t_<S>::type
             {
             public:
+                using is_sender = void;
+
                 // clang-format off
                 template <forwarding<S> S2>
                 explicit type(S2&& snd) noexcept(std::is_nothrow_constructible_v<S, S2>):
@@ -442,6 +435,8 @@ namespace clu::exec
                 friend auto tag_invoke(connect_t, type&& self, R&& recv)
                     CLU_SINGLE_RETURN(connect(static_cast<S&&>(self.snd_), recv_t<R>(static_cast<R&&>(recv))));
 
+                CLU_EXEC_FWD_ENV(snd_);
+
                 // clang-format off
                 template <typename Env>
                 friend make_completion_signatures<S, Env, completion_signatures<>, //
@@ -453,12 +448,13 @@ namespace clu::exec
             struct materialize_t
             {
                 template <sender S>
-                CLU_STATIC_CALL_OPERATOR(auto)(S&& snd)  noexcept( //
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (S&& snd) noexcept( //
                     std::is_nothrow_constructible_v<std::decay_t<S>, S>)
                 {
                     return snd_t<S>(static_cast<S&&>(snd));
                 }
-                constexpr CLU_STATIC_CALL_OPERATOR(auto)()  noexcept { return make_piper(*this); }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(*this); }
             };
         } // namespace mat
 
@@ -521,6 +517,8 @@ namespace clu::exec
             class snd_t_<S>::type
             {
             public:
+                using is_sender = void;
+
                 // clang-format off
                 template <forwarding<S> S2>
                 explicit type(S2&& snd) noexcept(std::is_nothrow_constructible_v<S, S2>):
@@ -534,6 +532,8 @@ namespace clu::exec
                 friend auto tag_invoke(connect_t, type&& self, R&& recv)
                     CLU_SINGLE_RETURN(connect(static_cast<S&&>(self.snd_), recv_t<R>(static_cast<R&&>(recv))));
 
+                CLU_EXEC_FWD_ENV(snd_);
+
                 // clang-format off
                 template <typename Env>
                 friend make_completion_signatures<S, Env, completion_signatures<>, value_sig>
@@ -544,12 +544,13 @@ namespace clu::exec
             struct dematerialize_t
             {
                 template <sender S>
-                CLU_STATIC_CALL_OPERATOR(auto)(S&& snd)  noexcept( //
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (S&& snd) noexcept( //
                     std::is_nothrow_constructible_v<std::decay_t<S>, S>)
                 {
                     return snd_t<S>(static_cast<S&&>(snd));
                 }
-                constexpr CLU_STATIC_CALL_OPERATOR(auto)()  noexcept { return make_piper(*this); }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(*this); }
             };
         } // namespace demat
 
@@ -616,6 +617,8 @@ namespace clu::exec
             class recv_t_<S, R, Cpo, F>::type
             {
             public:
+                using is_receiver = void;
+
                 explicit type(ops_t<S, R, Cpo, F>* ops) noexcept: ops_(ops) {}
 
             private:
@@ -649,16 +652,7 @@ namespace clu::exec
                         self.set_impl(static_cast<Args&&>(args)...); // Shouldn't throw theoretically
                 }
 
-                // Pass through
-                friend auto tag_invoke(get_env_t, const type& self) noexcept { return exec::get_env(self.recv()); }
-
-                template <recv_qry::fwd_recv_query Tag, typename... Args>
-                    requires callable<Tag, const R&, Args...>
-                constexpr friend decltype(auto) tag_invoke(Tag cpo, const type& self, Args&&... args) noexcept(
-                    nothrow_callable<Tag, const R&, Args...>)
-                {
-                    return cpo(self.recv(), static_cast<Args&&>(args)...);
-                }
+                CLU_EXEC_FWD_ENV(recv()); // Pass through
 
                 // clang-format off
                 template <recvs::completion_cpo Tag, typename... Args> requires
@@ -740,6 +734,8 @@ namespace clu::exec
             class snd_t_<S, Cpo, F>::type
             {
             public:
+                using is_sender = void;
+
                 // clang-format off
                 template <typename S2, typename F2>
                 type(S2&& snd, F2&& func) noexcept(
@@ -756,6 +752,8 @@ namespace clu::exec
                     requires sender_to<copy_cvref_t<Self, S>, recv_t<S, R, Cpo, F>>
                 friend auto tag_invoke(connect_t, Self&& self, R&& recv) CLU_SINGLE_RETURN(ops_t<S, R, Cpo, F>(
                     static_cast<Self&&>(self).snd_, static_cast<R&&>(recv), static_cast<Self&&>(self).func_));
+
+                CLU_EXEC_FWD_ENV(snd_);
 
                 // clang-format off
                 template <typename Env>
@@ -775,7 +773,7 @@ namespace clu::exec
                 template <sender S, typename F> requires
                     (!std::same_as<SetCpo, set_stopped_t>) ||
                     std::invocable<F>
-                CLU_STATIC_CALL_OPERATOR(auto)(S&& snd, F&& func) 
+                CLU_STATIC_CALL_OPERATOR(auto)(S&& snd, F&& func)
                 // clang-format on
                 {
                     if constexpr (customized_sender_algorithm<LetCpo, SetCpo, S, F>)
@@ -786,7 +784,7 @@ namespace clu::exec
                 }
 
                 template <typename F>
-                constexpr CLU_STATIC_CALL_OPERATOR(auto)(F&& func) 
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)(F&& func)
                 {
                     return clu::make_piper(clu::bind_back(LetCpo{}, static_cast<F&&>(func)));
                 }
@@ -814,11 +812,13 @@ namespace clu::exec
             class recv_t_<R, Q, T>::type : public receiver_adaptor<type, R>
             {
             public:
+                using is_receiver = void;
+
                 // clang-format off
                 template <typename R2, typename T2>
                 type(R2&& recv, T2&& value):
                     receiver_adaptor<type, R>(static_cast<R2&&>(recv)),
-                    env_(exec::get_env(receiver_adaptor<type, R>::base()), static_cast<T2&&>(value)) {}
+                    env_(clu::get_env(receiver_adaptor<type, R>::base()), static_cast<T2&&>(value)) {}
                 // clang-format on
 
                 const auto& get_env() const noexcept { return env_; }
@@ -840,6 +840,8 @@ namespace clu::exec
             class snd_t_<S, Q, T>::type
             {
             public:
+                using is_sender = void;
+
                 // clang-format off
                 template <typename S2, typename T2>
                 type(S2&& snd, T2&& value):
@@ -857,6 +859,8 @@ namespace clu::exec
                         recv_t<R, Q, T>(static_cast<R&&>(recv), static_cast<T&&>(self.value_)));
                 }
 
+                CLU_EXEC_FWD_ENV(snd_);
+
                 // clang-format off
                 template <typename Env>
                 constexpr friend completion_signatures_of_t<S, adapted_env_t<Env, Q, T>>
@@ -867,13 +871,15 @@ namespace clu::exec
             struct with_query_value_t
             {
                 template <sender S, typename Q, typename T>
-                CLU_STATIC_CALL_OPERATOR(auto)(S&& snd, Q, T&& value) 
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (S&& snd, Q, T&& value)
                 {
                     return snd_t<S, Q, T>(static_cast<S&&>(snd), static_cast<T&&>(value));
                 }
 
                 template <typename Q, typename T>
-                CLU_STATIC_CALL_OPERATOR(auto)(Q, T&& value) 
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (Q, T&& value)
                 {
                     return clu::make_piper(clu::bind_back(*this, //
                         Q{}, static_cast<T&&>(value)));
@@ -952,6 +958,8 @@ namespace clu::exec
             class snd_t_<S>::type
             {
             public:
+                using is_sender = void;
+
                 // clang-format off
                 template <typename S2>
                 constexpr explicit type(S2&& snd) noexcept(std::is_nothrow_constructible_v<S, S2>):
@@ -968,13 +976,7 @@ namespace clu::exec
                         static_cast<type&&>(snd).snd_, recv_t<R, variant_of<S, env_of_t<R>>>(static_cast<R&&>(recv)));
                 }
 
-                template <snd_qry::fwd_snd_query Q, typename... Args>
-                    requires callable<Q, const S&, Args...>
-                constexpr friend auto tag_invoke(Q, const type& snd, Args&&... args) noexcept(
-                    nothrow_callable<Q, const type&, Args...>)
-                {
-                    return Q{}(snd.snd_, static_cast<Args&&>(args)...);
-                }
+                CLU_EXEC_FWD_ENV(snd_);
 
                 template <typename Env>
                 constexpr friend snd_comp_sigs<S, Env> tag_invoke(get_completion_signatures_t, const type&, Env)
@@ -989,13 +991,16 @@ namespace clu::exec
             struct into_variant_t
             {
                 template <sender S>
-                CLU_STATIC_CALL_OPERATOR(auto)(S&& snd) 
+                CLU_STATIC_CALL_OPERATOR(auto)
+                (S&& snd)
                 {
                     return snd_t<S>(static_cast<S&&>(snd));
                 }
-                constexpr CLU_STATIC_CALL_OPERATOR(auto)()  noexcept { return make_piper(*this); }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(*this); }
             };
         } // namespace into_var
+
+#undef CLU_EXEC_FWD_ENV
     } // namespace detail
 
     using detail::just::just_t;

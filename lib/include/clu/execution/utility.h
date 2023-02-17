@@ -26,28 +26,18 @@ namespace clu::exec
         namespace recv_adpt
         {
             template <typename R, typename... Args>
-            concept has_set_value = requires(R&& recv, Args&&... args)
-            {
-                static_cast<R&&>(recv).set_value(static_cast<Args&&>(args)...);
-            };
+            concept has_set_value =
+                requires(R&& recv, Args&&... args) { static_cast<R&&>(recv).set_value(static_cast<Args&&>(args)...); };
 
             template <typename R, typename E>
-            concept has_set_error = requires(R&& recv, E&& err)
-            {
-                static_cast<R&&>(recv).set_error(static_cast<E&&>(err));
-            };
+            concept has_set_error =
+                requires(R&& recv, E&& err) { static_cast<R&&>(recv).set_error(static_cast<E&&>(err)); };
 
             template <typename R>
-            concept has_set_stopped = requires(R&& recv)
-            {
-                static_cast<R&&>(recv).set_stopped();
-            };
+            concept has_set_stopped = requires(R&& recv) { static_cast<R&&>(recv).set_stopped(); };
 
             template <typename R>
-            concept has_get_env = requires(const R& recv)
-            {
-                recv.get_env();
-            };
+            concept has_get_env = requires(const R& recv) { recv.get_env(); };
 
             // clang-format off
             template <typename R, typename B, typename... Args>
@@ -73,12 +63,15 @@ namespace clu::exec
                 constexpr static bool has_base = !std::same_as<Base, no_base>;
 
             public:
+                using is_receiver = void;
                 using set_value = void;
                 using set_error = void;
                 using set_stopped = void;
                 using get_env = void;
 
-                type() requires(std::same_as<Base, no_base>) || std::is_default_constructible_v<Base> = default;
+                type()
+                    requires(std::same_as<Base, no_base>) || std::is_default_constructible_v<Base>
+                = default;
 
                 // clang-format off
                 template <typename B> requires
@@ -86,14 +79,14 @@ namespace clu::exec
                     std::constructible_from<Base, B>
                 explicit type(B&& base) noexcept(std::is_nothrow_constructible_v<Base, B>):
                     base_(static_cast<B&&>(base)) {}
-                // clang-format on
 
                 Base& base() & noexcept requires has_base { return base_; }
                 const Base& base() const& noexcept requires has_base { return base_; }
                 Base&& base() && noexcept requires has_base { return std::move(base_); }
                 const Base&& base() const&& noexcept requires has_base { return std::move(base_); }
+                // clang-format on
 
-                // private:
+            private:
                 CLU_NO_UNIQUE_ADDRESS Base base_;
 
                 template <typename D>
@@ -156,91 +149,21 @@ namespace clu::exec
 
                 template <std::derived_from<Derived> D>
                     requires has_get_env<D> || inherits_get_env<D, base_type<const D&>>
-                constexpr friend decltype(auto) tag_invoke(get_env_t, const D& self) noexcept
+                constexpr friend decltype(auto) tag_invoke(get_env_t, const D& self)
                 {
                     if constexpr (has_get_env<Derived>)
-                    {
-                        static_assert(noexcept(self.get_env()), "get_env should be noexcept");
                         return self.get_env();
-                    }
                     else
-                        return exec::get_env(get_base(self));
-                }
-
-                template <recv_qry::fwd_recv_query Cpo, std::derived_from<Derived> D, typename... Args>
-                    requires callable<Cpo, base_type<const D&>, Args...>
-                constexpr friend decltype(auto) tag_invoke(Cpo cpo, const D& self, Args&&... args) noexcept(
-                    nothrow_callable<Cpo, base_type<const D&>, Args...>)
-                {
-                    return cpo(get_base(self), static_cast<Args&&>(args)...);
+                        return clu::adapt_env(clu::get_env(get_base(self))); // Only forward forwarding_query-s
                 }
             };
 
             template <class_type Derived, typename Base = no_base>
             using receiver_adaptor = typename receiver_adaptor_<Derived, Base>::type;
         } // namespace recv_adpt
-
-        namespace env_adpt
-        {
-            template <typename Env, typename Qry, typename T>
-            struct env_t_
-            {
-                class type;
-            };
-
-            template <typename Env, typename Qry, typename T>
-            using adapted_env_t = typename env_t_<std::remove_cvref_t<Env>, Qry, std::remove_cvref_t<T>>::type;
-
-            template <typename Env, typename Qry, typename T>
-            class env_t_<Env, Qry, T>::type
-            {
-            public:
-                // clang-format off
-                template <typename Env2, typename T2>
-                constexpr type(Env2&& base, T2&& value) noexcept(
-                    std::is_nothrow_constructible_v<Env, Env2> &&
-                    std::is_nothrow_constructible_v<T, T2>):
-                    base_(static_cast<Env2&&>(base)),
-                    value_(static_cast<T2&&>(value)) {}
-                // clang-format on
-
-            private:
-                CLU_NO_UNIQUE_ADDRESS Env base_;
-                CLU_NO_UNIQUE_ADDRESS T value_;
-
-                // clang-format off
-                template <typename Cpo, typename... Ts> requires
-                    (!std::same_as<Cpo, Qry>) &&
-                    tag_invocable<Cpo, const Env&, Ts...>
-                constexpr friend auto tag_invoke(Cpo, const type& self, Ts&&... args)
-                    noexcept(nothrow_tag_invocable<Cpo, const Env&, Ts...>)
-                // clang-format on
-                {
-                    return clu::tag_invoke(Cpo{}, self.base_, static_cast<Ts&&>(args)...);
-                }
-
-                constexpr friend auto tag_invoke(Qry, const type& self) noexcept(
-                    std::is_nothrow_copy_constructible_v<T>)
-                {
-                    return self.value_;
-                }
-            };
-
-            template <typename Env, typename Qry, typename T>
-            constexpr auto make_env(Env&& base, Qry, T&& value) noexcept(
-                std::is_nothrow_constructible_v<adapted_env_t<Env, Qry, T>, Env, T>)
-            {
-                if constexpr (std::is_same_v<Env, no_env>)
-                    return no_env{};
-                else
-                    return adapted_env_t<Env, Qry, T>(static_cast<Env&&>(base), static_cast<T&&>(value));
-            }
-        } // namespace env_adpt
     } // namespace detail
 
     using detail::recv_adpt::receiver_adaptor;
-    using detail::env_adpt::make_env;
-    using detail::env_adpt::adapted_env_t;
 
     template <class P>
         requires std::is_class_v<P> && std::same_as<P, std::remove_cvref_t<P>>
@@ -371,8 +294,9 @@ namespace clu::exec
         class ops_variant // NOLINT(cppcoreguidelines-pro-type-member-init)
         {
         public:
-            ops_variant() requires(sizeof...(Ts) > 0) &&
-                (std::default_initializable<meta::nth_type_q<0>::fn<Ts...>>) = default;
+            ops_variant()
+                requires(sizeof...(Ts) > 0) && (std::default_initializable<meta::nth_type_q<0>::fn<Ts...>>)
+            = default;
 
             template <std::size_t I, typename... Us>
             explicit ops_variant(std::in_place_index_t<I>, Us&&... args): index_(I)
@@ -477,12 +401,10 @@ namespace clu::exec
         template <typename... Ts>
         using nullable_ops_variant = meta::unpack_invoke<meta::unique<std::monostate, Ts...>, meta::quote<ops_variant>>;
 
-        // clang-format off
         template <typename Cpo, typename SetCpo, typename S, typename... Args>
-        concept customized_sender_algorithm =
-            tag_invocable<Cpo, completion_scheduler_of_t<SetCpo, S>, S, Args...> ||
+        concept customized_sender_algorithm = //
+            tag_invocable<Cpo, completion_scheduler_of_t<SetCpo, S>, S, Args...> || //
             tag_invocable<Cpo, S, Args...>;
-        // clang-format on
 
         template <typename Cpo, typename SetCpo, typename S, typename... Args>
         auto invoke_customized_sender_algorithm(S&& snd, Args&&... args)
@@ -503,12 +425,47 @@ namespace clu::exec
             }
         }
 
-        // clang-format off
         // Environments with stop tokens that are actually stoppable
         template <typename Env>
-        concept stoppable_env =
-            (!std::same_as<Env, no_env>) &&
-            (!unstoppable_token<stop_token_of_t<Env>>);
-        // clang-format on
+        concept stoppable_env = (!unstoppable_token<stop_token_of_t<Env>>);
+
+        namespace schd_env
+        {
+            template <typename Schd>
+            struct env_t_
+            {
+                class type;
+            };
+
+            template <typename Schd>
+            using env_t = typename env_t_<std::remove_cvref_t<Schd>>::type;
+
+            template <typename Schd>
+            class env_t_<Schd>::type
+            {
+            public:
+                template <forwarding<Schd> S = Schd>
+                explicit type(S&& schd) noexcept(std::is_nothrow_constructible_v<Schd, S>):
+                    schd_(static_cast<S&&>(schd))
+                {
+                }
+
+            private:
+                Schd schd_;
+
+                friend Schd tag_invoke(get_completion_scheduler_t<set_value_t>, const type& self) noexcept
+                {
+                    return self.schd_;
+                }
+
+                friend Schd tag_invoke(get_completion_scheduler_t<set_stopped_t>, const type& self) noexcept
+                {
+                    return self.schd_;
+                }
+            };
+        } // namespace schd_env
+
+        template <typename Schd>
+        using comp_schd_env = schd_env::env_t<Schd>;
     } // namespace detail
 } // namespace clu::exec

@@ -247,6 +247,11 @@ namespace clu
                 fix_parent_of_child(successor, right);
             }
         }
+        
+        after_snd_t<std::chrono::seconds> tag_invoke(exec::schedule_t, const schd_t self) noexcept
+        {
+            return make_after_snd(self.loop_, std::chrono::seconds{0});
+        }
     } // namespace detail::tm_loop
 
     timer_loop::~timer_loop() noexcept

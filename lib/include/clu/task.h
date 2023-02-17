@@ -24,7 +24,7 @@ namespace clu
                 in_place_stop_token stop_token_;
                 exec::any_scheduler schd_;
 
-                friend auto tag_invoke(exec::get_stop_token_t, const env_t& env) noexcept { return env.stop_token_; }
+                friend auto tag_invoke(get_stop_token_t, const env_t& env) noexcept { return env.stop_token_; }
                 friend auto tag_invoke(exec::get_scheduler_t, const env_t& env) noexcept { return env.schd_; }
             };
 
@@ -34,9 +34,9 @@ namespace clu
                 if constexpr (exec::no_await_thunk_sender<U>)
                 {
                     static_assert(
-                        requires { exec::get_completion_scheduler<exec::set_value_t>(value); },
+                        requires { exec::get_completion_scheduler<exec::set_value_t>(get_env(value)); },
                         "senders configured with no_await_thunk should specify completion schedulers "
-                        "using the get_completion_scheduler<set_value_t> customization point");
+                        "using the get_completion_scheduler<set_value_t> customization point on their environments");
 
                     using awaitable_t = call_result_t<exec::as_awaitable_t, U, P&>;
                     const auto get_awaitable = [&] { return exec::as_awaitable(static_cast<U&&>(value), pms); };
@@ -66,13 +66,13 @@ namespace clu
                         }
                     };
 
-                    auto schd = exec::get_completion_scheduler<exec::set_value_t>(value);
+                    auto schd = exec::get_completion_scheduler<exec::set_value_t>(get_env(value));
                     return awaiter{get_awaiter(), std::move(schd), pms};
                 }
                 else
                 {
-                    auto schd = exec::get_scheduler(exec::get_env(pms));
-                    if constexpr (exec::sender<U, env_t>)
+                    auto schd = exec::get_scheduler(get_env(pms));
+                    if constexpr (exec::sender_in<U, env_t>)
                         return exec::as_awaitable(static_cast<U&&>(value) | exec::transfer(std::move(schd)), pms);
                     else
                         return exec::as_awaitable(
@@ -133,7 +133,7 @@ namespace clu
                 in_place_stop_token stop_token_;
                 exec::any_scheduler schd_;
 
-                friend env_t tag_invoke(exec::get_env_t, const P& self) noexcept
+                friend env_t tag_invoke(get_env_t, const P& self) noexcept
                 {
                     return env_t(self.stop_token_, self.schd_);
                 }
@@ -141,13 +141,13 @@ namespace clu
 
             // clang-format off
             template <typename T>
-            concept env_has_scheduler = callable<exec::get_scheduler_t, exec::env_of_t<T>>;
+            concept env_has_scheduler = callable<exec::get_scheduler_t, env_of_t<T>>;
             template <typename T>
-            concept env_has_stop_token = requires { typename exec::stop_token_of_t<exec::env_of_t<T>>; };
+            concept env_has_stop_token = requires { typename stop_token_of_t<env_of_t<T>>; };
             // clang-format on
 
             template <typename T>
-            using env_stop_token_of_t = exec::stop_token_of_t<exec::env_of_t<T>>;
+            using env_stop_token_of_t = stop_token_of_t<env_of_t<T>>;
 
             template <typename T, typename P>
             class awaiter_schd_base
@@ -157,7 +157,7 @@ namespace clu
                 explicit awaiter_schd_base(P& current, Parent&& parent) noexcept: current_(&current)
                 {
                     if constexpr (env_has_scheduler<Parent>)
-                        current_->replace_scheduler(exec::get_scheduler(exec::get_env(parent)));
+                        current_->replace_scheduler(exec::get_scheduler(get_env(parent)));
                     else
                         current_->replace_scheduler(exec::trampoline_scheduler{});
                 }
@@ -206,7 +206,7 @@ namespace clu
                 // Just inherit stop token from parent coroutine
                 awaiter_base(P& current, Parent& parent) noexcept: awaiter_schd_base<T, P>(current, parent)
                 {
-                    current.replace_stop_token(exec::get_stop_token(exec::get_env(parent)));
+                    current.replace_stop_token(get_stop_token(get_env(parent)));
                 }
             };
 
@@ -219,7 +219,7 @@ namespace clu
             public:
                 awaiter_base(P& current, Parent& parent) noexcept:
                     awaiter_schd_base<T, P>(current, parent),
-                    cb_(exec::get_stop_token(exec::get_env(parent)), stop_propagation_callback{stop_src_})
+                    cb_(get_stop_token(get_env(parent)), stop_propagation_callback{stop_src_})
                 {
                     current.replace_stop_token(stop_src_.get_token());
                 }
@@ -253,17 +253,17 @@ namespace clu
                     {
                         using stop_token_t = env_stop_token_of_t<Parent>;
                         if constexpr (std::is_same_v<stop_token_t, in_place_stop_token>)
-                            this->current_->replace_stop_token(exec::get_stop_token(exec::get_env(parent)));
+                            this->current_->replace_stop_token(get_stop_token(get_env(parent)));
                         else if constexpr (!std::is_same_v<stop_token_t, never_stop_token>)
                         {
                             this->current_->replace_stop_token(stop_src_.get_token());
                             using callback_t = typename stop_token_t::template callback_type<stop_propagation_callback>;
-                            cb_.emplace(std::in_place_type<callback_t>, exec::get_stop_token(exec::get_env(parent)),
+                            cb_.emplace(std::in_place_type<callback_t>, get_stop_token(get_env(parent)),
                                 stop_propagation_callback{stop_src_});
                         }
                     }
                     if constexpr (env_has_scheduler<Parent>)
-                        this->current_->replace_scheduler(exec::get_scheduler(exec::get_env(parent)));
+                        this->current_->replace_scheduler(exec::get_scheduler(get_env(parent)));
                     return awaiter_schd_base<T, P>::await_suspend(handle);
                 }
 
@@ -382,7 +382,7 @@ namespace clu
     {
         template <exec::sender S>
         CLU_STATIC_CALL_OPERATOR(auto)
-        (S&& sender) const
+        (S&& sender)
         {
             static_assert(detail::task::task_convertible_sender<S>,
                 "Senders that send multiple sets of values, or those that send "
@@ -400,6 +400,6 @@ namespace clu
                 { co_return co_await static_cast<S&&>(snd); }(static_cast<S&&>(sender));
         }
 
-        constexpr CLU_STATIC_CALL_OPERATOR(auto)() const noexcept { return make_piper(*this); }
+        constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(*this); }
     } inline constexpr as_task{};
 } // namespace clu

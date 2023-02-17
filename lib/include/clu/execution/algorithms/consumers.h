@@ -23,6 +23,8 @@ namespace clu::exec
             template <typename S>
             struct recv_t_<S>::type
             {
+                using is_receiver = void;
+
                 ops_wrapper<S>* ptr = nullptr;
 
                 template <typename... Ts>
@@ -43,8 +45,6 @@ namespace clu::exec
                     delete self.ptr;
                     std::terminate();
                 }
-
-                friend empty_env tag_invoke(get_env_t, const type&) noexcept { return {}; }
             };
 
             template <typename S>
@@ -60,12 +60,13 @@ namespace clu::exec
             struct start_detached_t
             {
                 template <sender S>
-                constexpr CLU_STATIC_CALL_OPERATOR(void)(S&& snd) 
+                constexpr CLU_STATIC_CALL_OPERATOR(void)(S&& snd)
                 {
-                    if constexpr (requires {
-                                      requires tag_invocable<start_detached_t,
-                                          call_result_t<get_completion_scheduler_t<set_value_t>, S>, S>;
-                                  })
+                    if constexpr ( //
+                        requires {
+                            requires tag_invocable<start_detached_t,
+                                call_result_t<get_completion_scheduler_t<set_value_t>, S>, S>;
+                        })
                     {
                         static_assert(std::is_void_v<tag_invoke_result_t<start_detached_t,
                                           call_result_t<get_completion_scheduler_t<set_value_t>, S>, S>>,
@@ -89,7 +90,8 @@ namespace clu::exec
             struct execute_t
             {
                 template <scheduler S, std::invocable F>
-                CLU_STATIC_CALL_OPERATOR(void)(S&& schd, F&& func) 
+                CLU_STATIC_CALL_OPERATOR(void)
+                (S&& schd, F&& func)
                 {
                     if constexpr (tag_invocable<execute_t, S, F>)
                     {
@@ -146,7 +148,7 @@ namespace clu::this_thread
         // clang-format off
         template <typename S>
         concept sync_waitable_sender =
-            exec::sender<S, env_t> && 
+            exec::sender_in<S, env_t> && 
             requires { typename result_t<S>; };
         // clang-format on
 
@@ -154,16 +156,15 @@ namespace clu::this_thread
         class recv_<S>::type
         {
         public:
+            using is_receiver = void;
+
             type(run_loop* loop, variant_t<S>* ptr): loop_(loop), ptr_(ptr) {}
 
         private:
             run_loop* loop_;
             variant_t<S>* ptr_;
 
-            friend env_t tag_invoke(exec::get_env_t, const type& self) noexcept
-            {
-                return {self.loop_->get_scheduler()};
-            }
+            friend env_t tag_invoke(get_env_t, const type& self) noexcept { return {self.loop_->get_scheduler()}; }
 
             template <typename... Ts>
                 requires std::constructible_from<value_types_t<S>, Ts...>
@@ -200,7 +201,8 @@ namespace clu::this_thread
         struct sync_wait_t
         {
             template <sync_waitable_sender S>
-            CLU_STATIC_CALL_OPERATOR(result_t<S>)(S&& snd) 
+            CLU_STATIC_CALL_OPERATOR(result_t<S>)
+            (S&& snd)
             {
                 if constexpr (requires {
                                   requires tag_invocable<sync_wait_t,
@@ -246,7 +248,7 @@ namespace clu::this_thread
         {
             template <typename S>
                 requires sync_waitable_sender<into_var_snd_t<S>>
-            constexpr CLU_STATIC_CALL_OPERATOR(var_result_t<S>)(S&& snd) 
+            constexpr CLU_STATIC_CALL_OPERATOR(var_result_t<S>)(S&& snd)
             {
                 if constexpr (requires {
                                   requires tag_invocable<sync_wait_with_variant_t,

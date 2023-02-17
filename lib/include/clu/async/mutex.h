@@ -56,6 +56,8 @@ namespace clu::async
         class snd_t
         {
         public:
+            using is_sender = void;
+
             explicit snd_t(mutex* mut) noexcept: mut_(mut) {}
 
         private:

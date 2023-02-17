@@ -184,7 +184,7 @@ namespace clu
         // Check if it's been too long since the last time we cleaned up our garbage
         const auto now = detail::ns_since_epoch(detail::now());
         const auto next_due = detail::ns_since_epoch(detail::now() + sync_period);
-        if (auto due = due_.load(std::memory_order::acquire); now < due ||
+        if (auto due = due_.load(std::memory_order::acquire); std::cmp_less(now, due) ||
             !due_.compare_exchange_weak(due, next_due, std::memory_order::acq_rel, std::memory_order::relaxed))
             return 0;
         return retired_count_.exchange(0, std::memory_order::acq_rel);

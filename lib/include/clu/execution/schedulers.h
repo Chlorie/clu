@@ -1,6 +1,7 @@
 #pragma once
 
 #include "execution_traits.h"
+#include "utility.h"
 
 namespace clu::exec
 {
@@ -44,11 +45,11 @@ namespace clu::exec
                     }
 
                     // clang-format off
-                    friend schd_t tag_invoke(
-                        get_completion_scheduler_t<set_value_t>, snd_t) noexcept { return {}; }
                     friend completion_signatures<set_value_t()> tag_invoke(
                         get_completion_signatures_t, snd_t, auto&&) noexcept { return {}; }
                     // clang-format on
+
+                    friend auto tag_invoke(get_env_t, snd_t) noexcept { return comp_schd_env<schd_t>({}); }
                 };
 
                 constexpr friend bool operator==(schd_t, schd_t) noexcept = default;
@@ -122,6 +123,8 @@ namespace clu::exec
                 class snd_t
                 {
                 public:
+                    using is_sender = void;
+
                     constexpr explicit snd_t(const std::size_t depth) noexcept: depth_(depth) {}
 
                 private:
@@ -134,8 +137,8 @@ namespace clu::exec
                     }
 
                     // clang-format off
-                    friend schd_t tag_invoke(get_completion_scheduler_t<set_value_t>, //
-                        const snd_t self) noexcept { return schd_t(self.depth_); }
+                    friend auto tag_invoke(get_env_t, const snd_t self) noexcept
+                    { return comp_schd_env<schd_t>(schd_t{self.depth_}); }
                     friend completion_signatures<set_value_t(), set_stopped_t()> tag_invoke(
                         get_completion_signatures_t, snd_t, auto&&) noexcept { return {}; }
                     // clang-format on

@@ -52,6 +52,8 @@ namespace clu::async
         class snd_t
         {
         public:
+            using is_sender = void;
+
             explicit snd_t(manual_reset_event* ev) noexcept: ev_(ev) {}
 
         private:

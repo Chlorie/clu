@@ -60,6 +60,8 @@ namespace clu::exec
             class snd_t_<S>::type
             {
             public:
+                using is_sender = void;
+
                 explicit type(std::optional<S>&& snd): snd_(std::move(snd)) { snd.reset(); }
 
             private:

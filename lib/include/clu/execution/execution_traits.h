@@ -9,71 +9,12 @@
 #include "../meta_list.h"
 #include "../meta_algorithm.h"
 #include "../unique_coroutine_handle.h"
+#include "../function_traits.h"
 #include "../piper.h"
+#include "../query.h"
 
 namespace clu::exec
 {
-    namespace detail::exec_envs
-    {
-        struct no_env
-        {
-            friend void tag_invoke(auto, std::same_as<no_env> auto, auto&&...) = delete;
-        };
-
-        struct empty_env
-        {
-        };
-
-        struct get_env_t
-        {
-            template <typename R>
-                requires tag_invocable<get_env_t, R>
-            CLU_STATIC_CALL_OPERATOR(decltype(auto))(R&& recv) noexcept
-            {
-                static_assert(nothrow_tag_invocable<get_env_t, R>, "get_env should be noexcept");
-                return tag_invoke(*this, static_cast<R&&>(recv));
-            }
-        };
-
-        struct forwarding_env_query_t
-        {
-            template <typename Cpo>
-            constexpr CLU_STATIC_CALL_OPERATOR(bool)(const Cpo cpo) noexcept
-            {
-                if constexpr (tag_invocable<forwarding_env_query_t, Cpo>)
-                {
-                    static_assert(
-                        nothrow_tag_invocable<forwarding_env_query_t, Cpo>, "forwarding_env_query should be noexcept");
-                    static_assert(boolean_testable<tag_invoke_result_t<forwarding_env_query_t, Cpo>>);
-                    return tag_invoke(*this, cpo) ? true : false;
-                }
-                else
-                    return true;
-            }
-        };
-
-        // clang-format off
-        template <typename T>
-        concept fwd_env_query = forwarding_env_query_t{}(T{});
-        // clang-format on
-    } // namespace detail::exec_envs
-
-    using detail::exec_envs::no_env;
-    using detail::exec_envs::empty_env; // Not to spec
-    using detail::exec_envs::get_env_t;
-    using detail::exec_envs::forwarding_env_query_t;
-    inline constexpr get_env_t get_env{};
-    inline constexpr forwarding_env_query_t forwarding_env_query{};
-
-    // clang-format off
-    template <typename T>
-    concept environment_provider =
-        requires(T& prov) { { get_env(std::as_const(prov)) } -> same_as_none_of<no_env, void>; };
-    // clang-format on
-
-    template <typename T>
-    using env_of_t = call_result_t<get_env_t, T>;
-
     namespace detail::recvs
     {
         struct set_value_t
@@ -131,84 +72,89 @@ namespace clu::exec
         template <typename T = void, template <typename...> typename Tuple = type_list>
         void comp_sig_impl(...);
 
+        template <typename Cpo, template <typename...> typename Tuple, typename... Args>
+        type_tag_t<Tuple<Args...>> gather_sigs_impl(Cpo (*)(Args...));
+        template <typename Cpo, template <typename...> typename Tuple>
+        void gather_sigs_impl(...);
+
         template <typename Fn>
         concept completion_signature =
             (!std::same_as<decltype(detail::comp_sig_impl(static_cast<Fn*>(nullptr))), void>);
     } // namespace detail
 
-    // clang-format off
-    template <detail::completion_signature... Fns> struct completion_signatures {};
-    template <typename E> struct dependent_completion_signatures {};
-    // clang-format on
-
-    namespace detail
+    template <detail::completion_signature... Fns>
+    struct completion_signatures
     {
-        template <template <typename...> typename Tuple, template <typename...> typename Variant, typename... Fns>
-        auto value_types_impl(completion_signatures<Fns...>) //
-            -> meta::unpack_invoke< //
-                meta::transform_l< //
-                    meta::remove_q<void>::fn< //
-                        decltype(detail::comp_sig_impl<set_value_t, Tuple>(static_cast<Fns*>(nullptr)))...>,
-                    meta::_t_q>,
-                meta::quote<Variant>>;
+    };
 
-        template <template <typename...> typename Variant, typename... Fns>
-        auto error_types_impl(completion_signatures<Fns...>) //
-            -> meta::unpack_invoke< //
-                meta::remove_q<void>::fn< //
-                    decltype(detail::comp_sig_impl<set_error_t>(static_cast<Fns*>(nullptr)))...>,
-                meta::quote<Variant>>;
+    namespace detail::coro_utils
+    {
+        struct as_awaitable_t;
+    }
 
-        template <typename... Fns>
-        constexpr bool sends_stopped_impl(completion_signatures<Fns...>) noexcept
+    using detail::coro_utils::as_awaitable_t;
+    extern const as_awaitable_t as_awaitable;
+
+    namespace detail::env_pms
+    {
+        template <typename E>
+        struct env_promise
         {
-            return meta::contains_q<set_stopped_t()>::fn<Fns...>::value;
-        }
-    } // namespace detail
+            E env;
+
+            friend const E& tag_invoke(const env_promise& self) noexcept { return self.env; }
+
+            template <typename A>
+            decltype(auto) await_transform(A&& a)
+            {
+                if constexpr (tag_invocable<as_awaitable_t, A, env_promise&>)
+                    return tag_invoke(as_awaitable, static_cast<A&&>(a), *this);
+                else
+                    static_cast<A&&>(a);
+            }
+        };
+    } // namespace detail::env_pms
 
     namespace detail::comp_sig
     {
-        struct no_completion_signatures
-        {
-        };
-
-        template <typename T>
-        using has_compl_sigs = std::enable_if_t<!std::is_same_v<T, no_completion_signatures>, T>;
-
-        template <typename Sig, typename Env>
-        concept dependent_sig = std::same_as<Sig, dependent_completion_signatures<no_env>> && std::same_as<Env, no_env>;
-        template <typename Sig, typename Env>
-        concept valid_completion_signatures = template_of<Sig, completion_signatures> || dependent_sig<Sig, Env>;
+        template <typename Sigs>
+        concept valid_completion_signatures = template_of<Sigs, completion_signatures>;
 
         struct get_completion_signatures_t
         {
+        private:
             template <typename S, typename E>
-            constexpr CLU_STATIC_CALL_OPERATOR(auto)(S&&, E&&) noexcept
+            constexpr static auto impl() noexcept
             {
                 if constexpr (tag_invocable<get_completion_signatures_t, S, E>)
                 {
                     using res_t = tag_invoke_result_t<get_completion_signatures_t, S, E>;
-                    static_assert(template_of<res_t, completion_signatures> ||
-                        template_of<res_t, dependent_completion_signatures>);
-                    return res_t{};
+                    if constexpr (valid_completion_signatures<res_t>)
+                        return res_t{};
                 }
                 else if constexpr (requires { typename std::remove_cvref_t<S>::completion_signatures; })
                 {
                     using res_t = typename std::remove_cvref_t<S>::completion_signatures;
-                    static_assert(template_of<res_t, completion_signatures> ||
-                        template_of<res_t, dependent_completion_signatures>);
-                    return res_t{};
+                    if constexpr (valid_completion_signatures<res_t>)
+                        return res_t{};
                 }
-                else if constexpr (awaitable<S>)
+                else if constexpr (awaitable<S, env_pms::env_promise<E>>)
                 {
-                    if constexpr (std::is_void_v<await_result_t<S>>)
+                    using promise = env_pms::env_promise<E>;
+                    if constexpr (std::is_void_v<await_result_t<S, promise>>)
                         return completion_signatures<set_value_t(), set_error_t(std::exception_ptr), set_stopped_t()>{};
                     else
-                        return completion_signatures< //
-                            set_value_t(await_result_t<S>), set_error_t(std::exception_ptr), set_stopped_t()>{};
+                        return completion_signatures<set_value_t(await_result_t<S, promise>), //
+                            set_error_t(std::exception_ptr), set_stopped_t()>{};
                 }
-                else
-                    return no_completion_signatures{};
+            }
+
+        public:
+            template <typename S, typename E>
+                requires(!std::is_void_v<decltype(impl<S, E>())>)
+            constexpr CLU_STATIC_CALL_OPERATOR(auto)(S&&, E&&) noexcept
+            {
+                return impl<S, E>();
             }
         };
     } // namespace detail::comp_sig
@@ -216,17 +162,15 @@ namespace clu::exec
     using detail::comp_sig::get_completion_signatures_t;
     inline constexpr get_completion_signatures_t get_completion_signatures{};
 
-    template <typename S, typename E = no_env>
-    using completion_signatures_of_t =
-        detail::comp_sig::has_compl_sigs<call_result_t<get_completion_signatures_t, S, E>>;
-
-    // clang-format off
     template <typename R>
-    concept receiver =
-        environment_provider<R> &&
-        std::move_constructible<std::remove_cvref_t<R>> &&
+    inline constexpr bool enable_receiver = requires { typename R::is_receiver; };
+
+    template <typename R>
+    concept receiver = //
+        enable_receiver<std::remove_cvref_t<R>> && //
+        environment_provider<R> && //
+        std::move_constructible<std::remove_cvref_t<R>> && //
         std::constructible_from<std::remove_cvref_t<R>, R>;
-    // clang-format on
 
     namespace detail
     {
@@ -243,40 +187,8 @@ namespace clu::exec
         }
     } // namespace detail
 
-    // clang-format off
     template <typename R, typename Sigs>
-    concept receiver_of =
-        receiver<R> &&
-        detail::recv_of_impl<R>(Sigs{});
-    // clang-format on
-
-    namespace detail::recv_qry
-    {
-        struct forwarding_receiver_query_t
-        {
-            template <typename Cpo>
-            constexpr CLU_STATIC_CALL_OPERATOR(bool)(const Cpo cpo) noexcept
-            {
-                if constexpr (tag_invocable<forwarding_receiver_query_t, Cpo>)
-                {
-                    static_assert(nothrow_tag_invocable<forwarding_receiver_query_t, Cpo>,
-                        "forwarding_receiver_query should be noexcept");
-                    static_assert(boolean_testable<tag_invoke_result_t<forwarding_receiver_query_t, Cpo>>);
-                    return tag_invoke(*this, cpo) ? true : false;
-                }
-                else
-                    return !recvs::completion_cpo<Cpo>;
-            }
-        };
-
-        // clang-format off
-        template <typename T>
-        concept fwd_recv_query = forwarding_receiver_query_t{}(T{});
-        // clang-format on
-    } // namespace detail::recv_qry
-
-    using detail::recv_qry::forwarding_receiver_query_t;
-    inline constexpr forwarding_receiver_query_t forwarding_receiver_query{};
+    concept receiver_of = receiver<R> && detail::recv_of_impl<R>(Sigs{});
 
     namespace detail::op_state
     {
@@ -295,27 +207,34 @@ namespace clu::exec
     using detail::op_state::start_t;
     inline constexpr start_t start{};
 
-    // clang-format off
     template <typename O>
-    concept operation_state =
-        std::destructible<O> &&
-        std::is_object_v<O> &&
-        requires(O& ops) { { exec::start(ops) } noexcept; };
+    concept operation_state = //
+        queryable<O> && //
+        std::is_object_v<O> && //
+        requires(O& ops) {
+            {
+                exec::start(ops)
+            } noexcept;
+        };
 
-    namespace detail
-    {
-        template <typename S, typename E>
-        concept sender_base =
-            requires { typename completion_signatures_of_t<S, E>; } &&
-            comp_sig::valid_completion_signatures<completion_signatures_of_t<S, E>, E>;
-    } // namespace detail
+    template <typename S>
+    inline constexpr bool enable_sender = requires { typename S::is_sender; };
+    template <awaitable<detail::env_pms::env_promise<empty_env>> S>
+    inline constexpr bool enable_sender<S> = true;
 
-    template <typename S, typename E = no_env>
-    concept sender =
-        detail::sender_base<S, no_env> &&
-        detail::sender_base<S, E> &&
-        std::move_constructible<std::remove_cvref_t<S>>;
-    // clang-format on
+    template <typename S>
+    concept sender = //
+        enable_sender<std::remove_cvref_t<S>> && //
+        environment_provider<S> && //
+        std::move_constructible<std::remove_cvref_t<S>> && //
+        std::constructible_from<std::remove_cvref_t<S>, S>;
+
+    template <typename S, typename E = empty_env>
+    concept sender_in = sender<S> && callable<get_completion_signatures_t, S, E>;
+
+    template <typename S, typename E = empty_env>
+        requires sender_in<S, E>
+    using completion_signatures_of_t = call_result_t<get_completion_signatures_t, S, E>;
 
     namespace detail
     {
@@ -330,31 +249,59 @@ namespace clu::exec
         template <typename... Ts>
         using variant_or_empty = conditional_t<sizeof...(Ts) == 0, empty_variant,
             meta::unpack_invoke<meta::unique<std::decay_t<Ts>...>, meta::quote<std::variant>>>;
+
+        template <typename Cpo, template <typename...> typename Tuple>
+        struct gather_single_sig
+        {
+            template <typename Sig>
+            using fn = decltype(detail::gather_sigs_impl<Cpo, Tuple>(static_cast<Sig*>(nullptr)));
+        };
+
+        template <typename Cpo, typename S, typename E, //
+            template <typename...> typename Tuple, template <typename...> typename Variant>
+            requires sender_in<S, E>
+        using gather_signatures = //
+            meta::unpack_invoke< //
+                meta::transform_l< //
+                    meta::remove_l< //
+                        meta::transform_l< //
+                            completion_signatures_of_t<S, E>, //
+                            meta::requote<gather_single_sig<Cpo, Tuple>>>,
+                        void>,
+                    meta::_t_q>,
+                meta::quote<Variant>>;
+
+        template <typename Sig>
+        struct sender_of_impl
+        {
+            using cpo = typename function_traits<Sig>::return_type;
+            template <typename... Ts>
+            using fn = cpo(Ts...);
+        };
     } // namespace detail
 
-    // clang-format off
-    template <
-        typename S, typename E = no_env,
+    template <typename S, typename E = empty_env, //
         template <typename...> typename Tuple = detail::decayed_tuple,
         template <typename...> typename Variant = detail::variant_or_empty>
-        requires sender<S, E>
-    using value_types_of_t = decltype(detail::value_types_impl<Tuple, Variant>(completion_signatures_of_t<S, E>{}));
+        requires sender_in<S, E>
+    using value_types_of_t = detail::gather_signatures<set_value_t, S, E, Tuple, Variant>;
 
-    template <
-        typename S, typename E = no_env,
+    template <typename S, typename E = empty_env, //
         template <typename...> typename Variant = detail::variant_or_empty>
-        requires sender<S, E>
-    using error_types_of_t = decltype(detail::error_types_impl<Variant>(completion_signatures_of_t<S, E>{}));
+        requires sender_in<S, E>
+    using error_types_of_t = detail::gather_signatures<set_error_t, S, E, std::type_identity_t, Variant>;
 
-    template <typename S, typename E = no_env>
-        requires sender<S, E>
-    inline constexpr bool sends_stopped = detail::sends_stopped_impl(completion_signatures_of_t<S, E>{});
-    
-    template <typename S, typename E = no_env, typename... Ts>
-    concept sender_of =
-        sender<S, E> &&
-        std::same_as<type_list<Ts...>, value_types_of_t<S, E, type_list, single_type_t>>;
-    // clang-format on
+    template <typename S, typename E = empty_env>
+        requires sender_in<S, E>
+    inline constexpr bool sends_stopped = meta::contains_lv<completion_signatures_of_t<S, E>, set_stopped_t()>;
+
+    template <typename S, typename Sig, typename E = empty_env>
+    concept sender_of = //
+        sender_in<S, E> && //
+        detail::completion_signature<Sig> &&
+        std::same_as<type_list<Sig>,
+            detail::gather_signatures<typename detail::sender_of_impl<Sig>::cpo, S, E,
+                detail::sender_of_impl<Sig>::template fn, type_list>>;
 
     namespace detail
     {
@@ -369,29 +316,15 @@ namespace clu::exec
         using comp_sig_of_single = conditional_t<std::is_void_v<T>, set_value_t(), set_value_t(with_regular_void_t<T>)>;
     } // namespace detail
 
-    namespace detail::coro_utils
-    {
-        struct as_awaitable_t;
-    }
-
-    using detail::coro_utils::as_awaitable_t;
-    extern const as_awaitable_t as_awaitable;
-
     namespace detail::conn
     {
         struct connect_t;
 
-        // clang-format off
-        template <typename R, typename S>
-        concept receiver_for =
-            sender<S, env_of_t<R>> &&
-            receiver_of<R, completion_signatures_of_t<S, env_of_t<R>>>;
-
         template <typename S, typename R>
-        concept tag_connectable =
-            tag_invocable<connect_t, S, R> &&
-            receiver_for<R, S>;
-        // clang-format on
+        concept tag_connectable = //
+            sender_in<S, env_of_t<R>> && //
+            receiver_of<R, completion_signatures_of_t<S, env_of_t<R>>> && //
+            tag_invocable<connect_t, S, R>;
 
         template <typename S, typename R>
         class ops_task
@@ -434,7 +367,7 @@ namespace clu::exec
                 decltype(auto) await_transform(T&& value)
                 {
                     if constexpr (tag_invocable<as_awaitable_t, T, promise_type&>)
-                        return clu::tag_invoke(as_awaitable, static_cast<T&&>(value), *this);
+                        return tag_invoke(as_awaitable, static_cast<T&&>(value), *this);
                     else
                         return static_cast<T&&>(value);
                 }
@@ -445,12 +378,10 @@ namespace clu::exec
                 S& snd_;
                 R& recv_;
 
-                template <typename Cpo, typename... Args>
-                    requires recv_qry::fwd_recv_query<Cpo> && callable<Cpo, const R&, Args...>
-                friend decltype(auto) tag_invoke(const Cpo cpo, const promise_type& self, Args&&... args) noexcept(
-                    nothrow_callable<Cpo, const R&, Args...>)
+                friend decltype(auto) tag_invoke(get_env_t, const promise_type& self) //
+                    noexcept(nothrow_callable<get_env_t, const R&>)
                 {
-                    return cpo(self.recv_, static_cast<Args&&>(args)...);
+                    return get_env(self.recv_);
                 }
             };
 
@@ -469,7 +400,8 @@ namespace clu::exec
         using conn_await_promise = typename ops_task<std::decay_t<S>, std::decay_t<R>>::promise_type;
 
         template <typename S, typename R>
-        using await_comp_sigs = completion_signatures<comp_sig_of_single<await_result_t<S, conn_await_promise<S, R>>>,
+        using await_comp_sigs = completion_signatures< //
+            comp_sig_of_single<await_result_t<S, conn_await_promise<S, R>>>, //
             set_error_t(std::exception_ptr), set_stopped_t()>;
 
         // clang-format off
@@ -521,7 +453,7 @@ namespace clu::exec
                 if constexpr (tag_connectable<S, R>)
                 {
                     static_assert(operation_state<tag_invoke_result_t<connect_t, S, R>>,
-                        "return type of connect should satisfy operation_state");
+                        "connect should return an operation_state");
                     return tag_invoke(*this, static_cast<S&&>(snd), static_cast<R&&>(recv));
                 }
                 else
@@ -535,6 +467,12 @@ namespace clu::exec
 
     template <typename S, typename R>
     using connect_result_t = call_result_t<connect_t, S, R>;
+
+    template <typename S, typename R>
+    concept sender_to = //
+        sender_in<S, env_of_t<R>> && //
+        receiver_of<R, completion_signatures_of_t<S, env_of_t<R>>> && //
+        callable<connect_t, S, R>;
 
     namespace detail
     {
@@ -555,19 +493,17 @@ namespace clu::exec
     extern const schedule_t schedule;
 
     // clang-format off
-    template <typename S, typename R>
-    concept sender_to = detail::conn::receiver_for<R, S> && callable<connect_t, S, R>;
-
     template <typename S>
     concept scheduler =
+        queryable<S> &&
         requires(S&& schd, const get_completion_scheduler_t<set_value_t>& cpo)
         {
-            { exec::schedule(static_cast<S&&>(schd)) };
+            { schedule(static_cast<S&&>(schd)) };
             {
-                tag_invoke(cpo, exec::schedule(static_cast<S&&>(schd)))
+                tag_invoke(cpo, get_env(schedule(static_cast<S&&>(schd))))
             } -> std::same_as<std::remove_cvref_t<S>>;
         } &&
-        std::copy_constructible<std::remove_cvref_t<S>> &&
+        std::copy_constructible<std::remove_cvref_t<S>> && // TODO: enforce noexcept
         std::equality_comparable<std::remove_cvref_t<S>>;
     // clang-format on
 
@@ -592,59 +528,34 @@ namespace clu::exec
 
     namespace detail::snd_qry
     {
-        struct forwarding_sender_query_t
-        {
-            template <typename Cpo>
-            constexpr CLU_STATIC_CALL_OPERATOR(bool)(const Cpo cpo) noexcept
-            {
-                if constexpr (tag_invocable<forwarding_sender_query_t, Cpo>)
-                {
-                    static_assert(nothrow_tag_invocable<forwarding_sender_query_t, Cpo>,
-                        "forwarding_sender_query should be noexcept");
-                    static_assert(boolean_testable<tag_invoke_result_t<forwarding_sender_query_t, Cpo>>);
-                    return tag_invoke(*this, cpo) ? true : false;
-                }
-                else
-                    return false;
-            }
-        };
-
-        // clang-format off
-        template <typename T>
-        concept fwd_snd_query = forwarding_sender_query_t{}(T{});
-        // clang-format on
-
         template <recvs::completion_cpo Cpo>
         struct get_completion_scheduler_t
         {
-            template <sender S>
-                requires tag_invocable<get_completion_scheduler_t, S>
-            CLU_STATIC_CALL_OPERATOR(auto)(const S& snd) noexcept
+            template <typename E>
+                requires tag_invocable<get_completion_scheduler_t, E>
+            CLU_STATIC_CALL_OPERATOR(auto)(const E& env) noexcept
             {
-                static_assert(nothrow_tag_invocable<get_completion_scheduler_t, S>,
+                static_assert(nothrow_tag_invocable<get_completion_scheduler_t, E>,
                     "get_completion_scheduler should be noexcept");
-                static_assert(scheduler<tag_invoke_result_t<get_completion_scheduler_t, S>>,
-                    "return type of get_completion_scheduler should satisfy scheduler");
-                return tag_invoke(*this, snd);
+                static_assert(scheduler<tag_invoke_result_t<get_completion_scheduler_t, E>>,
+                    "get_completion_scheduler should return a scheduler");
+                return tag_invoke(*this, env);
             }
 
-            // clang-format off
-            constexpr friend bool tag_invoke(
-                forwarding_sender_query_t, get_completion_scheduler_t) noexcept { return true; }
-            // clang-format on
+            CLU_FORWARDING_QUERY(get_completion_scheduler_t);
         };
 
         struct no_await_thunk_t
         {
-            template <typename S>
-            constexpr CLU_STATIC_CALL_OPERATOR(auto)([[maybe_unused]] const S& snd) noexcept
+            template <typename E>
+            constexpr CLU_STATIC_CALL_OPERATOR(auto)([[maybe_unused]] const E& env) noexcept
             {
-                if constexpr (tag_invocable<no_await_thunk_t, const S&>)
+                if constexpr (tag_invocable<no_await_thunk_t, const E&>)
                 {
-                    static_assert(nothrow_tag_invocable<no_await_thunk_t, const S&>, //
+                    static_assert(nothrow_tag_invocable<no_await_thunk_t, const E&>, //
                         "no_await_thunk should be noexcept");
-                    static_assert(boolean_testable<tag_invoke_result_t<no_await_thunk_t, const S&>>);
-                    return tag_invoke(*this, snd);
+                    static_assert(boolean_testable<tag_invoke_result_t<no_await_thunk_t, const E&>>);
+                    return tag_invoke(*this, env);
                 }
                 else
                     return std::false_type{};
@@ -653,40 +564,39 @@ namespace clu::exec
 
         struct completes_inline_t
         {
-            template <typename S>
-            constexpr CLU_STATIC_CALL_OPERATOR(auto)([[maybe_unused]] const S& snd) noexcept
+            template <typename E>
+            constexpr CLU_STATIC_CALL_OPERATOR(auto)([[maybe_unused]] const E& env) noexcept
             {
-                if constexpr (tag_invocable<completes_inline_t, const S&>)
+                if constexpr (tag_invocable<completes_inline_t, const E&>)
                 {
-                    static_assert(nothrow_tag_invocable<completes_inline_t, const S&>, //
+                    static_assert(nothrow_tag_invocable<completes_inline_t, const E&>, //
                         "completes_inline should be noexcept");
-                    static_assert(boolean_testable<tag_invoke_result_t<completes_inline_t, const S&>>);
-                    return tag_invoke(*this, snd);
+                    static_assert(boolean_testable<tag_invoke_result_t<completes_inline_t, const E&>>);
+                    return tag_invoke(*this, env);
                 }
                 else
                     return std::false_type{};
             }
 
-            // clang-format off
-            constexpr friend bool tag_invoke(
-                forwarding_sender_query_t, completes_inline_t) noexcept { return true; }
-            // clang-format on
+            // TODO: forward this query?
         };
     } // namespace detail::snd_qry
 
-    using detail::snd_qry::forwarding_sender_query_t;
     using detail::snd_qry::get_completion_scheduler_t;
     using detail::snd_qry::no_await_thunk_t;
     using detail::snd_qry::completes_inline_t;
-    inline constexpr forwarding_sender_query_t forwarding_sender_query{};
     template <typename Cpo>
     inline constexpr get_completion_scheduler_t<Cpo> get_completion_scheduler{};
     inline constexpr no_await_thunk_t no_await_thunk{};
     inline constexpr completes_inline_t completes_inline{};
+
     template <typename S>
-    concept no_await_thunk_sender = sender<S> && detail::constexpr_true<call_result_t<no_await_thunk_t, const S&>>;
+    concept no_await_thunk_sender = //
+        sender<S> && detail::constexpr_true<call_result_t<no_await_thunk_t, env_of_t<S>>>;
+
     template <typename S>
-    concept inline_sender = sender<S> && detail::constexpr_true<call_result_t<completes_inline_t, const S&>>;
+    concept inline_sender = //
+        sender<S> && detail::constexpr_true<call_result_t<completes_inline_t, env_of_t<S>>>;
 
     namespace detail
     {
@@ -719,6 +629,8 @@ namespace clu::exec
             class snd_t_<S>::type : public member_comp_sigs<S>
             {
             public:
+                using is_sender = void;
+
                 // clang-format off
                 template <forwarding<S> S2>
                 explicit type(S2&& snd): snd_(static_cast<S2&&>(snd)) {}
@@ -727,15 +639,17 @@ namespace clu::exec
             private:
                 S snd_;
 
+                // Forward all other CPO-s
                 template <typename Cpo, forwarding<type> Self, typename... Args>
-                    requires tag_invocable<Cpo, copy_cvref_t<Self, S>, Args...>
+                    requires tag_invocable<Cpo, copy_cvref_t<Self, S>, Args...> && (!std::same_as<Cpo, get_env_t>)
                 constexpr friend decltype(auto) tag_invoke(Cpo, Self&& self, Args&&... args) noexcept(
                     nothrow_tag_invocable<Cpo, copy_cvref_t<Self, S>, Args...>)
                 {
                     return clu::tag_invoke(Cpo{}, static_cast<Self&&>(self).snd_, static_cast<Args&&>(args)...);
                 }
 
-                constexpr friend std::true_type tag_invoke(no_await_thunk_t, const type&) noexcept { return {}; }
+                friend auto tag_invoke(get_env_t, const type& self) CLU_SINGLE_RETURN(
+                    clu::adapt_env(get_env(self.snd_), query_value{no_await_thunk, std::true_type{}}));
             };
 
             // Wrap up a sender to use no await thunk
@@ -768,35 +682,35 @@ namespace clu::exec
 
         namespace read
         {
-            template <typename Cpo, typename R>
+            template <typename Qry, typename R>
             struct ops_t_
             {
                 struct type;
             };
 
-            template <typename Cpo>
+            template <typename Qry>
             struct snd_t_
             {
                 struct type;
             };
 
-            template <typename Cpo, typename R>
-            struct ops_t_<Cpo, R>::type
+            template <typename Qry, typename R>
+            struct ops_t_<Qry, R>::type
             {
                 R recv;
 
                 friend void tag_invoke(start_t, type& self) noexcept
                 {
-                    if constexpr (nothrow_callable<Cpo, env_of_t<R>>)
+                    if constexpr (nothrow_callable<Qry, env_of_t<R>>)
                     {
-                        auto value = Cpo{}(get_env(self.recv));
+                        auto value = Qry{}(get_env(self.recv));
                         set_value(std::move(self.recv), std::move(value));
                     }
                     else
                     {
                         try
                         {
-                            auto value = Cpo{}(get_env(self.recv));
+                            auto value = Qry{}(get_env(self.recv));
                             set_value(std::move(self.recv), std::move(value));
                         }
                         catch (...)
@@ -807,43 +721,36 @@ namespace clu::exec
                 }
             };
 
-            template <typename Cpo>
-            struct snd_t_<Cpo>::type
+            template <typename Qry>
+            struct snd_t_<Qry>::type
             {
+                using is_sender = void;
+
                 template <receiver R>
                 friend auto tag_invoke(connect_t, type, R&& recv)
                 {
-                    using ops_t = typename ops_t_<Cpo, std::remove_cvref_t<R>>::type;
+                    using ops_t = typename ops_t_<Qry, std::remove_cvref_t<R>>::type;
                     return ops_t{static_cast<R&&>(recv)};
                 }
 
                 template <typename Env>
+                    requires callable<Qry, Env>
                 friend auto tag_invoke(get_completion_signatures_t, type, Env&&)
                 {
-                    return dependent_completion_signatures<std::remove_cvref_t<Env>>{};
-                }
-
-                // clang-format off
-                template <typename Env> requires
-                    (!similar_to<Env, no_env>) &&
-                    callable<Cpo, Env>
-                friend auto tag_invoke(get_completion_signatures_t, type, Env&&)
-                {
-                    using res_t = call_result_t<Cpo, Env&&>;
-                    if constexpr (nothrow_callable<Cpo, Env&&>)
+                    using res_t = call_result_t<Qry, Env&&>;
+                    if constexpr (nothrow_callable<Qry, Env&&>)
                         return completion_signatures<set_value_t(res_t)>{};
                     else
                         return completion_signatures<set_value_t(res_t), set_error_t(std::exception_ptr)>{};
                 }
-                // clang-format on
             };
 
             struct read_t
             {
-                template <typename Cpo>
-                constexpr CLU_STATIC_CALL_OPERATOR(auto)(Cpo) noexcept
+                template <typename Qry>
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)(Qry) noexcept
                 {
-                    using snd_t = typename snd_t_<Cpo>::type;
+                    using snd_t = typename snd_t_<Qry>::type;
                     return snd_t{};
                 }
             };
@@ -879,6 +786,8 @@ namespace clu::exec
 
         struct just_void_snd_t
         {
+            using is_sender = void;
+
             // clang-format off
             constexpr friend completion_signatures<set_value_t()> tag_invoke(
                 get_completion_signatures_t, just_void_snd_t, auto&&) noexcept { return {}; }
@@ -941,7 +850,7 @@ namespace clu::exec
             {
                 static_assert(sender<tag_invoke_result_t<schedule_at_t, S, T>>, //
                     "return type of schedule_at should satisfy sender");
-                return tag_invoke(*this, static_cast<S&&>(schd), tp);
+                return without_await_thunk(tag_invoke(*this, static_cast<S&&>(schd), tp));
             }
 
             CLU_STATIC_CALL_OPERATOR(auto)(const time_point auto tp)
@@ -959,7 +868,7 @@ namespace clu::exec
             {
                 static_assert(sender<tag_invoke_result_t<schedule_after_t, S, D>>, //
                     "return type of schedule_after should satisfy sender");
-                return tag_invoke(*this, static_cast<S&&>(schd), dur);
+                return without_await_thunk(tag_invoke(*this, static_cast<S&&>(schd), dur));
             }
 
             CLU_STATIC_CALL_OPERATOR(auto)(const duration auto dur)
@@ -1005,12 +914,12 @@ namespace clu::exec
 
     namespace detail::coro_utils
     {
-        template <typename S, typename E = no_env>
+        template <typename S, typename E>
         using single_sender_value_type = std::decay_t<value_types_of_t<S, E, collapse_types_t, collapse_types_t>>;
 
         // clang-format off
-        template <typename S, typename E = no_env>
-        concept single_sender = sender<S, E> && requires { typename single_sender_value_type<S, E>; };
+        template <typename S, typename E>
+        concept single_sender = sender_in<S, E> && requires { typename single_sender_value_type<S, E>; };
         // clang-format on
 
         template <typename S, typename P>
@@ -1032,6 +941,8 @@ namespace clu::exec
         class recv_t_<S, P>::type
         {
         public:
+            using is_receiver = void;
+
             type(variant_t<S, P>* ptr, const coro::coroutine_handle<P> handle): result_(ptr), handle_(handle) {}
 
         private:
@@ -1066,13 +977,7 @@ namespace clu::exec
                 cont.resume();
             }
 
-            template <typename Cpo, typename... Args>
-                requires recv_qry::fwd_recv_query<Cpo> && callable<Cpo, const P&, Args...>
-            friend decltype(auto) tag_invoke(const Cpo cpo, const type& self, Args&&... args) //
-                noexcept(nothrow_callable<Cpo, const P&, Args...>)
-            {
-                return cpo(std::as_const(self.handle_.promise()), static_cast<Args&&>(args)...);
-            }
+            friend auto tag_invoke(get_env_t, const type& self) noexcept { return get_env(self.handle_.promise()); }
         };
 
         template <typename S, typename P>
@@ -1176,62 +1081,30 @@ namespace clu::exec
                 conditional_t<sends_stopped<Sndr, Env>, SetStopped, completion_signatures<>>>;
 
         template <typename...>
-        auto make_comp_sigs_impl(priority_tag<0>) -> dependent_completion_signatures<no_env>;
+        auto make_comp_sigs_impl(priority_tag<0>) -> void;
     } // namespace detail
 
-    template <sender Sndr, class Env = no_env,
-        detail::comp_sig::valid_completion_signatures<Env> AddlSigs = completion_signatures<>,
+    template <sender Sndr, class Env = empty_env,
+        detail::comp_sig::valid_completion_signatures AddlSigs = completion_signatures<>,
         template <typename...> typename SetValue = detail::default_set_value,
         template <typename> typename SetError = detail::default_set_error,
-        detail::comp_sig::valid_completion_signatures<Env> SetStopped = completion_signatures<set_stopped_t()>>
-        requires sender<Sndr, Env>
+        detail::comp_sig::valid_completion_signatures SetStopped = completion_signatures<set_stopped_t()>>
+        requires sender_in<Sndr, Env>
     using make_completion_signatures = decltype(detail::make_comp_sigs_impl< //
-        Sndr, Env, AddlSigs, meta::quote<SetValue>, meta::quote1<SetError>, SetStopped>(priority_tag<1>{}));
+        Sndr, Env, AddlSigs, meta::quote<SetValue>, meta::quote<SetError>, SetStopped>(priority_tag<1>{}));
+} // namespace clu::exec
 
-    namespace detail::gnrl_qry
+namespace clu
+{
+    namespace detail::qry
     {
-        struct get_scheduler_t
-        {
-            // clang-format off
-            template <typename R> requires
-                (!std::same_as<R, no_env>) &&
-                tag_invocable<get_scheduler_t, R>
-            CLU_STATIC_CALL_OPERATOR(auto)(const R& r) noexcept
-            // clang-format on
-            {
-                static_assert(nothrow_tag_invocable<get_scheduler_t, R>, "get_scheduler should be noexcept");
-                static_assert(scheduler<tag_invoke_result_t<get_scheduler_t, R>>,
-                    "return type of get_scheduler should satisfy scheduler");
-                return tag_invoke(*this, r);
-            }
-
-            constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return exec::read(*this); }
-        };
-
-        struct get_delegatee_scheduler_t
-        {
-            // clang-format off
-            template <typename R> requires
-                (!std::same_as<R, no_env>) &&
-                tag_invocable<get_delegatee_scheduler_t, R>
-            CLU_STATIC_CALL_OPERATOR(auto)(const R& r) noexcept
-            // clang-format on
-            {
-                static_assert(
-                    nothrow_tag_invocable<get_delegatee_scheduler_t, R>, "get_delegatee_scheduler should be noexcept");
-                static_assert(scheduler<tag_invoke_result_t<get_delegatee_scheduler_t, R>>,
-                    "return type of get_delegatee_scheduler should satisfy scheduler");
-                return tag_invoke(*this, r);
-            }
-
-            constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return exec::read(*this); }
-        };
-
         struct get_allocator_t
         {
+            CLU_FORWARDING_QUERY(get_allocator_t);
+
             template <typename R>
-                requires(!std::same_as<R, no_env>)
-            CLU_STATIC_CALL_OPERATOR(auto)(const R& r) noexcept
+            CLU_STATIC_CALL_OPERATOR(auto)
+            (const R& r) noexcept
             {
                 if constexpr (tag_invocable<get_allocator_t, R>)
                 {
@@ -1241,7 +1114,7 @@ namespace clu::exec
                     return tag_invoke(*this, r);
                 }
                 else
-                    return std::allocator<std::byte>{};
+                    return std::allocator<std::byte>{}; // Note: not to spec (should be ill-formed)
             }
 
             constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return exec::read(*this); }
@@ -1249,9 +1122,11 @@ namespace clu::exec
 
         struct get_stop_token_t
         {
+            CLU_FORWARDING_QUERY(get_stop_token_t);
+
             template <typename R>
-                requires(!std::same_as<R, no_env>)
-            CLU_STATIC_CALL_OPERATOR(auto)(const R& r) noexcept
+            CLU_STATIC_CALL_OPERATOR(auto)
+            (const R& r) noexcept
             {
                 if constexpr (tag_invocable<get_stop_token_t, R>)
                 {
@@ -1266,19 +1141,64 @@ namespace clu::exec
 
             constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return exec::read(*this); }
         };
-    } // namespace detail::gnrl_qry
+    } // namespace detail::qry
 
-    using detail::gnrl_qry::get_scheduler_t;
-    using detail::gnrl_qry::get_delegatee_scheduler_t;
-    using detail::gnrl_qry::get_allocator_t;
-    using detail::gnrl_qry::get_stop_token_t;
-    inline constexpr get_scheduler_t get_scheduler{};
-    inline constexpr get_delegatee_scheduler_t get_delegatee_scheduler{};
+    using detail::qry::get_allocator_t;
+    using detail::qry::get_stop_token_t;
     inline constexpr get_allocator_t get_allocator{};
     inline constexpr get_stop_token_t get_stop_token{};
 
     template <typename T>
+    using allocator_of_t = std::remove_cvref_t<call_result_t<get_allocator_t, T>>;
+    template <typename T>
     using stop_token_of_t = std::remove_cvref_t<call_result_t<get_stop_token_t, T>>;
+} // namespace clu
+
+namespace clu::exec
+{
+    namespace detail::gnrl_qry
+    {
+        struct get_scheduler_t
+        {
+            CLU_FORWARDING_QUERY(get_scheduler_t);
+
+            template <typename R>
+                requires tag_invocable<get_scheduler_t, R>
+            CLU_STATIC_CALL_OPERATOR(auto)(const R& r) noexcept
+            {
+                static_assert(nothrow_tag_invocable<get_scheduler_t, R>, "get_scheduler should be noexcept");
+                static_assert(scheduler<tag_invoke_result_t<get_scheduler_t, R>>,
+                    "return type of get_scheduler should satisfy scheduler");
+                return tag_invoke(*this, r);
+            }
+
+            constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return exec::read(*this); }
+        };
+
+        struct get_delegatee_scheduler_t
+        {
+            CLU_FORWARDING_QUERY(get_delegatee_scheduler_t);
+
+            template <typename R>
+                requires tag_invocable<get_delegatee_scheduler_t, R>
+            CLU_STATIC_CALL_OPERATOR(auto)(const R& r) noexcept
+            {
+                static_assert(
+                    nothrow_tag_invocable<get_delegatee_scheduler_t, R>, "get_delegatee_scheduler should be noexcept");
+                static_assert(scheduler<tag_invoke_result_t<get_delegatee_scheduler_t, R>>,
+                    "return type of get_delegatee_scheduler should satisfy scheduler");
+                return tag_invoke(*this, r);
+            }
+
+            constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return exec::read(*this); }
+        };
+
+    } // namespace detail::gnrl_qry
+
+    using detail::gnrl_qry::get_scheduler_t;
+    using detail::gnrl_qry::get_delegatee_scheduler_t;
+    inline constexpr get_scheduler_t get_scheduler{};
+    inline constexpr get_delegatee_scheduler_t get_delegatee_scheduler{};
 
     enum class forwarding_progress_guarantee
     {
@@ -1289,23 +1209,6 @@ namespace clu::exec
 
     namespace detail::schd_qry
     {
-        struct forwarding_scheduler_query_t
-        {
-            template <typename Cpo>
-            constexpr CLU_STATIC_CALL_OPERATOR(bool)(const Cpo cpo) noexcept
-            {
-                if constexpr (tag_invocable<forwarding_scheduler_query_t, Cpo>)
-                {
-                    static_assert(nothrow_tag_invocable<forwarding_scheduler_query_t, Cpo>,
-                        "forwarding_scheduler_query should be noexcept");
-                    static_assert(boolean_testable<tag_invoke_result_t<forwarding_scheduler_query_t, Cpo>>);
-                    return tag_invoke(*this, cpo) ? true : false;
-                }
-                else
-                    return true;
-            }
-        };
-
         struct get_forward_progress_guarantee_t
         {
             template <scheduler S>
@@ -1325,9 +1228,7 @@ namespace clu::exec
         };
     } // namespace detail::schd_qry
 
-    using detail::schd_qry::forwarding_scheduler_query_t;
     using detail::schd_qry::get_forward_progress_guarantee_t;
-    inline constexpr forwarding_scheduler_query_t forwarding_scheduler_query{};
     inline constexpr get_forward_progress_guarantee_t get_forward_progress_guarantee{};
 
     namespace detail::strm
@@ -1356,7 +1257,7 @@ namespace clu::exec
                     static_assert(nothrow_tag_invocable<cleanup_t, S&>, //
                         "cleanup(stream) must not throw");
                     using sender_t = tag_invoke_result_t<cleanup_t, S&>;
-                    static_assert(sender_of<sender_t, empty_env>, //
+                    static_assert(sender_of<sender_t, set_value_t()>, //
                         "cleanup(stream) must produce a sender that sends nothing "
                         "(like clu::task<void>)");
                     return tag_invoke(*this, stream);

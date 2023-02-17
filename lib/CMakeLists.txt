@@ -61,6 +61,7 @@ add_headers(HEADERS
     "piper.h"
     "polymorphic_value.h"
     "polymorphic_visit.h"
+    "query.h"
     "random.h"
     "scope.h"
     "semver.h"

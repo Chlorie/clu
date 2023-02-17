@@ -9,14 +9,18 @@ namespace clu::exec
     {
         namespace on
         {
+#define CLU_EXEC_FWD_ENV(member)                                                                                       \
+    friend decltype(auto) tag_invoke(get_env_t, const type& self)                                                      \
+        CLU_SINGLE_RETURN(clu::adapt_env(get_env(self.member)))
+
             template <typename Env, typename Schd>
-            using env_t = adapted_env_t<Env, get_scheduler_t, Schd>;
+            using env_t = adapted_env_t<Env, query_value<get_scheduler_t, Schd>>;
 
             template <typename Schd, typename Env>
             auto replace_schd(Env&& env, Schd schd) noexcept
             {
-                return exec::make_env(static_cast<Env&&>(env), //
-                    get_scheduler, static_cast<Schd&&>(schd));
+                return clu::adapt_env(static_cast<Env&&>(env), //
+                    query_value{get_scheduler, static_cast<Schd&&>(schd)});
             }
 
             template <typename S, typename R, typename Schd>
@@ -41,6 +45,8 @@ namespace clu::exec
             class recv_t_<S, R, Schd>::type : public receiver_adaptor<type>
             {
             public:
+                using is_receiver = void;
+
                 explicit type(ops_t<S, R, Schd>* ops) noexcept: ops_(ops) {}
 
                 const R& base() const& noexcept;
@@ -67,6 +73,8 @@ namespace clu::exec
             class recv2_t_<S, R, Schd>::type : public receiver_adaptor<type>
             {
             public:
+                using is_receiver = void;
+
                 explicit type(ops_t<S, R, Schd>* ops) noexcept: ops_(ops) {}
 
                 const R& base() const& noexcept;
@@ -142,7 +150,7 @@ namespace clu::exec
             template <typename S, typename R, typename Schd>
             recv2_env_t<S, R, Schd> recv2_t_<S, R, Schd>::type::get_env() const noexcept
             {
-                return on::replace_schd<Schd>(exec::get_env(base()), ops_->schd_);
+                return on::replace_schd<Schd>(get_env(base()), ops_->schd_);
             }
 
             template <typename Schd, typename Snd>
@@ -158,6 +166,8 @@ namespace clu::exec
             class snd_t_<Schd, Snd>::type
             {
             public:
+                using is_sender = void;
+
                 // clang-format off
                 template <typename Schd2, typename Snd2>
                 type(Schd2&& schd, Snd2&& snd):
@@ -174,6 +184,8 @@ namespace clu::exec
                     return ops_t<Snd, R, Schd>(
                         static_cast<Snd&&>(self.snd_), static_cast<R&&>(recv), static_cast<Schd&&>(self.schd_));
                 }
+
+                CLU_EXEC_FWD_ENV(snd_);
 
                 template <typename Env>
                 constexpr friend make_completion_signatures< //
@@ -214,7 +226,7 @@ namespace clu::exec
             template <typename S, typename R>
             using storage_variant_t = meta::unpack_invoke<
                 meta::transform_l<add_sig<completion_signatures_of_t<S, env_of_t<R>>, set_error_t(std::exception_ptr)>,
-                    meta::quote1<storage_tuple_t>>,
+                    meta::quote<storage_tuple_t>>,
                 meta::quote<nullable_variant>>;
 
             template <typename S, typename R, typename Schd>
@@ -248,6 +260,8 @@ namespace clu::exec
             class recv_t_<S, R, Schd>::type
             {
             public:
+                using is_receiver = void;
+
                 explicit type(ops_t<S, R, Schd>* ops) noexcept: ops_(ops) {}
 
             private:
@@ -281,16 +295,7 @@ namespace clu::exec
                     // clang-format on
                 }
 
-                // Pass through
-                friend auto tag_invoke(get_env_t, const type& self) noexcept { return exec::get_env(self.recv()); }
-
-                template <recv_qry::fwd_recv_query Tag, typename... Args>
-                    requires callable<Tag, const R&, Args...>
-                constexpr friend decltype(auto) tag_invoke(Tag cpo, const type& self, Args&&... args) noexcept(
-                    nothrow_callable<Tag, const R&, Args...>)
-                {
-                    return cpo(self.recv(), static_cast<Args&&>(args)...);
-                }
+                CLU_EXEC_FWD_ENV(recv());
             };
 
             template <typename S, typename R, typename Schd>
@@ -376,6 +381,8 @@ namespace clu::exec
             class snd_t_<S, Schd>::type
             {
             public:
+                using is_sender = void;
+
                 // clang-format off
                 template <typename S2, typename Schd2>
                 type(S2&& snd, Schd2&& schd):
@@ -396,28 +403,11 @@ namespace clu::exec
                 tag_invoke(get_completion_signatures_t, const type&, Env) noexcept { return {}; }
                 // clang-format on
 
-                template <snd_qry::fwd_snd_query Q, typename... Args>
-                    requires callable<Q, const S&, Args...>
-                constexpr friend auto tag_invoke(Q, const type& snd, Args&&... args) noexcept(
-                    nothrow_callable<Q, const S&, Args...>)
-                {
-                    return Q{}(snd.snd_, static_cast<Args&&>(args)...);
-                }
-
                 // Customize completion scheduler
-                constexpr friend const Schd& tag_invoke(
-                    get_completion_scheduler_t<set_value_t>, const type& snd) noexcept
-                {
-                    return snd.schd_;
-                }
-
-                constexpr friend const Schd& tag_invoke(
-                    get_completion_scheduler_t<set_stopped_t>, const type& snd) noexcept
-                {
-                    return snd.schd_;
-                }
-
-                constexpr friend void tag_invoke(get_completion_scheduler_t<set_error_t>, const type& snd) = delete;
+                friend auto tag_invoke(get_env_t, const type& self)
+                    CLU_SINGLE_RETURN(clu::adapt_env(get_env(self.snd_), //
+                        query_value{get_completion_scheduler<set_value_t>, self.schd_}, //
+                        query_value{get_completion_scheduler<set_stopped_t>, self.schd_}));
             };
 
             struct schedule_from_t
@@ -437,6 +427,8 @@ namespace clu::exec
                 }
             };
         } // namespace schd_from
+
+#undef CLU_EXEC_FWD_ENV
     } // namespace detail
 
     using detail::on::on_t;

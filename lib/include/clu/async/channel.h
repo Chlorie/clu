@@ -381,6 +381,8 @@ namespace clu::async
         class snd_snd_t_<T, P, Alloc>::type
         {
         public:
+            using is_sender = void;
+
             // clang-format off
             template <forwarding<T> U>
             explicit type(channel<T, P, Alloc>* chan, U&& value) noexcept:
@@ -415,6 +417,8 @@ namespace clu::async
         class recv_snd_t_<T, P, Alloc>::type
         {
         public:
+            using is_sender = void;
+
             explicit type(channel<T, P, Alloc>* chan) noexcept: chnl_(chan) {}
 
             using completion_signatures = exec::completion_signatures< //

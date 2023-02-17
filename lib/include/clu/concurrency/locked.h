@@ -14,7 +14,7 @@ namespace clu
     public:
         using unique_lock = std::unique_lock<L>;
         using shared_lock = meta::invoke<
-            conditional_t<shared_lockable<L>, meta::quote1<std::shared_lock>, meta::quote1<std::unique_lock>>, L>;
+            conditional_t<shared_lockable<L>, meta::quote<std::shared_lock>, meta::quote<std::unique_lock>>, L>;
 
         locked() noexcept(std::is_nothrow_default_constructible_v<T>) requires std::default_initializable<T>
         {

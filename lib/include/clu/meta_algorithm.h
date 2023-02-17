@@ -31,61 +31,45 @@ namespace clu::meta
             requires std::integral<typename T::value_type>
         struct add_one_t<T> : std::integral_constant<typename T::value_type, T::value + 1> {};
         // clang-format on
+
+        template <bool>
+        struct indirection
+        {
+            template <template <typename...> typename T, typename... As>
+            using type = T<As...>;
+        };
     } // namespace detail
 
     template <template <typename...> typename Fn>
     struct quote
     {
         template <typename... Ts>
-        using fn = Fn<Ts...>;
+        using fn = typename detail::indirection<dependent_false<Ts...>>::template type<Fn, Ts...>;
     };
 
-    template <template <typename> typename UnaryFn>
-    struct quote1
-    {
-        template <typename T>
-        using fn = UnaryFn<T>;
-    };
-
-    template <template <typename, typename> typename BinaryFn>
-    struct quote2
-    {
-        template <typename T, typename U>
-        using fn = BinaryFn<T, U>;
-    };
+    template <typename Fn>
+    using requote = quote<Fn::template fn>;
 
     // clang-format off
     template <typename T> using id = T;
-    using id_q = quote1<id>;
+    using id_q = quote<id>;
     template <typename T> using _t = typename T::type;
-    using _t_q = quote1<_t>;
+    using _t_q = quote<_t>;
     // clang-format on
 
     template <typename T>
     inline constexpr auto _v = T::value;
 
-    namespace detail
-    {
-        // clang-format off
-        template <typename Fn, typename... Ts>
-        struct invoke_impl : std::type_identity<typename Fn::template fn<Ts...>> {};
-        template <typename Fn, typename T>
-        struct invoke_impl<Fn, T> : std::type_identity<typename Fn::template fn<T>> {};
-        template <typename Fn, typename T, typename U>
-        struct invoke_impl<Fn, T, U> : std::type_identity<typename Fn::template fn<T, U>> {};
-        // clang-format on
-    } // namespace detail
-
     template <typename Fn, typename... Ts>
-    using invoke = typename detail::invoke_impl<Fn, Ts...>::type;
+    using invoke = typename Fn::template fn<Ts...>;
     template <typename Fn, typename... Ts>
-    inline constexpr auto invoke_v = detail::invoke_impl<Fn, Ts...>::type::value;
+    inline constexpr auto invoke_v = Fn::template fn<Ts...>::value;
 
     template <typename Pred, typename TrueTrans, typename FalseTrans = id_q>
     struct if_q
     {
-        template <typename T>
-        using fn = invoke<conditional_t<invoke<Pred, T>::value, TrueTrans, FalseTrans>, T>;
+        template <typename... Ts>
+        using fn = invoke<conditional_t<invoke<Pred, Ts...>::value, TrueTrans, FalseTrans>, Ts...>;
     };
 
     template <typename Fn, typename T>
@@ -96,24 +80,10 @@ namespace clu::meta
     };
 
     template <typename Fn, typename T>
-    struct bind_front_q1
-    {
-        template <typename U>
-        using fn = invoke<Fn, T, U>;
-    };
-
-    template <typename Fn, typename T>
     struct bind_back_q
     {
         template <typename... Us>
         using fn = invoke<Fn, Us..., T>;
-    };
-
-    template <typename Fn, typename T>
-    struct bind_back_q1
-    {
-        template <typename U>
-        using fn = invoke<Fn, U, T>;
     };
 
     template <typename Fn>
@@ -123,24 +93,17 @@ namespace clu::meta
         using fn = std::bool_constant<!invoke_v<Fn, Ts...>>;
     };
 
-    template <typename Fn>
-    struct negate_q1
-    {
-        template <typename T>
-        using fn = std::bool_constant<!invoke_v<Fn, T>>;
-    };
-
     template <typename... Fns>
     struct compose_q
     {
-        template <typename T>
-        using fn = T;
+        template <typename... Ts>
+        using fn = invoke<id_q, Ts...>;
     };
     template <typename First, typename... Rest>
     struct compose_q<First, Rest...>
     {
         template <typename... Ts>
-        using fn = typename compose_q<Rest...>::template fn<typename First::template fn<Ts...>>;
+        using fn = invoke<compose_q<Rest...>, invoke<First, Ts...>>;
     };
 
     namespace detail
@@ -155,13 +118,13 @@ namespace clu::meta
 
     template <typename List, typename Fn = quote<type_list>>
     using unpack_invoke = typename detail::unpack_invoke_impl<List, Fn::template fn>::type;
-    using unpack_invoke_q = quote2<unpack_invoke>;
+    using unpack_invoke_q = quote<unpack_invoke>;
     template <typename List, typename Fn = quote<type_list>>
     inline constexpr auto unpack_invoke_v = detail::unpack_invoke_impl<List, Fn::template fn>::type::value;
 
     // clang-format off
     template <template <typename...> typename Fn, typename... Args>
-    concept valid = requires { typename Fn<Args...>; };
+    concept valid = requires { typename invoke<quote<Fn>, Args...>; };
     template <template <typename> typename Fn, typename Arg>
     concept valid1 = requires { typename Fn<Arg>; };
     // clang-format on
@@ -390,7 +353,7 @@ namespace clu::meta
     using foldl_l = unpack_invoke<List, foldl_q<BinaryFn, Initial>>;
 
     template <typename... Lists>
-    using flatten = foldl_q<quote2<concatenate_l>, type_list<>>::fn<Lists...>;
+    using flatten = foldl_q<quote<concatenate_l>, type_list<>>::fn<Lists...>;
     using flatten_q = quote<flatten>;
     template <typename Lists>
     using flatten_l = unpack_invoke<Lists, flatten_q>;
@@ -473,13 +436,13 @@ namespace clu::meta
     inline constexpr bool is_unique_lv = unpack_invoke_v<List, is_unique_q>;
 
     template <typename... Ts>
-    using unique = foldl_q<quote2<push_back_unique_l>, type_list<>>::fn<Ts...>;
+    using unique = foldl_q<quote<push_back_unique_l>, type_list<>>::fn<Ts...>;
     using unique_q = quote<unique>;
     template <typename List>
     using unique_l = unpack_invoke<List, unique_q>;
 
     template <typename Set1, typename Set2>
-    using set_include_l = all_of_l<Set2, bind_front_q1<quote2<contains_l>, Set1>>;
+    using set_include_l = all_of_l<Set2, bind_front_q<quote<contains_l>, Set1>>;
     template <typename Set1, typename Set2>
     inline constexpr bool set_include_lv = set_include_l<Set1, Set2>::value;
 
@@ -491,9 +454,9 @@ namespace clu::meta
     template <typename Set1, typename Set2>
     using set_union_l = unique_l<concatenate_l<Set1, Set2>>;
     template <typename Set1, typename Set2>
-    using set_intersection_l = filter_l<Set2, bind_front_q1<quote2<contains_l>, Set1>>;
+    using set_intersection_l = filter_l<Set2, bind_front_q<quote<contains_l>, Set1>>;
     template <typename Set1, typename Set2>
-    using set_difference_l = filter_l<Set1, negate_q<bind_front_q1<quote2<contains_l>, Set2>>>;
+    using set_difference_l = filter_l<Set1, negate_q<bind_front_q<quote<contains_l>, Set2>>>;
     template <typename Set1, typename Set2>
     using set_symmetric_difference_l = concatenate_l<set_difference_l<Set1, Set2>, set_difference_l<Set2, Set1>>;
 } // namespace clu::meta

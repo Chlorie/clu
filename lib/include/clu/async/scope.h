@@ -25,8 +25,8 @@ namespace clu::async
             in_place_stop_token token_;
             CLU_NO_UNIQUE_ADDRESS A alloc_;
 
-            friend auto tag_invoke(exec::get_stop_token_t, const env& self) noexcept { return self.token_; }
-            friend A tag_invoke(exec::get_allocator_t, const env& self) noexcept { return self.alloc_; }
+            friend auto tag_invoke(get_stop_token_t, const env& self) noexcept { return self.token_; }
+            friend A tag_invoke(get_allocator_t, const env& self) noexcept { return self.alloc_; }
         };
 
         template <typename S, typename A>
@@ -35,6 +35,8 @@ namespace clu::async
         class recv_base
         {
         public:
+            using is_receiver = void;
+
             explicit recv_base(scope* scope) noexcept: scope_(scope) {}
 
         protected:
@@ -98,7 +100,7 @@ namespace clu::async
             friend auto tag_invoke(exec::set_value_t, type&& self) noexcept { self.finish(); }
             friend void tag_invoke(exec::set_error_t, type&&, auto&&) noexcept { std::terminate(); }
             friend auto tag_invoke(exec::set_stopped_t, type&& self) noexcept { self.finish(); }
-            friend auto tag_invoke(exec::get_env_t, const type& self) noexcept { return self.get_env(); }
+            friend auto tag_invoke(get_env_t, const type& self) noexcept { return self.get_env(); }
         };
 
         template <typename S, typename A>
@@ -145,7 +147,7 @@ namespace clu::async
             }
             friend void tag_invoke(exec::set_error_t, type&&, auto&&) noexcept { std::terminate(); }
             friend void tag_invoke(exec::set_stopped_t, type&& self) noexcept { self.set_stopped(); }
-            friend auto tag_invoke(exec::get_env_t, const type& self) noexcept { return self.get_env(); }
+            friend auto tag_invoke(get_env_t, const type& self) noexcept { return self.get_env(); }
 
             template <typename... Ts>
             void set_value(Ts&&... args) noexcept;
@@ -318,6 +320,8 @@ namespace clu::async
         class future_snd_t_<S, A>::type
         {
         public:
+            using is_sender = void;
+
             // clang-format off
             template <typename S2>
             type(S2&& snd, scope* scope, A&& alloc):

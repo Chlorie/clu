@@ -49,7 +49,7 @@ namespace clu
         friend detail::hp_cache;
         friend hazard_pointer;
         template <typename T, typename D>
-        friend class hazard_pointer_obj_base<T, D>;
+        friend class hazard_pointer_obj_base;
 
         static constexpr std::size_t min_threshold = 1000; // min amount of retired object before reclaiming
         static constexpr std::size_t multiplier = 2; // multiplier * hp_count_ is another min threshold

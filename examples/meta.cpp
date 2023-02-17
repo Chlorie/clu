@@ -17,8 +17,8 @@ template <typename T, typename U>
 using multiplies = size_t_<T::value * U::value>;
 template <std::size_t N>
 using factorial = meta::foldl_l< //
-    meta::transform_l<index_type_seq<N>, meta::quote1<plus_one>>, //
-    meta::quote2<multiplies>, size_t_<1>>;
+    meta::transform_l<index_type_seq<N>, meta::quote<plus_one>>, //
+    meta::quote<multiplies>, size_t_<1>>;
 
 static_assert(factorial<0>::value == 1);
 static_assert(factorial<10>::value == 3628800);
