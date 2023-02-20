@@ -63,17 +63,17 @@ namespace clu::exec
 
     namespace detail
     {
-        template <std::same_as<set_value_t> Cpo, template <typename...> typename Tuple = type_list, typename... Args>
-        type_tag_t<Tuple<Args...>> comp_sig_impl(Cpo (*)(Args...));
+        template <std::same_as<set_value_t> Cpo, typename... Args>
+        type_list<Args...> comp_sig_impl(Cpo (*)(Args...));
         template <std::same_as<set_error_t> Cpo, typename Err>
         Err comp_sig_impl(Cpo (*)(Err));
         template <std::same_as<set_stopped_t> Cpo>
         bool comp_sig_impl(Cpo (*)());
-        template <typename T = void, template <typename...> typename Tuple = type_list>
+        template <typename T = void>
         void comp_sig_impl(...);
 
         template <typename Cpo, template <typename...> typename Tuple, typename... Args>
-        type_tag_t<Tuple<Args...>> gather_sigs_impl(Cpo (*)(Args...));
+        type_tag_t<meta::invoke_unquoted<Tuple, Args...>> gather_sigs_impl(Cpo (*)(Args...));
         template <typename Cpo, template <typename...> typename Tuple>
         void gather_sigs_impl(...);
 
@@ -110,7 +110,7 @@ namespace clu::exec
                 if constexpr (tag_invocable<as_awaitable_t, A, env_promise&>)
                     return tag_invoke(as_awaitable, static_cast<A&&>(a), *this);
                 else
-                    static_cast<A&&>(a);
+                    return static_cast<A&&>(a);
             }
         };
     } // namespace detail::env_pms

@@ -40,15 +40,28 @@ namespace clu::meta
         };
     } // namespace detail
 
+    template <typename T>
+    inline constexpr auto _v = T::value;
+
+    template <template <typename...> typename Fn, typename... Ts>
+    using invoke_unquoted = typename detail::indirection<dependent_false<Ts...>>::template type<Fn, Ts...>;
+    template <template <typename...> typename Fn, typename... Ts>
+    inline constexpr auto invoke_unquoted_v = invoke_unquoted<Fn, Ts...>::value;
+    
     template <template <typename...> typename Fn>
     struct quote
     {
         template <typename... Ts>
-        using fn = typename detail::indirection<dependent_false<Ts...>>::template type<Fn, Ts...>;
+        using fn = invoke_unquoted<Fn, Ts...>;
     };
 
     template <typename Fn>
     using requote = quote<Fn::template fn>;
+
+    template <typename Fn, typename... Ts>
+    using invoke = typename Fn::template fn<Ts...>;
+    template <typename Fn, typename... Ts>
+    inline constexpr auto invoke_v = Fn::template fn<Ts...>::value;
 
     // clang-format off
     template <typename T> using id = T;
@@ -56,14 +69,6 @@ namespace clu::meta
     template <typename T> using _t = typename T::type;
     using _t_q = quote<_t>;
     // clang-format on
-
-    template <typename T>
-    inline constexpr auto _v = T::value;
-
-    template <typename Fn, typename... Ts>
-    using invoke = typename Fn::template fn<Ts...>;
-    template <typename Fn, typename... Ts>
-    inline constexpr auto invoke_v = Fn::template fn<Ts...>::value;
 
     template <typename Pred, typename TrueTrans, typename FalseTrans = id_q>
     struct if_q

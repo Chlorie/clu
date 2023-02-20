@@ -15,7 +15,7 @@ TEST_CASE("meta find", "[meta_algorithm]")
 
 TEST_CASE("meta filter", "[meta_algorithm]")
 {
-    STATIC_REQUIRE(std::is_same_v<filter_l<type_list<uint32_t, double, int32_t>, quote1<size_of_four>>,
+    STATIC_REQUIRE(std::is_same_v<filter_l<type_list<uint32_t, double, int32_t>, quote<size_of_four>>,
         type_list<uint32_t, int32_t>>);
 }
 

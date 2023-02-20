@@ -150,7 +150,7 @@ namespace clu::exec
             template <typename S, typename R, typename Schd>
             recv2_env_t<S, R, Schd> recv2_t_<S, R, Schd>::type::get_env() const noexcept
             {
-                return on::replace_schd<Schd>(get_env(base()), ops_->schd_);
+                return on::replace_schd<Schd>(clu::get_env(base()), ops_->schd_);
             }
 
             template <typename Schd, typename Snd>
