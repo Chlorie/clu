@@ -10,9 +10,7 @@ namespace chr = std::chrono;
 namespace ex = clu::exec;
 namespace ed = ex::detail;
 namespace async = clu::async;
-namespace meta = clu::meta;
 
 int main() // NOLINT
 {
-
 }

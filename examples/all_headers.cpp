@@ -1,5 +1,6 @@
 #include <clu/any_unique.h>
 #include <clu/assertion.h>
+#include <clu/box.h>
 #include <clu/buffer.h>
 #include <clu/c_str_view.h>
 #include <clu/chrono_utils.h>

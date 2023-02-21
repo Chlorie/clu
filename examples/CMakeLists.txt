@@ -8,6 +8,7 @@ function (add_example TGT)
 endfunction ()
 
 add_example(all_headers)
+add_example(box)
 add_example(buffer)
 add_example(coroutine)
 add_example(enumerate)

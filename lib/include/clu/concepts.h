@@ -68,6 +68,11 @@ namespace clu
     template <typename From, typename To>
     concept decays_to = std::same_as<std::decay_t<From>, To>;
 
+    template <typename Derived, typename Base>
+    concept proper_subclass_of =
+        std::derived_from<Derived, Base> &&
+        (!std::same_as<Derived, Base>);
+
     template <typename T>
     concept class_type = decays_to<T, T> && std::is_class_v<T>;
 

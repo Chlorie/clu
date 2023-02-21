@@ -23,6 +23,7 @@ add_headers(HEADERS
     "any_unique.h"
     "assertion.h"
     "async.h"
+    "box.h"
     "buffer.h"
     "c_str_view.h"
     "chrono_utils.h"
