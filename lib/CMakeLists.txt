@@ -51,6 +51,8 @@ add_headers(HEADERS
     "iterator.h"
     "macros.h"
     "manual_lifetime.h"
+    "memory.h"
+    "memory_resource.h"
     "meta_algorithm.h"
     "meta_list.h"
     "new.h"

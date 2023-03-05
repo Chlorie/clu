@@ -180,6 +180,7 @@ namespace clu
         template <typename T>
         concept allocator_base =
             std::copy_constructible<T> &&
+            std::is_nothrow_copy_constructible_v<T> &&
             std::equality_comparable<T> &&
             requires { typename T::value_type; } &&
             requires (
@@ -264,15 +265,18 @@ namespace clu
         // clang-format on
     } // namespace detail
 
-    // clang-format off
     template <typename T>
-    concept allocator =
-        detail::allocator_base<T> &&
-        detail::has_valid_allocator_types<T> &&
-        detail::has_valid_allocator_ptr_operations<T> &&
-        detail::has_valid_soccc<T> &&
+    concept allocator = //
+        detail::allocator_base<T> && //
+        detail::has_valid_allocator_types<T> && //
+        detail::has_valid_allocator_ptr_operations<T> && //
+        detail::has_valid_soccc<T> && //
         detail::has_valid_allocator_boolean_aliases<T>;
 
+    template <typename A, typename T>
+    concept allocator_for = allocator<A> && std::same_as<typename std::allocator_traits<A>::value_type, T>;
+
+    // clang-format off
     template <typename L>
     concept basic_lockable = requires(L m)
     {

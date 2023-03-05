@@ -47,7 +47,7 @@ namespace clu::meta
     using invoke_unquoted = typename detail::indirection<dependent_false<Ts...>>::template type<Fn, Ts...>;
     template <template <typename...> typename Fn, typename... Ts>
     inline constexpr auto invoke_unquoted_v = invoke_unquoted<Fn, Ts...>::value;
-    
+
     template <template <typename...> typename Fn>
     struct quote
     {
@@ -118,14 +118,36 @@ namespace clu::meta
         struct unpack_invoke_impl {};
         template <template <typename...> typename Templ, typename... Types, template <typename...> typename Fn>
         struct unpack_invoke_impl<Templ<Types...>, Fn> : std::type_identity<Fn<Types...>> {};
+        template <typename List, template <typename...> typename Fn>
+        struct unpack_invoke_values_impl {};
+        template <template <auto...> typename Templ, auto... values, template <typename...> typename Fn>
+        struct unpack_invoke_values_impl<Templ<values...>, Fn> : std::type_identity<Fn<value_tag_t<values>...>> {};
         // clang-format on
     } // namespace detail
 
     template <typename List, typename Fn = quote<type_list>>
     using unpack_invoke = typename detail::unpack_invoke_impl<List, Fn::template fn>::type;
     using unpack_invoke_q = quote<unpack_invoke>;
-    template <typename List, typename Fn = quote<type_list>>
+    template <typename List, typename Fn>
     inline constexpr auto unpack_invoke_v = detail::unpack_invoke_impl<List, Fn::template fn>::type::value;
+
+    template <typename List, typename Fn = quote<type_list>>
+    using unpack_invoke_values = typename detail::unpack_invoke_values_impl<List, Fn::template fn>::type;
+    using unpack_invoke_values_q = quote<unpack_invoke_values>;
+    template <typename List, typename Fn>
+    inline constexpr auto unpack_invoke_values_v =
+        detail::unpack_invoke_values_impl<List, Fn::template fn>::type::value;
+
+    template <auto... values>
+    using to_type_list = type_list<value_tag_t<values>...>;
+    template <typename List>
+    using to_type_list_l = unpack_invoke_values<List>;
+
+    template <typename... Types>
+    using to_value_list = value_list<Types::value...>;
+    using to_value_list_q = quote<to_value_list>;
+    template <typename List>
+    using to_value_list_l = unpack_invoke<List, quote<to_value_list>>;
 
     // clang-format off
     template <template <typename...> typename Fn, typename... Args>

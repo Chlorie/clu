@@ -1,6 +1,7 @@
 #include <iostream>
 #include <format>
 #include <clu/box.h>
+#include <clu/memory_resource.h>
 
 class verbose_memory_resource final : public std::pmr::memory_resource
 {
@@ -52,15 +53,13 @@ struct T final : S
 int main() // NOLINT
 {
     verbose_memory_resource vmr("vmr");
+    clu::non_propagating_polymorphic_allocator alloc(&vmr);
     std::cout << "ints_box:\n";
-    auto ints_box = clu::allocate_box<int[]>(&vmr, 16);
+    auto ints_box = clu::allocate_box<int[]>(alloc, 16);
+    ints_box.swap(ints_box);
     std::cout << "int_box:\n";
-    auto int_box = clu::allocate_box<int>(&vmr, 42);
+    auto int_box = clu::allocate_box<int>(alloc, 42);
     std::cout << "s_box:\n";
-    auto s_box = clu::allocate_box<S>(&vmr);
-    std::cout << "t_box:\n";
-    auto t_box = clu::allocate_box<T>(&vmr);
-    std::cout << "t_box -> s_box:\n";
-    s_box = std::move(t_box);
+    auto s_box = clu::allocate_box<T>(alloc);
     std::cout << "destructors:\n";
 }
