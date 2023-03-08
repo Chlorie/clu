@@ -32,47 +32,8 @@ namespace clu
             box_base() noexcept = default;
             explicit box_base(const Alloc& alloc) noexcept: alloc_(alloc) {}
             ~box_base() noexcept { self().reset(); }
-
-            box_base(box_base&& other) noexcept: alloc_(std::move(other.alloc_))
-            {
-                self().move_same_alloc(other.self());
-            }
-
-            box_base(Self&& other, Alloc alloc) //
-                noexcept(alloc_traits::is_always_equal::value)
-                requires alloc_traits::is_always_equal::value ||
-                (std::move_constructible<std::remove_extent_t<T>> && !polymorphically_destructed<T>)
-                : alloc_(std::move(alloc))
-            {
-                if constexpr (alloc_traits::is_always_equal::value)
-                    self().move_same_alloc(other.self());
-                else if (alloc_ == other.alloc_)
-                    self().move_same_alloc(other.self());
-                else
-                    self().move_different_alloc(other.self());
-            }
-
-            box_base& operator=(box_base&& other) noexcept(pocma)
-                requires pocma || std::move_constructible<T>
-            {
-                if (&other != this)
-                {
-                    self().reset();
-                    if constexpr (pocma)
-                    {
-                        alloc_ = std::move(other.alloc_);
-                        self().move_same_alloc(other.self());
-                    }
-                    else
-                    {
-                        if (alloc_ == other.alloc_)
-                            self().move_same_alloc(other.self());
-                        else
-                            self().move_different_alloc(other.self());
-                    }
-                }
-                return *this;
-            }
+            box_base(box_base&&) = default;
+            box_base& operator=(box_base&&) = default;
 
             [[nodiscard]] allocator_type get_allocator() const noexcept { return alloc_; }
 
@@ -95,6 +56,33 @@ namespace clu
         protected:
             T* ptr_ = nullptr;
             CLU_NO_UNIQUE_ADDRESS Alloc alloc_;
+
+            void move_ct_with_alloc(Self&& other) noexcept(alloc_traits::is_always_equal::value)
+            {
+                if constexpr (alloc_traits::is_always_equal::value)
+                    self().move_same_alloc(std::move(other.self())); // NOLINT(bugprone-branch-clone)
+                else if (alloc_ == other.alloc_)
+                    self().move_same_alloc(std::move(other.self()));
+                else
+                    self().move_different_alloc(std::move(other.self()));
+            }
+
+            void move_asgn(Self&& other) noexcept(pocma)
+            {
+                self().reset();
+                if constexpr (pocma)
+                {
+                    alloc_ = std::move(other.alloc_);
+                    self().move_same_alloc(std::move(other.self()));
+                }
+                else
+                {
+                    if (alloc_ == other.alloc_)
+                        self().move_same_alloc(std::move(other.self()));
+                    else
+                        self().move_different_alloc(std::move(other.self()));
+                }
+            }
 
         private:
             Self& self() noexcept { return *static_cast<Self*>(this); }
@@ -205,21 +193,21 @@ namespace clu
             template <typename D, typename DAlloc, typename DSelf>
             void move_from_derived(box_single_base<D, DAlloc, DSelf>& other) noexcept
             {
-                if constexpr (detail::polymorphically_destructed<D>)
-                {
-                    this->ptr_ = std::exchange(other.ptr_, nullptr);
-                    this->alloc_ = other.alloc_;
+                this->ptr_ = std::exchange(other.ptr_, nullptr);
+                if constexpr (polymorphically_destructed<D>)
                     this->dtor_ = other.dtor_;
-                }
                 else
-                {
-                    this->ptr_ = std::exchange(other.ptr_, nullptr);
-                    this->alloc_ = other.alloc_;
                     this->dtor_ = box_deleter_of<D, Alloc>;
-                }
             }
         };
+
+        template <typename D, typename T>
+        concept box_emplacable = std::same_as<D, T> || (polymorphically_destructed<T> && std::derived_from<D, T>);
     } // namespace detail
+
+    inline constexpr struct nullbox_t
+    {
+    } nullbox{};
 
     template <typename T, typename Alloc = std::allocator<std::remove_extent_t<T>>>
     class box : public detail::box_single_base<T, Alloc, box<T, Alloc>>
@@ -234,23 +222,29 @@ namespace clu
         static_assert(std::is_same_v<typename std::allocator_traits<Alloc>::pointer, T*>,
             "The allocator must not allocate a fancy pointer");
 
-        box(box&&) = default;
+        explicit(false) box(nullbox_t) noexcept {}
 
-        box(std::allocator_arg_t, const Alloc& alloc, box&& other)
+        box(std::allocator_arg_t, const Alloc& alloc, nullbox_t) noexcept: base(alloc) {}
+
+        box(box&& other) noexcept: base(other.alloc_) { this->move_same_alloc(std::move(other)); }
+
+        box(std::allocator_arg_t, const Alloc& alloc, box&& other) //
+            noexcept(base::alloc_traits::is_always_equal::value)
             requires base::alloc_traits::is_always_equal::value ||
             (std::move_constructible<T> && !detail::polymorphically_destructed<T>)
-            : base(std::move(other), alloc)
+            : base(alloc)
         {
+            this->move_ct_with_alloc(std::move(other));
         }
 
         template <typename... Args>
-            requires std::constructible_from<T, Args...>
+            requires std::constructible_from<T, Args...> && constructible_using_allocator_from<T, Alloc, Args...>
         explicit box(Args&&... args): box(std::allocator_arg, Alloc{}, static_cast<Args&&>(args)...)
         {
         }
 
         template <typename... Args>
-            requires std::constructible_from<T, Args...>
+            requires std::constructible_from<T, Args...> && constructible_using_allocator_from<T, Alloc, Args...>
         box(std::allocator_arg_t, const Alloc& alloc, Args&&... args): detail::box_single_base<T, Alloc, box>(alloc)
         {
             this->set_ptr(clu::new_object_using_allocator<T>(alloc, static_cast<Args&&>(args)...));
@@ -258,20 +252,55 @@ namespace clu
 
         template <typename D>
             requires detail::polymorphically_destructed<T> && proper_subclass_of<D, T>
-        explicit(false) box(box<D, rebound_allocator_t<Alloc, D>>&& other) noexcept
+        explicit(false) box(box<D, rebound_allocator_t<Alloc, D>>&& other) noexcept:
+            detail::box_single_base<T, Alloc, box>(other.get_allocator())
         {
             this->move_from_derived(other);
         }
 
-        box& operator=(box&&) = default;
+        box& operator=(box&& other) noexcept(base::pocma)
+            requires base::pocma || (std::move_constructible<T> && !detail::polymorphically_destructed<T>)
+        {
+            if (&other != this)
+                this->move_asgn(std::move(other));
+            return *this;
+        }
 
         template <typename D>
-            requires detail::polymorphically_destructed<T> && proper_subclass_of<D, T>
+            requires detail::polymorphically_destructed<T> && proper_subclass_of<D, T> && base::pocma
         box& operator=(box<D, rebound_allocator_t<Alloc, D>>&& other) noexcept
         {
             this->reset();
+            this->alloc_ = other.get_allocator();
             this->move_from_derived(other);
             return *this;
+        }
+
+        box& operator=(nullbox_t) noexcept
+        {
+            this->reset();
+            return *this;
+        }
+
+        template <detail::box_emplacable<T> D = T, typename... Args>
+            requires std::constructible_from<D, Args...> && constructible_using_allocator_from<D, Alloc, Args...>
+        T& emplace(Args&&... args)
+        {
+            if constexpr (detail::polymorphically_destructed<T>)
+            {
+                this->reset();
+                this->dtor_ = detail::box_deleter_of<D, Alloc>;
+                this->ptr_ = clu::new_object_using_allocator<D>(this->alloc_, static_cast<Args&&>(args)...);
+            }
+            else if (this->ptr_)
+            {
+                base::alloc_traits::destroy(this->alloc_, this->ptr_);
+                scope_fail guard{[&] { base::alloc_traits::deallocate(this->alloc_, this->ptr_, 1); }};
+                base::alloc_traits::construct(this->alloc_, this->ptr_, static_cast<Args&&>(args)...);
+            }
+            else
+                this->ptr_ = clu::new_object_using_allocator<D>(this->alloc_, static_cast<Args&&>(args)...);
+            return *this->ptr_;
         }
 
         friend void swap(box& lhs, box& rhs) noexcept { lhs.swap(rhs); }
@@ -293,6 +322,10 @@ namespace clu
         static_assert(std::is_same_v<typename std::allocator_traits<Alloc>::pointer, T*>,
             "The allocator must not allocate a fancy pointer");
 
+        explicit(false) box(nullbox_t) noexcept {}
+
+        box(std::allocator_arg_t, const Alloc& alloc, nullbox_t) noexcept: base(alloc) {}
+
         explicit box(const std::size_t size): box(std::allocator_arg, Alloc{}, size) {}
 
         box(std::allocator_arg_t, const Alloc& alloc, const std::size_t size): base(alloc), size_(size)
@@ -302,10 +335,27 @@ namespace clu
             clu::uninitialized_value_construct_n_using_allocator(this->ptr_, size, alloc);
         }
 
+        box(box&& other) noexcept: base(other.alloc_) { this->move_same_alloc(std::move(other)); }
+
         box(std::allocator_arg_t, const Alloc& alloc, box&& other)
             requires std::move_constructible<T>
-            : base(std::move(other), alloc)
+            : base(alloc)
         {
+            this->move_ct_with_alloc(std::move(other));
+        }
+
+        box& operator=(box&& other) noexcept(base::pocma)
+            requires base::pocma || std::move_constructible<T>
+        {
+            if (&other != this)
+                this->move_asgn(std::move(other));
+            return *this;
+        }
+
+        box& operator=(nullbox_t) noexcept
+        {
+            this->reset();
+            return *this;
         }
 
         friend void swap(box& lhs, box& rhs) noexcept { lhs.swap(rhs); }
@@ -323,6 +373,8 @@ namespace clu
 
         void reset() noexcept
         {
+            if (!this->ptr_)
+                return;
             clu::destroy_n_using_allocator(this->ptr_, size_, this->alloc_);
             base::alloc_traits::deallocate(this->alloc_, this->ptr_, size_);
             this->ptr_ = nullptr;
@@ -355,8 +407,18 @@ namespace clu
         }
     };
 
+    template <typename T, allocator Alloc>
+        requires(!std::is_bounded_array_v<T>)
+    auto allocate_box(const Alloc& alloc, nullbox_t) noexcept
+    {
+        using rebound = rebound_allocator_t<Alloc, std::remove_extent_t<T>>;
+        return box<T, rebound>(std::allocator_arg, rebound(alloc), nullbox);
+    }
+
     template <typename T, allocator Alloc, typename... Args>
-        requires(!std::is_array_v<T>) && std::constructible_from<T, Args...>
+        requires(!std::is_array_v<T>) && //
+        std::constructible_from<T, Args...> && //
+        constructible_using_allocator_from<T, Alloc, Args...>
     auto allocate_box(const Alloc& alloc, Args&&... args)
     {
         using rebound = rebound_allocator_t<Alloc, T>;
@@ -374,4 +436,10 @@ namespace clu
     template <typename T, allocator Alloc>
         requires std::is_bounded_array_v<T>
     void allocate_box(Alloc, auto&&...) = delete;
+
+    namespace pmr
+    {
+        template <typename T>
+        using box = box<T, std::pmr::polymorphic_allocator<std::remove_extent_t<T>>>;
+    }
 } // namespace clu

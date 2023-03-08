@@ -468,6 +468,28 @@ namespace clu::meta
     template <typename List>
     using unique_l = unpack_invoke<List, unique_q>;
 
+    namespace detail
+    {
+        template <typename Rhs>
+        struct push_back_for_each
+        {
+            template <typename LhsElem>
+            using fn = transform_l<Rhs, bind_front_q<quote<push_back_l>, LhsElem>>;
+        };
+
+        struct cart_prod_reducer
+        {
+            template <typename Lhs, typename Rhs>
+            using fn = flatten_l<transform_l<Lhs, requote<push_back_for_each<Rhs>>>>;
+        };
+    } // namespace detail
+
+    template <typename... Ts>
+    using cartesian_product = foldl_q<detail::cart_prod_reducer, type_list<type_list<>>>::fn<Ts...>;
+    using cartesian_product_q = quote<cartesian_product>;
+    template <typename List>
+    using cartesian_product_l = unpack_invoke<List, cartesian_product_q>;
+
     template <typename Set1, typename Set2>
     using set_include_l = all_of_l<Set2, bind_front_q<quote<contains_l>, Set1>>;
     template <typename Set1, typename Set2>
