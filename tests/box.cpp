@@ -1,7 +1,7 @@
 #include <vector>
 #include <array>
+#include <span>
 #include <algorithm>
-#include <numeric>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_template_test_macros.hpp>
 
@@ -33,16 +33,16 @@ auto&& get_value(auto&& v) noexcept
         return v;
 }
 
-void fill_iota(auto&& range)
+void fill_iota(auto&& span)
 {
-    for (std::size_t i = 0; i < range.size(); i++)
-        ::get_value(range[i]) = static_cast<int>(i);
+    for (std::size_t i = 0; i < span.size(); i++)
+        ::get_value(span[i]) = static_cast<int>(i);
 }
 
-bool is_iota(auto&& range)
+bool is_iota(auto&& span)
 {
-    for (std::size_t i = 0; i < range.size(); i++)
-        if (::get_value(range[i]) != i)
+    for (std::size_t i = 0; i < span.size(); i++)
+        if (::get_value(span[i]) != i)
             return false;
     return true;
 }
@@ -439,4 +439,35 @@ TEST_CASE("move assign polymorphic box", "[box]")
 
     CHECK(mem1.bytes_allocated() == 0);
     CHECK(mem2.bytes_allocated() == 0);
+}
+
+TEMPLATE_TEST_CASE("box to shared", "[box]", int, S, T)
+{
+    ct::tracking_memory_resource mem;
+    std::pmr::polymorphic_allocator alloc(&mem);
+    CHECK(mem.bytes_allocated() == 0);
+
+    SECTION("single")
+    {
+        auto box = clu::allocate_box<TestType>(alloc, 42);
+        CHECK(mem.bytes_allocated() == sizeof(TestType));
+        auto shared = std::move(box).to_shared();
+        box = clu::nullbox;
+        CHECK(::get_value(*shared) == 42);
+        CHECK(mem.bytes_allocated() > sizeof(TestType)); // Control block
+    }
+
+    SECTION("array")
+    {
+        constexpr auto size = 12;
+        auto box = clu::allocate_box<TestType[]>(alloc, size);
+        ::fill_iota(box);
+        CHECK(mem.bytes_allocated() == size * sizeof(TestType));
+        auto shared = std::move(box).to_shared();
+        box = clu::nullbox;
+        CHECK(::is_iota(std::span(shared.get(), size)));
+        CHECK(mem.bytes_allocated() > size * sizeof(TestType)); // Control block
+    }
+
+    CHECK(mem.bytes_allocated() == 0);
 }

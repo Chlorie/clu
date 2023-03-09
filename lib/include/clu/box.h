@@ -303,6 +303,28 @@ namespace clu
             return *this->ptr_;
         }
 
+        std::shared_ptr<T> to_shared() &&
+        {
+            if constexpr (detail::polymorphically_destructed<T>)
+            {
+                return std::shared_ptr<T>(
+                    std::exchange(this->ptr_, nullptr),
+                    [al = this->alloc_, d = this->dtor_](T* ptr) noexcept { d(ptr, al); }, //
+                    this->alloc_);
+            }
+            else
+            {
+                return std::shared_ptr<T>(
+                    std::exchange(this->ptr_, nullptr),
+                    [al = this->alloc_](T* ptr) mutable noexcept
+                    {
+                        base::alloc_traits::destroy(al, ptr);
+                        base::alloc_traits::deallocate(al, ptr, 1);
+                    },
+                    this->alloc_);
+            }
+        }
+
         friend void swap(box& lhs, box& rhs) noexcept { lhs.swap(rhs); }
     };
 
@@ -356,6 +378,18 @@ namespace clu
         {
             this->reset();
             return *this;
+        }
+
+        std::shared_ptr<T[]> to_shared() &&
+        {
+            return std::shared_ptr<T[]>(
+                std::exchange(this->ptr_, nullptr),
+                [al = this->alloc_, n = std::exchange(size_, 0)](T* ptr) mutable noexcept
+                {
+                    clu::destroy_n_using_allocator(ptr, n, al);
+                    base::alloc_traits::deallocate(al, ptr, n);
+                },
+                this->alloc_);
         }
 
         friend void swap(box& lhs, box& rhs) noexcept { lhs.swap(rhs); }
