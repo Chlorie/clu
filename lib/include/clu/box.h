@@ -126,7 +126,7 @@ namespace clu
         };
 
         template <typename T, typename Alloc>
-        inline constexpr auto box_deleter_of = +[](void* p, const Alloc& alloc) noexcept
+        inline constexpr auto box_deleter_of = +[](void* p, const rebound_allocator_t<Alloc, std::byte>& alloc) noexcept
         {
             using rebound = rebound_allocator_t<Alloc, T>;
             using traits = std::allocator_traits<rebound>;
@@ -170,7 +170,7 @@ namespace clu
             }
 
         protected:
-            void (*dtor_)(void* ptr, const Alloc& alloc) noexcept = nullptr;
+            void (*dtor_)(void* ptr, const rebound_allocator_t<Alloc, std::byte>& alloc) noexcept = nullptr;
 
             void set_ptr(T* ptr) noexcept
             {
