@@ -5,6 +5,7 @@
 
 #include "concepts.h"
 #include "meta_algorithm.h"
+#include "scope.h"
 
 namespace clu
 {

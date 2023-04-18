@@ -14,6 +14,7 @@ target_sources(all_tests PRIVATE
     "expected.cpp"
     "flags.cpp"
     "forest.cpp"
+    "function.cpp"
     "function_ref.cpp"
     "generator.cpp"
     "hash.cpp"

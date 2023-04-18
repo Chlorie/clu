@@ -96,7 +96,7 @@ namespace clu
         template <typename = int>
             requires std::is_const_v<T>
         constexpr explicit(false) basic_buffer(const mutable_type& buffer) noexcept:
-            ptr_(buffer.ptr()), size_(buffer.size())
+            ptr_(buffer.data()), size_(buffer.size())
         {
         }
 

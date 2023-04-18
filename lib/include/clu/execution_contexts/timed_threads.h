@@ -22,23 +22,22 @@ namespace clu
         // exec::schedule
 
         template <typename R>
-        struct ops_t_
-        {
-            class type;
-        };
-
-        template <typename R>
-        using ops_t = typename ops_t_<std::decay_t<R>>::type;
-
-        template <typename R>
-        class ops_t_<R>::type
+        class ops_t
         {
         public:
             // clang-format off
             template <forwarding<R> R2>
-            explicit type(R2&& recv) noexcept(std::is_nothrow_constructible_v<R, R2>):
+            explicit ops_t(R2&& recv) noexcept(std::is_nothrow_constructible_v<R, R2>):
                 recv_(static_cast<R2&&>(recv)) {}
             // clang-format on
+
+            void tag_invoke(exec::start_t) noexcept
+            {
+                // clang-format off
+                try { std::thread([&] { start(); }).detach(); }
+                catch (...) { exec::set_error(static_cast<R&&>(recv_), std::current_exception()); }
+                // clang-format on
+            }
 
         private:
             CLU_NO_UNIQUE_ADDRESS R recv_;
@@ -52,14 +51,6 @@ namespace clu
                 else
                     exec::set_value(static_cast<R&&>(recv_));
             }
-
-            friend void tag_invoke(exec::start_t, type& self) noexcept
-            {
-                // clang-format off
-                try { std::thread([&] { self.start(); }).detach(); }
-                catch (...) { exec::set_error(static_cast<R&&>(self.recv_), std::current_exception()); }
-                // clang-format on
-            }
         };
 
         struct schd_t;
@@ -70,12 +61,13 @@ namespace clu
 
             // clang-format off
             template <typename Env>
-            constexpr friend sigs<Env> tag_invoke(
-                exec::get_completion_signatures_t, snd_t, Env&&) noexcept { return {}; }
+            constexpr static sigs<Env> tag_invoke(
+                exec::get_completion_signatures_t, Env&&) noexcept { return {}; }
+            // clang-format on
 
             template <typename R>
-            friend auto tag_invoke(exec::connect_t, snd_t, R&& recv) //
-                CLU_SINGLE_RETURN(ops_t<R>(static_cast<R&&>(recv)));
+            static auto tag_invoke(exec::connect_t, R&& recv) //
+                CLU_SINGLE_RETURN(ops_t<std::decay_t<R>>(static_cast<R&&>(recv)));
         };
 
         // exec::schedule_at / exec::schedule_after
@@ -189,18 +181,18 @@ namespace clu
 
             explicit type(Fn fn) noexcept: fn_(fn) {}
 
-        private:
-            Fn fn_;
-
             // clang-format off
             template <typename Env>
-            constexpr friend sigs<Env> tag_invoke(
-                exec::get_completion_signatures_t, type, Env&&) noexcept { return {}; }
+            constexpr static sigs<Env> tag_invoke(
+                exec::get_completion_signatures_t, Env&&) noexcept { return {}; }
             // clang-format on
 
             template <typename R>
-            friend auto tag_invoke(exec::connect_t, const type self, R&& recv) //
-                CLU_SINGLE_RETURN(timed_ops_t<Fn, R>(self.fn_, static_cast<R&&>(recv)));
+            auto tag_invoke(exec::connect_t, R&& recv) const //
+                CLU_SINGLE_RETURN(timed_ops_t<Fn, R>(fn_, static_cast<R&&>(recv)));
+
+        private:
+            Fn fn_;
         };
 
         template <typename Fn>
@@ -214,15 +206,15 @@ namespace clu
         struct schd_t
         {
             constexpr friend bool operator==(schd_t, schd_t) noexcept { return true; }
-            constexpr friend snd_t tag_invoke(exec::schedule_t, schd_t) noexcept { return {}; }
-            friend auto tag_invoke(exec::now_t, schd_t) noexcept { return clock::now(); }
+            constexpr static snd_t tag_invoke(exec::schedule_t) noexcept { return {}; }
+            static auto tag_invoke(exec::now_t) noexcept { return clock::now(); }
 
-            friend auto tag_invoke(exec::schedule_at_t, schd_t, const clock::time_point tp) noexcept
+            static auto tag_invoke(exec::schedule_at_t, const clock::time_point tp) noexcept
             {
                 return make_timed_snd([=]() noexcept { return tp; });
             }
 
-            friend auto tag_invoke(exec::schedule_after_t, schd_t, const exec::duration auto dur) noexcept
+            static auto tag_invoke(exec::schedule_after_t, const exec::duration auto dur) noexcept
             {
                 return new_thrd_ctx::make_timed_snd([=]() noexcept { return clock::now() + dur; });
             }
@@ -408,8 +400,7 @@ namespace clu
                 ops_recv_base<R>(loop, static_cast<R2&&>(recv)) { this->deadline = tp; }
             // clang-format on
 
-        private:
-            friend void tag_invoke(exec::start_t, type& self) noexcept { self.start(); }
+            void tag_invoke(exec::start_t) noexcept { this->start(); }
         };
 
         template <typename R, typename Dur>
@@ -431,15 +422,15 @@ namespace clu
                 ops_recv_base<R>(loop, static_cast<R2&&>(recv)), dur_(dur) {}
             // clang-format on
 
+            void tag_invoke(exec::start_t) noexcept
+            {
+                this->deadline = std::chrono::time_point_cast<clock::duration>( //
+                    clock::now() + dur_); // Deadline decided at start time
+                this->start();
+            }
+
         private:
             Dur dur_;
-
-            friend void tag_invoke(exec::start_t, type& self) noexcept
-            {
-                self.deadline = std::chrono::time_point_cast<clock::duration>( //
-                    clock::now() + self.dur_); // Deadline decided at start time
-                self.start();
-            }
         };
 
         using sigs = exec::completion_signatures< //
@@ -459,6 +450,8 @@ namespace clu
         public:
             explicit schd_t(timer_loop* loop) noexcept: loop_(loop) {}
 
+            auto tag_invoke(exec::schedule_at_t, const time_point tp) const noexcept { return at_snd_t(loop_, tp); }
+
         private:
             class at_snd_t
             {
@@ -467,20 +460,17 @@ namespace clu
                 using completion_signatures = sigs;
                 explicit at_snd_t(timer_loop* loop, const time_point tp) noexcept: loop_(loop), tp_(tp) {}
 
+                auto tag_invoke(get_env_t) const noexcept { return comp_schd_env<schd_t>(schd_t(loop_)); }
+
+                template <typename R>
+                auto tag_invoke(exec::connect_t, R&& recv) &&
+                {
+                    return at_ops_t<R>(loop_, static_cast<R&&>(recv), tp_);
+                }
+
             private:
                 timer_loop* loop_;
                 time_point tp_;
-
-                friend auto tag_invoke(get_env_t, const at_snd_t& self) noexcept
-                {
-                    return comp_schd_env<schd_t>(schd_t(self.loop_));
-                }
-
-                template <typename R>
-                friend auto tag_invoke(exec::connect_t, at_snd_t&& self, R&& recv)
-                {
-                    return at_ops_t<R>(self.loop_, static_cast<R&&>(recv), self.tp_);
-                }
             };
 
             timer_loop* loop_ = nullptr;
@@ -488,10 +478,6 @@ namespace clu
             friend bool operator==(schd_t, schd_t) noexcept = default;
 
             friend after_snd_t<std::chrono::seconds> tag_invoke(exec::schedule_t, schd_t self) noexcept;
-            friend auto tag_invoke(exec::schedule_at_t, const schd_t self, const time_point tp) noexcept
-            {
-                return at_snd_t(self.loop_, tp);
-            }
             template <exec::duration Dur>
             friend after_snd_t<Dur> tag_invoke(exec::schedule_after_t, schd_t self, Dur dur) noexcept;
         };
@@ -504,20 +490,17 @@ namespace clu
             using completion_signatures = sigs;
             explicit type(timer_loop* loop, const Dur dur) noexcept: loop_(loop), dur_(dur) {}
 
+            auto tag_invoke(get_env_t) const noexcept { return comp_schd_env<schd_t>(schd_t(loop_)); }
+
+            template <typename R>
+            auto tag_invoke(exec::connect_t, R&& recv) &&
+            {
+                return after_ops_t<R, Dur>(loop_, static_cast<R&&>(recv), dur_);
+            }
+
         private:
             timer_loop* loop_;
             Dur dur_;
-
-            friend comp_schd_env<schd_t> tag_invoke(get_env_t, const type& self) noexcept
-            {
-                return comp_schd_env<schd_t>(schd_t(self.loop_));
-            }
-
-            template <typename R>
-            friend auto tag_invoke(exec::connect_t, type&& self, R&& recv)
-            {
-                return after_ops_t<R, Dur>(self.loop_, static_cast<R&&>(recv), self.dur_);
-            }
         };
 
         template <typename Dur>

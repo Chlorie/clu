@@ -6,6 +6,7 @@
 #include <type_traits>
 
 #include "concepts.h"
+#include "macros.h"
 
 namespace clu
 {
@@ -13,25 +14,37 @@ namespace clu
     {
         void tag_invoke();
 
-        // clang-format off
-        template <typename Tag, typename... Args>
-        concept tag_invocable =
-            requires(Tag&& tag, Args&&... args)
-            {
-                tag_invoke(static_cast<Tag&&>(tag), static_cast<Args&&>(args)...); 
+        template <typename Tag, typename Obj, typename... Args>
+        concept member_tag_invocable =
+            requires(Obj&& object, Tag&& tag, Args&&... args) {
+                static_cast<Obj&&>(object).tag_invoke(static_cast<Tag&&>(tag), static_cast<Args&&>(args)...);
             };
-        
         template <typename Tag, typename... Args>
-        concept nothrow_tag_invocable = 
-            tag_invocable<Tag, Args...> && 
-            requires(Tag&& tag, Args&&... args)
-            {
-                { tag_invoke(static_cast<Tag&&>(tag), static_cast<Args&&>(args)...) } noexcept;
-            };
-        // clang-format on
+        concept adl_tag_invocable =
+            requires(Tag&& tag, Args&&... args) { tag_invoke(static_cast<Tag&&>(tag), static_cast<Args&&>(args)...); };
 
         template <typename Tag, typename... Args>
-        using tag_invoke_result_t = decltype(tag_invoke(std::declval<Tag>(), std::declval<Args>()...));
+        concept tag_invocable = member_tag_invocable<Tag, Args...> || adl_tag_invocable<Tag, Args...>;
+
+        struct tag_invoke_t
+        {
+            template <typename Tag, typename Obj, typename... Args>
+                requires member_tag_invocable<Tag, Obj, Args...>
+            constexpr CLU_STATIC_CALL_OPERATOR(decltype(auto))(Tag&& tag, Obj&& object, Args&&... args)
+                CLU_SINGLE_RETURN(
+                    static_cast<Obj&&>(object).tag_invoke(static_cast<Tag&&>(tag), static_cast<Args&&>(args)...));
+
+            template <typename Tag, typename... Args>
+                requires adl_tag_invocable<Tag, Args...>
+            constexpr CLU_STATIC_CALL_OPERATOR(decltype(auto))(Tag&& tag, Args&&... args)
+                CLU_SINGLE_RETURN(tag_invoke(static_cast<Tag&&>(tag), static_cast<Args&&>(args)...));
+        };
+
+        template <typename Tag, typename... Args>
+        concept nothrow_tag_invocable = tag_invocable<Tag, Args...> && nothrow_callable<tag_invoke_t, Tag, Args...>;
+
+        template <typename Tag, typename... Args>
+        using tag_invoke_result_t = call_result_t<tag_invoke_t, Tag, Args...>;
 
         template <typename Tag, typename... Args>
         struct tag_invoke_result
@@ -41,18 +54,7 @@ namespace clu
             requires tag_invocable<Tag, Args...>
         struct tag_invoke_result<Tag, Args...>
         {
-            using type = tag_invoke_result_t<Tag, Args...>;
-        };
-
-        struct tag_invoke_t
-        {
-            template <typename Tag, typename... Args>
-                requires tag_invocable<Tag, Args...>
-            constexpr decltype(auto) operator()(Tag&& tag, Args&&... args) const
-                noexcept(nothrow_tag_invocable<Tag, Args...>)
-            {
-                return tag_invoke(static_cast<Tag&&>(tag), static_cast<Args&&>(args)...);
-            }
+            using type = call_result_t<tag_invoke_t, Tag, Args...>;
         };
     } // namespace detail::taginv
 

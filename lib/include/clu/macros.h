@@ -71,5 +71,4 @@
 
 #define CLU_DEFAULT_MOVE_MEMBERS(type)                                                                                 \
     type(type&&) = default;                                                                                            \
-    type& operator=(type&&) = default;                                                                                 \
-    ~type() noexcept = default
+    type& operator=(type&&) = default

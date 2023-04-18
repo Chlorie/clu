@@ -14,6 +14,7 @@
 #include <clu/fixed_string.h>
 #include <clu/flags.h>
 #include <clu/forest.h>
+#include <clu/function.h>
 #include <clu/function_ref.h>
 #include <clu/function_traits.h>
 #include <clu/generator.h>
