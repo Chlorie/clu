@@ -89,6 +89,18 @@ namespace clu
     template <typename T>
     using with_regular_void_t = conditional_t<std::is_void_v<T>, copy_cvref_t<T, unit>, T>;
 
+    template <typename T, typename... Us>
+    inline constexpr bool is_implicitly_constructible_from_v =
+        requires(Us && ... args, void (*fptr)(const T&)) { fptr({static_cast<Us&&>(args)...}); };
+
+    template <typename From, typename To>
+    inline constexpr bool is_implicitly_convertible_to_v =
+        requires(From && from, void (*fptr)(const To&)) { fptr(static_cast<From&&>(from)); };
+
+    template <typename From, typename To>
+    inline constexpr bool is_narrowing_conversion_v = //
+        is_implicitly_convertible_to_v<From, To> && !requires(From f) { To{f}; };
+
     // clang-format off
     template <typename... Ts> struct single_type {};
     template <typename T> struct single_type<T> : std::type_identity<T> {};

@@ -577,9 +577,10 @@ namespace clu::exec
             {
                 template <typename... Es>
                 using args_variant_for = nullable_variant<decayed_tuple<Es>...>;
+                template <typename E>
+                using connect_result_for_err_t = connect_result_t<std::invoke_result_t<F, decay_lref<E>>, R>;
                 template <typename... Es>
-                using ops_variant_for =
-                    nullable_ops_variant<connect_result_t<std::invoke_result_t<F, decay_lref<Es>>, R>...>;
+                using ops_variant_for = nullable_ops_variant<connect_result_for_err_t<Es>...>;
 
                 error_types_of_t<S, env_of_t<R>, args_variant_for> args;
                 error_types_of_t<S, env_of_t<R>, ops_variant_for> ops;

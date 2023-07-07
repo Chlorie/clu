@@ -76,19 +76,24 @@ namespace clu
 
 #undef CLU_FT_SPECIALIZE
 
+    namespace detail
+    {
+        template <typename C, typename F>
+        constexpr auto implicit_param_type_impl()
+        {
+            using base = function_traits<F>;
+            using added_const = std::conditional_t<base::is_const, const C, C>;
+            using added_cv = std::conditional_t<base::is_volatile, volatile added_const, added_const>;
+            using added_cvref = std::conditional_t<base::is_rvalue_ref, added_cv&&, added_cv&>;
+            return type_tag<added_cvref>;
+        }
+    } // namespace detail
+
     template <typename C, typename F>
         requires std::is_function_v<F>
     struct function_traits<F C::*> : function_traits<F>
     {
         using class_type = C;
-        using implicit_param_type = typename decltype(
-            []
-            {
-                using base = function_traits<F>;
-                using added_const = std::conditional_t<base::is_const, const C, C>;
-                using added_cv = std::conditional_t<base::is_volatile, volatile added_const, added_const>;
-                using added_cvref = std::conditional_t<base::is_rvalue_ref, added_cv&&, added_cv&>;
-                return type_tag<added_cvref>;
-            }())::type;
+        using implicit_param_type = typename decltype(detail::implicit_param_type_impl<C, F>())::type;
     };
 } // namespace clu

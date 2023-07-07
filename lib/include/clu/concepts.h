@@ -116,12 +116,9 @@ namespace clu
     template <typename T>
     concept trivially_copyable = std::copyable<T> && std::is_trivially_copyable_v<T>;
 
-    // clang-format off
     template <typename T, typename... Us>
     concept implicitly_constructible_from =
-        std::constructible_from<T, Us...> &&
-        requires(Us&&... args, void (*fptr)(const T&)) { fptr({static_cast<Us&&>(args)...}); };
-    // clang-format on
+        std::constructible_from<T, Us...> && is_implicitly_constructible_from_v<T, Us...>;
 
     namespace detail
     {

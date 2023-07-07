@@ -85,6 +85,16 @@ namespace clu::exec
                 std::index_sequence_for<Ts...>{}, static_cast<ops_t<R, Ts...>*>(nullptr), std::declval<Ts>()...));
 
             template <typename R, typename... Ts>
+            constexpr auto values_t_impl()
+            {
+                if constexpr (can_send_value<R, Ts...>)
+                    return type_tag<std::tuple<value_types_of_t<Ts, env_of_t<R>, //
+                        decayed_tuple, optional_of_single>...>>;
+                else
+                    return type_tag<std::monostate>;
+            }
+
+            template <typename R, typename... Ts>
             class ops_t_<R, Ts...>::type
             {
             public:
@@ -162,15 +172,7 @@ namespace clu::exec
                     void operator()() const noexcept { stop_src.request_stop(); }
                 };
 
-                using values_t = typename decltype(
-                    []
-                    {
-                        if constexpr (can_send_value<R, Ts...>)
-                            return type_tag<std::tuple<value_types_of_t<Ts, env_of_t<R>, //
-                                decayed_tuple, optional_of_single>...>>;
-                        else
-                            return type_tag<std::monostate>;
-                    }())::type;
+                using values_t = typename decltype(values_t_impl<R, Ts...>())::type;
                 using error_t = meta::unpack_invoke< //
                     meta::flatten<error_types_of_t<Ts, env_of_t<R>, type_list>..., type_list<std::exception_ptr>>, //
                     meta::quote<nullable_variant>>;
@@ -424,6 +426,18 @@ namespace clu::exec
                 std::index_sequence_for<Ts...>{}, static_cast<ops_t<R, Ts...>*>(nullptr), std::declval<Ts>()...));
 
             template <typename R, typename... Ts>
+            constexpr static auto values_t_impl()
+            {
+                if constexpr (can_send_value<R, Ts...>)
+                {
+                    using flattened = meta::flatten<value_types_of_t<Ts, env_of_t<R>, decayed_tuple, type_list>...>;
+                    return type_tag<meta::unpack_invoke<flattened, meta::quote<nullable_variant>>>;
+                }
+                else
+                    return type_tag<std::monostate>;
+            }
+
+            template <typename R, typename... Ts>
             class ops_t_<R, Ts...>::type
             {
             public:
@@ -496,18 +510,7 @@ namespace clu::exec
                     void operator()() const noexcept { stop_src.request_stop(); }
                 };
 
-                using values_t = typename decltype(
-                    []
-                    {
-                        if constexpr (can_send_value<R, Ts...>)
-                        {
-                            using flattened =
-                                meta::flatten<value_types_of_t<Ts, env_of_t<R>, decayed_tuple, type_list>...>;
-                            return type_tag<meta::unpack_invoke<flattened, meta::quote<nullable_variant>>>;
-                        }
-                        else
-                            return type_tag<std::monostate>;
-                    }())::type;
+                using values_t = typename decltype(values_t_impl<R, Ts...>())::type;
                 using error_t = meta::unpack_invoke< //
                     meta::flatten<error_types_of_t<Ts, env_of_t<R>, type_list>..., type_list<std::exception_ptr>>, //
                     meta::quote<nullable_variant>>;
