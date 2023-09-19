@@ -67,7 +67,9 @@ namespace clu
         template <typename U, typename... Args>
         void construct(U* ptr, Args&&... args)
         {
-            std::uninitialized_construct_using_allocator(ptr, *this, static_cast<Args&&>(args)...);
+            using rebound = polymorphic_allocator<U, Traits, Tag>;
+            rebound alloc = *this;            
+            std::uninitialized_construct_using_allocator(ptr, alloc, static_cast<Args&&>(args)...);
         }
 
         [[nodiscard]] void* allocate_bytes(
@@ -108,7 +110,9 @@ namespace clu
         template <typename U>
         void delete_object(U* ptr) noexcept
         {
-            std::allocator_traits<polymorphic_allocator<U, Traits, Tag>>::destroy(*this, ptr);
+            using rebound = polymorphic_allocator<U, Traits, Tag>;
+            rebound alloc = *this;
+            std::allocator_traits<rebound>::destroy(alloc, ptr);
             this->deallocate_object(ptr);
         }
 

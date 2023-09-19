@@ -2,6 +2,7 @@
 
 #include <unordered_set>
 #include <ranges>
+#include <algorithm>
 
 #include "intrusive_list.h"
 
