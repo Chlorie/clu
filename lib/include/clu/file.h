@@ -12,11 +12,13 @@ namespace clu
     /**
      * \brief Read contents of a binary file into a `std::vector`.
      * \tparam T Value type of the result vector. It must be trivially copyable.
+     * \tparam Alloc Allocator type used by the vector.
      * \param path The path to the file to read from.
+     * \param alloc The allocator for allocating the vector.
      */
-    template <typename T = std::byte>
-        requires trivially_copyable<T>
-    [[nodiscard]] std::vector<T> read_all_bytes(const std::filesystem::path& path)
+    template <trivially_copyable T = std::byte, allocator_for<T> Alloc = std::allocator<T>>
+    [[nodiscard]] std::vector<T, Alloc> read_all_bytes( //
+        const std::filesystem::path& path, const Alloc& alloc = Alloc{})
     {
         std::ifstream fs(path, std::ios::in | std::ios::binary);
         if (fs.fail())
@@ -24,7 +26,7 @@ namespace clu
         fs.ignore(std::numeric_limits<std::streamsize>::max());
         const auto size = static_cast<std::size_t>(fs.gcount());
         const auto vec_size = size / sizeof(T) + (size % sizeof(T) != 0);
-        std::vector<T> buffer(vec_size);
+        std::vector<T, Alloc> buffer(vec_size, alloc);
         fs.seekg(0, std::ios::beg);
         fs.read(reinterpret_cast<char*>(buffer.data()), size);
         if (fs.fail() && !fs.eof())
