@@ -227,7 +227,7 @@ namespace clu::exec
 
                 CLU_EXEC_FWD_ENV(recv_); // Pass through
 
-                template <recvs::completion_cpo Tag, typename... Args>
+                template <completion_cpo Tag, typename... Args>
                     requires(!std::same_as<Tag, Cpo>) && receiver_of<R, completion_signatures<Tag(Args...)>>
                 constexpr friend void tag_invoke(Tag cpo, type&& self, Args&&... args) noexcept
                 {
@@ -308,7 +308,7 @@ namespace clu::exec
                 template <forwarding<type> Self, typename R>
                     requires sender_to<copy_cvref_t<Self, S>, recv_t<R, Cpo, F>>
                 friend auto tag_invoke(connect_t, Self&& snd, R&& recv) noexcept(
-                    conn::nothrow_connectable<S, recv_t<R, Cpo, F>>)
+                    nothrow_connectable<S, recv_t<R, Cpo, F>>)
                 {
                     return exec::connect(static_cast<Self&&>(snd).snd_,
                         recv_t<R, Cpo, F>(static_cast<R&&>(recv), static_cast<Self&&>(snd).func_));
@@ -454,7 +454,7 @@ namespace clu::exec
                 {
                     return snd_t<S>(static_cast<S&&>(snd));
                 }
-                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(*this); }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(materialize_t{}); }
             };
         } // namespace mat
 
@@ -475,7 +475,7 @@ namespace clu::exec
             public:
                 using receiver_adaptor<type, R>::receiver_adaptor;
 
-                template <recvs::completion_cpo Cpo, typename... Ts>
+                template <completion_cpo Cpo, typename... Ts>
                 void set_value(Cpo, Ts&&... args) && noexcept
                 {
                     if constexpr ((std::is_nothrow_constructible_v<std::decay_t<Ts>, Ts> && ...))
@@ -550,7 +550,7 @@ namespace clu::exec
                 {
                     return snd_t<S>(static_cast<S&&>(snd));
                 }
-                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(*this); }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(dematerialize_t{}); }
             };
         } // namespace demat
 
@@ -656,7 +656,7 @@ namespace clu::exec
                 CLU_EXEC_FWD_ENV(recv()); // Pass through
 
                 // clang-format off
-                template <recvs::completion_cpo Tag, typename... Args> requires
+                template <completion_cpo Tag, typename... Args> requires
                     (!std::same_as<Tag, Cpo>) &&
                     receiver_of<R, completion_signatures<Tag(Args...)>>
                 constexpr friend void tag_invoke(Tag cpo, type&& self, Args&&... args) noexcept
@@ -673,7 +673,7 @@ namespace clu::exec
                 // clang-format off
                 template <typename R2, typename F2>
                 type(S&& snd, R2&& recv, F2&& func) noexcept(
-                    conn::nothrow_connectable<S, recv_t<S, R, Cpo, F>> &&
+                    nothrow_connectable<S, recv_t<S, R, Cpo, F>> &&
                     std::is_nothrow_constructible_v<R, R2> &&
                     std::is_nothrow_constructible_v<F, F2>):
                     recv_(static_cast<R2&&>(recv)), func_(static_cast<F2&&>(func)),
@@ -882,7 +882,7 @@ namespace clu::exec
                 CLU_STATIC_CALL_OPERATOR(auto)
                 (Q, T&& value)
                 {
-                    return clu::make_piper(clu::bind_back(*this, //
+                    return clu::make_piper(clu::bind_back(with_query_value_t{}, //
                         Q{}, static_cast<T&&>(value)));
                 }
             };
@@ -997,7 +997,7 @@ namespace clu::exec
                 {
                     return snd_t<S>(static_cast<S&&>(snd));
                 }
-                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(*this); }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(into_variant_t{}); }
             };
         } // namespace into_var
 

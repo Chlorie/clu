@@ -55,7 +55,7 @@ namespace clu::exec
                 recv_env_t<R> get_env() const;
                 friend auto tag_invoke(get_env_t, const type& self) noexcept { return self.get_env(); }
 
-                template <recvs::completion_cpo SetCpo, typename... Args>
+                template <completion_cpo SetCpo, typename... Args>
                 friend void tag_invoke(SetCpo, type&& self, Args&&... args) noexcept
                 {
                     self.ops_->template set<I>(SetCpo{}, static_cast<Args&&>(args)...);
@@ -339,7 +339,7 @@ namespace clu::exec
                     {
                         static_assert(sender<tag_invoke_result_t<when_all_t, Ts...>>,
                             "customization of when_all should return a sender");
-                        return clu::tag_invoke(*this, static_cast<Ts&&>(snds)...);
+                        return clu::tag_invoke(when_all_t{}, static_cast<Ts&&>(snds)...);
                     }
                     else
                     {
@@ -399,7 +399,7 @@ namespace clu::exec
                 recv_env_t<R> get_env() const;
                 friend auto tag_invoke(get_env_t, const type& self) noexcept { return self.get_env(); }
 
-                template <recvs::completion_cpo SetCpo, typename... Args>
+                template <completion_cpo SetCpo, typename... Args>
                 friend void tag_invoke(SetCpo, type&& self, Args&&... args) noexcept
                 {
                     self.ops_->template set<I>(SetCpo{}, static_cast<Args&&>(args)...);
@@ -665,7 +665,7 @@ namespace clu::exec
                     {
                         static_assert(sender<tag_invoke_result_t<when_any_t, Ts...>>,
                             "customization of when_any should return a sender");
-                        return clu::tag_invoke(*this, static_cast<Ts&&>(snds)...);
+                        return clu::tag_invoke(when_any_t{}, static_cast<Ts&&>(snds)...);
                     }
                     else
                     {
@@ -747,7 +747,7 @@ namespace clu::exec
                 recv_env_t<R> get_env() const;
                 friend auto tag_invoke(get_env_t, const type& self) { return self.get_env(); }
 
-                template <recvs::completion_cpo Cpo, typename... Ts>
+                template <completion_cpo Cpo, typename... Ts>
                 friend void tag_invoke(Cpo, type&& self, Ts&&... args) noexcept
                 {
                     self.ops_->set(Cpo{}, static_cast<Ts&&>(args)...);
@@ -770,7 +770,7 @@ namespace clu::exec
                 recv_env_t<R> get_env() const;
                 friend auto tag_invoke(get_env_t, const type& self) { return self.get_env(); }
 
-                template <recvs::completion_cpo Cpo, typename... Ts>
+                template <completion_cpo Cpo, typename... Ts>
                 friend void tag_invoke(Cpo, type&& self, Ts&&... args) noexcept
                 {
                     if constexpr (std::is_same_v<Cpo, set_error_t>)
@@ -938,7 +938,7 @@ namespace clu::exec
                 CLU_STATIC_CALL_OPERATOR(auto)
                 (T&& trigger)
                 {
-                    return clu::make_piper(clu::bind_back(*this, static_cast<T&&>(trigger)));
+                    return clu::make_piper(clu::bind_back(stop_when_t{}, static_cast<T&&>(trigger)));
                 }
             };
         } // namespace stop_when
@@ -1052,7 +1052,7 @@ namespace clu::exec
             private:
                 std::shared_ptr<shared_state<S, R, F>> shst_;
 
-                template <recvs::completion_cpo Cpo, typename... Ts>
+                template <completion_cpo Cpo, typename... Ts>
                 friend void tag_invoke(Cpo, type&& self, Ts&&... args) noexcept
                 {
                     // We're detached, forward the results to the cleanup factory
@@ -1176,17 +1176,17 @@ namespace clu::exec
                 CLU_STATIC_CALL_OPERATOR(auto)
                 (S&& snd)
                 {
-                    return (*this)(static_cast<S&&>(snd), noop_cleanup_factory);
+                    return detach_on_stop_request_t{}(static_cast<S&&>(snd), noop_cleanup_factory);
                 }
 
                 template <typename F>
                 CLU_STATIC_CALL_OPERATOR(auto)
                 (F&& cleanup_factory)
                 {
-                    return clu::make_piper(clu::bind_back(*this, cleanup_factory));
+                    return clu::make_piper(clu::bind_back(detach_on_stop_request_t{}, cleanup_factory));
                 }
 
-                CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return (*this)(noop_cleanup_factory); }
+                CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return detach_on_stop_request_t{}(noop_cleanup_factory); }
             };
         } // namespace dtch_cncl
 
