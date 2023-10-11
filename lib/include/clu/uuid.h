@@ -9,7 +9,7 @@
 
 namespace clu
 {
-    class uuid
+    class alignas(8) uuid
     {
     public:
         using value_type = std::array<std::byte, 16>;
