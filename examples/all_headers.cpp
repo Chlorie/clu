@@ -46,6 +46,8 @@
 #include <clu/piper.h>
 #include <clu/polymorphic_value.h>
 #include <clu/polymorphic_visit.h>
+#include <clu/quaternion.h>
+#include <clu/query.h>
 #include <clu/unique_coroutine_handle.h>
 #include <clu/uuid.h>
 #include <clu/vector_utils.h>
