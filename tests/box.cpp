@@ -415,7 +415,7 @@ TEMPLATE_LIST_TEST_CASE("move assign box", "[box]", types)
 TEST_CASE("move assign polymorphic box", "[box]")
 {
     ct::tracking_memory_resource mem1, mem2;
-    clu::propagating_polymorphic_allocator a1(&mem1), a2(&mem2);
+    clu::propagating_polymorphic_allocator<> a1(&mem1), a2(&mem2);
     CHECK(mem1.bytes_allocated() == 0);
     CHECK(mem2.bytes_allocated() == 0);
 

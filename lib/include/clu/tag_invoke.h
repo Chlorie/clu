@@ -15,10 +15,11 @@ namespace clu
         void tag_invoke();
 
         template <typename Tag, typename Obj, typename... Args>
-        concept member_tag_invocable =
-            requires(Obj&& object, Tag&& tag, Args&&... args) {
-                static_cast<Obj&&>(object).tag_invoke(static_cast<Tag&&>(tag), static_cast<Args&&>(args)...);
-            };
+        inline constexpr bool member_tag_invocable_impl = requires(Obj&& object, Tag&& tag, Args&&... args) {
+            static_cast<Obj&&>(object).tag_invoke(static_cast<Tag&&>(tag), static_cast<Args&&>(args)...);
+        };
+        template <typename Tag, typename... Args>
+        concept member_tag_invocable = member_tag_invocable_impl<Tag, Args...>;
         template <typename Tag, typename... Args>
         concept adl_tag_invocable =
             requires(Tag&& tag, Args&&... args) { tag_invoke(static_cast<Tag&&>(tag), static_cast<Args&&>(args)...); };

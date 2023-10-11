@@ -8,6 +8,7 @@
 #include <memory_resource>
 #include <atomic>
 #include <span>
+#include <utility>
 
 #include "../macros.h"
 #include "locked_ptr.h"

@@ -7,7 +7,11 @@ namespace clu
 {
     namespace detail
     {
+#if __cpp_lib_hardware_interference_size >= 201703L
         struct alignas(std::hardware_destructive_interference_size) hp_impl
+#else
+        struct alignas(64) hp_impl // Best effort guess
+#endif
         {
             hazard_pointer_domain* domain = nullptr;
             hp_impl* next = nullptr; // This is immutable once this hp is added into the domain's list
@@ -169,7 +173,7 @@ namespace clu
         while (std::cmp_greater_equal(count, //
             std::max(min_threshold, 2 * hp_count_.load(std::memory_order::acquire))))
             if (retired_count_.compare_exchange_weak(count, 0, //
-                    std::memory_order::acq_rel, std::memory_order::release))
+                    std::memory_order::acq_rel, std::memory_order::acquire))
             {
                 // Set next due time
                 due_.store(detail::ns_since_epoch(detail::now() + sync_period), //

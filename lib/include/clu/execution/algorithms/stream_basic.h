@@ -660,6 +660,7 @@ namespace clu::exec
                 CLU_STATIC_CALL_OPERATOR(auto)
                 (S&& strm)
                 {
+                    (void)strm;
                 }
                 CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(*this); }
             };

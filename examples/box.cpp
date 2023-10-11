@@ -53,7 +53,7 @@ struct T final : S
 int main() // NOLINT
 {
     verbose_memory_resource vmr("vmr");
-    clu::non_propagating_polymorphic_allocator alloc(&vmr);
+    clu::non_propagating_polymorphic_allocator<> alloc(&vmr);
     std::cout << "ints_box:\n";
     auto ints_box = clu::allocate_box<int[]>(alloc, 16);
     ints_box.swap(ints_box);

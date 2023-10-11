@@ -39,7 +39,7 @@
 #define CLU_HAS_STD_FORMAT 0
 #endif
 
-#if __cpp_static_call_operator >= 202207L
+#if __cplusplus >= 202302L && __cpp_static_call_operator >= 202207L
 #define CLU_STATIC_CALL_OPERATOR_ARGS_(...) (__VA_ARGS__)
 #define CLU_STATIC_CALL_OPERATOR(...) static __VA_ARGS__ operator() CLU_STATIC_CALL_OPERATOR_ARGS_
 #else

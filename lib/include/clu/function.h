@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include "concepts.h"
 #include "function_traits.h"
 #include "meta_algorithm.h"
@@ -439,7 +441,7 @@ namespace clu
 
             explicit operator bool() const noexcept { return obj_.get() != nullptr; }
 
-            void swap(Self& other) noexcept(alloc_nothrow_swap)
+            void swap(Self& other) noexcept(alloc_nothrow_swap<Alloc>)
             {
                 std::swap(fptr_, other.fptr_);
                 obj_.swap(other.obj_);

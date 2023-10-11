@@ -135,7 +135,7 @@ namespace clu
             constexpr static bool valid = !std::is_void_v<tuple_t<T, Alloc, Args...>>;
             template <typename T, typename Alloc, typename Tuple>
             constexpr static bool valid_tuple = !std::is_void_v<decltype(uses_alloc_ctargs::fn_with_tuple<T>(
-                std::declval<const Alloc&>(), std::declval<Tuple>()...))>;
+                std::declval<const Alloc&>(), std::declval<Tuple>()))>;
         };
     } // namespace detail
 

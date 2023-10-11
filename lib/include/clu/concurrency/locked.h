@@ -2,6 +2,7 @@
 
 #include <mutex>
 #include <shared_mutex>
+#include <functional>
 
 #include "../meta_algorithm.h"
 #include "../concepts.h"

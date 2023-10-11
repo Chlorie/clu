@@ -54,76 +54,77 @@ namespace clu
         constexpr unexpected& operator=(unexpected&&) noexcept = default;
 
         template <typename Err>
-            requires std::constructible_from<E, Err> &&(!std::same_as<std::remove_cvref_t<Err>, std::in_place_t>)&&(
-                !std::same_as<std::remove_cvref_t<Err>, unexpected>)constexpr explicit unexpected(Err&& error):
-                value_(static_cast<Err&>(error))
-            {
-            }
+            requires std::constructible_from<E, Err> && (!std::same_as<std::remove_cvref_t<Err>, std::in_place_t>) &&
+            (!std::same_as<std::remove_cvref_t<Err>, unexpected>)
+        constexpr explicit unexpected(Err&& error): value_(static_cast<Err&>(error))
+        {
+        }
 
-            template <typename... Args>
-                requires std::constructible_from<E, Args...>
-            constexpr explicit unexpected(std::in_place_t, Args&&... args): value_(static_cast<Args&&>(args)...) {}
+        template <typename... Args>
+            requires std::constructible_from<E, Args...>
+        constexpr explicit unexpected(std::in_place_t, Args&&... args): value_(static_cast<Args&&>(args)...)
+        {
+        }
 
-            template <typename U, typename... Args>
-                requires std::constructible_from < E, std::initializer_list<U>
-            &,
-                Args... >
-                constexpr explicit unexpected(std::in_place_t, std::initializer_list<U> ilist, Args&&... args):
-                value_(ilist, static_cast<Args&&>(args)...)
-            {
-            }
+        template <typename U, typename... Args>
+            requires std::constructible_from<E, std::initializer_list<U>&, Args...>
+        constexpr explicit unexpected(std::in_place_t, std::initializer_list<U> ilist, Args&&... args):
+            value_(ilist, static_cast<Args&&>(args)...)
+        {
+        }
 
-            template <typename Err>
-                requires std::constructible_from<E, const Err&> && detail::allow_conversion<E, unexpected<Err>>
-            constexpr explicit(!std::convertible_to<const Err&, E>) unexpected(const unexpected<Err>& other):
-                value_(other.value())
-            {
-            }
+        template <typename Err>
+            requires std::constructible_from<E, const Err&> && detail::allow_conversion<E, unexpected<Err>>
+        constexpr explicit(!std::convertible_to<const Err&, E>) unexpected(const unexpected<Err>& other):
+            value_(other.value())
+        {
+        }
 
-            template <typename Err>
-                requires std::constructible_from<E, Err> && detail::allow_conversion<E, unexpected<Err>>
-            constexpr explicit(!std::convertible_to<Err, E>) unexpected(unexpected<Err>&& other):
-                value_(std::move(other).value())
-            {
-            }
+        template <typename Err>
+            requires std::constructible_from<E, Err> && detail::allow_conversion<E, unexpected<Err>>
+        constexpr explicit(!std::convertible_to<Err, E>) unexpected(unexpected<Err>&& other):
+            value_(std::move(other).value())
+        {
+        }
 
-            template <typename Err = E>
-                requires std::assignable_from<E, const Err&>
-            constexpr unexpected& operator=(const unexpected<Err>& other)
-            {
-                value_ = other.value();
-                return *this;
-            }
+        template <typename Err = E>
+            requires std::assignable_from<E, const Err&>
+        constexpr unexpected& operator=(const unexpected<Err>& other)
+        {
+            value_ = other.value();
+            return *this;
+        }
 
-            template <typename Err = E>
-                requires std::assignable_from<E, Err>
-            constexpr unexpected& operator=(unexpected<Err>&& other)
-            {
-                value_ = std::move(other).value();
-                return *this;
-            }
+        template <typename Err = E>
+            requires std::assignable_from<E, Err>
+        constexpr unexpected& operator=(unexpected<Err>&& other)
+        {
+            value_ = std::move(other).value();
+            return *this;
+        }
 
-            constexpr E& value() & noexcept { return value_; }
-            constexpr const E& value() const& noexcept { return value_; }
-            constexpr E&& value() && noexcept { return std::move(value_); }
-            constexpr const E&& value() const&& noexcept { return std::move(value_); }
+        constexpr E& value() & noexcept { return value_; }
+        constexpr const E& value() const& noexcept { return value_; }
+        constexpr E&& value() && noexcept { return std::move(value_); }
+        constexpr const E&& value() const&& noexcept { return std::move(value_); }
 
-            constexpr void swap(unexpected& other) noexcept(std::is_nothrow_swappable_v<E>) requires std::swappable<E>
-            {
-                std::ranges::swap(value_, other.value_);
-            }
+        constexpr void swap(unexpected& other) noexcept(std::is_nothrow_swappable_v<E>)
+            requires std::swappable<E>
+        {
+            std::ranges::swap(value_, other.value_);
+        }
 
-            template <class E1, class E2>
-            [[nodiscard]] constexpr friend bool operator==(const unexpected<E1>& lhs, const unexpected<E2>& rhs)
-            {
-                return lhs.value() == rhs.value();
-            }
+        template <class E1, class E2>
+        [[nodiscard]] constexpr friend bool operator==(const unexpected<E1>& lhs, const unexpected<E2>& rhs)
+        {
+            return lhs.value() == rhs.value();
+        }
 
-            constexpr friend void swap(unexpected& lhs, unexpected& rhs) noexcept(
-                std::is_nothrow_swappable_v<E>) requires std::swappable<E>
-            {
-                lhs.swap(rhs);
-            }
+        constexpr friend void swap(unexpected& lhs, unexpected& rhs) noexcept(std::is_nothrow_swappable_v<E>)
+            requires std::swappable<E>
+        {
+            lhs.swap(rhs);
+        }
     };
 
     template <typename E>
@@ -144,7 +145,7 @@ namespace clu
 
     public:
         explicit bad_expected_access(E value): value_(std::move(value)) {}
-        const char* what() const override { return "bad expected access"; }
+        const char* what() const noexcept override { return "bad expected access"; }
         [[nodiscard]] E& error() & noexcept { return value_; }
         [[nodiscard]] const E& error() const& noexcept { return value_; }
         [[nodiscard]] E&& error() && noexcept { return std::move(value_); }
@@ -595,42 +596,73 @@ namespace clu
             return *this;
         }
 
-        [[nodiscard]] constexpr pointer operator->() noexcept requires(!std::is_void_v<T>)
+        [[nodiscard]] constexpr pointer operator->() noexcept
+            requires(!std::is_void_v<T>)
         {
             return std::addressof(data_.value_);
         }
-        [[nodiscard]] constexpr const_pointer operator->() const noexcept requires(!std::is_void_v<T>)
+        [[nodiscard]] constexpr const_pointer operator->() const noexcept
+            requires(!std::is_void_v<T>)
         {
             return std::addressof(data_.value_);
         }
 
-        [[nodiscard]] constexpr T& operator*() & noexcept requires std::is_object_v<T> { return data_.value_; }
-        [[nodiscard]] constexpr const T& operator*() const& noexcept requires std::is_object_v<T>
+        [[nodiscard]] constexpr T& operator*() & noexcept
+            requires std::is_object_v<T>
         {
             return data_.value_;
         }
-        [[nodiscard]] constexpr T&& operator*() && noexcept requires std::is_object_v<T>
+        [[nodiscard]] constexpr const T& operator*() const& noexcept
+            requires std::is_object_v<T>
+        {
+            return data_.value_;
+        }
+        [[nodiscard]] constexpr T&& operator*() && noexcept
+            requires std::is_object_v<T>
         {
             return std::move(data_.value_);
         }
-        [[nodiscard]] constexpr const T&& operator*() const&& noexcept requires std::is_object_v<T>
+        [[nodiscard]] constexpr const T&& operator*() const&& noexcept
+            requires std::is_object_v<T>
         {
             return std::move(data_.value_);
         }
-        [[nodiscard]] constexpr T operator*() const& noexcept requires std::is_lvalue_reference_v<T>
+        [[nodiscard]] constexpr T operator*() const& noexcept
+            requires std::is_lvalue_reference_v<T>
         {
             return *data_.value_;
         }
 
-        [[nodiscard]] constexpr T& value() & requires std::is_object_v<T> { return value_impl(*this); }
-        [[nodiscard]] constexpr const T& value() const& requires std::is_object_v<T> { return value_impl(*this); }
-        [[nodiscard]] constexpr T&& value() && requires std::is_object_v<T> { return value_impl(std::move(*this)); }
-        [[nodiscard]] constexpr const T&& value() const&& requires std::is_object_v<T>
+        [[nodiscard]] constexpr T& value() &
+                requires std::is_object_v<T>
+        {
+            return value_impl(*this);
+        }
+        [[nodiscard]] constexpr const T& value() const&
+            requires std::is_object_v<T>
+        {
+            return value_impl(*this);
+        }
+        [[nodiscard]] constexpr T&& value() &&
+                requires std::is_object_v<T>
         {
             return value_impl(std::move(*this));
         }
-        [[nodiscard]] constexpr T value() const& requires std::is_lvalue_reference_v<T> { return value_impl(*this); }
-        [[nodiscard]] constexpr T value() && requires std::is_lvalue_reference_v<T> { return value_impl(*this); }
+        [[nodiscard]] constexpr const T&& value() const&&
+            requires std::is_object_v<T>
+        {
+            return value_impl(std::move(*this));
+        }
+        [[nodiscard]] constexpr T value() const&
+            requires std::is_lvalue_reference_v<T>
+        {
+            return value_impl(*this);
+        }
+        [[nodiscard]] constexpr T value() &&
+                requires std::is_lvalue_reference_v<T>
+        {
+            return value_impl(*this);
+        }
 
         [[nodiscard]] constexpr E& error() & noexcept { return data_.err_.value(); }
         [[nodiscard]] constexpr const E& error() const& noexcept { return data_.err_.value(); }
@@ -640,7 +672,8 @@ namespace clu
         [[nodiscard]] constexpr explicit operator bool() const noexcept { return engaged_; }
         [[nodiscard]] constexpr bool has_value() const noexcept { return engaged_; }
 
-        constexpr void emplace() requires std::is_void_v<T>
+        constexpr void emplace()
+            requires std::is_void_v<T>
         {
             if (!engaged_)
             {
@@ -755,7 +788,10 @@ namespace clu
 
         template <typename U>
             requires std::equality_comparable_with<T, U>
-        [[nodiscard]] constexpr bool operator==(const U& other) const { return engaged_ ? **this == other : false; }
+        [[nodiscard]] constexpr bool operator==(const U& other) const
+        {
+            return engaged_ ? **this == other : false;
+        }
 
         template <typename G>
             requires std::equality_comparable_with<E, G>
@@ -766,8 +802,8 @@ namespace clu
 
         constexpr void swap(expected& other) noexcept(
             std::is_nothrow_move_constructible_v<T>&& std::is_nothrow_swappable_v<T>&&
-                std::is_nothrow_move_constructible_v<E>&& std::is_nothrow_swappable_v<E>) requires
-            std::swappable<real_value> && std::swappable<E> &&
+                std::is_nothrow_move_constructible_v<E>&& std::is_nothrow_swappable_v<E>)
+            requires std::swappable<real_value> && std::swappable<E> &&
             (std::is_nothrow_move_constructible_v<real_value> || std::is_nothrow_move_constructible_v<E>)
         {
             if (!engaged_)
@@ -806,8 +842,8 @@ namespace clu
             }
         }
 
-        constexpr friend void swap(expected& lhs, expected& rhs) noexcept(
-            noexcept(lhs.swap(rhs))) requires std::swappable<real_value> && std::swappable<E> &&
+        constexpr friend void swap(expected& lhs, expected& rhs) noexcept(noexcept(lhs.swap(rhs)))
+            requires std::swappable<real_value> && std::swappable<E> &&
             (std::is_nothrow_move_constructible_v<real_value> || std::is_nothrow_move_constructible_v<E>)
         {
             lhs.swap(rhs);

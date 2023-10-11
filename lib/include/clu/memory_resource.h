@@ -68,7 +68,7 @@ namespace clu
         void construct(U* ptr, Args&&... args)
         {
             using rebound = polymorphic_allocator<U, Traits, Tag>;
-            rebound alloc = *this;            
+            rebound alloc = *this;
             std::uninitialized_construct_using_allocator(ptr, alloc, static_cast<Args&&>(args)...);
         }
 

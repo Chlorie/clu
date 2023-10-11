@@ -1,6 +1,7 @@
 #pragma once
 
 #include <compare>
+#include <thread>
 
 #include "concepts.h"
 #include "concurrency.h"

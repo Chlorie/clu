@@ -1,6 +1,7 @@
 #include "clu/file.h"
 
 #include <algorithm>
+#include <sstream>
 
 namespace clu
 {
