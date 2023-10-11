@@ -71,13 +71,14 @@ namespace clu::exec
                         static_assert(std::is_void_v<tag_invoke_result_t<start_detached_t,
                                           call_result_t<get_completion_scheduler_t<set_value_t>, S>, S>>,
                             "start_detached should return void");
-                        clu::tag_invoke(*this, exec::get_completion_scheduler<set_value_t>(snd), static_cast<S&&>(snd));
+                        clu::tag_invoke(start_detached_t{}, //
+                            exec::get_completion_scheduler<set_value_t>(snd), static_cast<S&&>(snd));
                     }
                     else if constexpr (tag_invocable<start_detached_t, S>)
                     {
                         static_assert(std::is_void_v<tag_invoke_result_t<start_detached_t, S>>,
                             "start_detached should return void");
-                        clu::tag_invoke(*this, static_cast<S&&>(snd));
+                        clu::tag_invoke(start_detached_t{}, static_cast<S&&>(snd));
                     }
                     else
                         exec::start((new ops_wrapper<S>(static_cast<S&&>(snd)))->op_state);
@@ -97,7 +98,7 @@ namespace clu::exec
                     {
                         static_assert(std::is_void_v<tag_invoke_result_t<execute_t, S, F>>,
                             "customization for execute should return void");
-                        clu::tag_invoke(*this, static_cast<S&&>(schd), static_cast<F&&>(func));
+                        clu::tag_invoke(execute_t{}, static_cast<S&&>(schd), static_cast<F&&>(func));
                     }
                     else
                     {
@@ -211,14 +212,14 @@ namespace clu::this_thread
                 {
                     using comp_schd = exec::detail::completion_scheduler_of_t<exec::set_value_t, S>;
                     static_assert(std::is_same_v<tag_invoke_result_t<sync_wait_t, comp_schd, S>, result_t<S>>);
-                    return clu::tag_invoke(*this,
+                    return clu::tag_invoke(sync_wait_t{},
                         exec::get_completion_scheduler<exec::set_value_t>(static_cast<S&&>(snd)),
                         static_cast<S&&>(snd));
                 }
                 else if constexpr (tag_invocable<sync_wait_t, S>)
                 {
                     static_assert(std::is_same_v<tag_invoke_result_t<sync_wait_t, S>, result_t<S>>);
-                    return clu::tag_invoke(*this, static_cast<S&&>(snd));
+                    return clu::tag_invoke(sync_wait_t{}, static_cast<S&&>(snd));
                 }
                 else
                 {
@@ -258,14 +259,14 @@ namespace clu::this_thread
                     using comp_schd = exec::detail::completion_scheduler_of_t<exec::set_value_t, S>;
                     static_assert(
                         std::is_same_v<tag_invoke_result_t<sync_wait_with_variant_t, comp_schd, S>, var_result_t<S>>);
-                    return clu::tag_invoke(*this,
+                    return clu::tag_invoke(sync_wait_with_variant_t{},
                         exec::get_completion_scheduler<exec::set_value_t>(static_cast<S&&>(snd)),
                         static_cast<S&&>(snd));
                 }
                 else if constexpr (tag_invocable<sync_wait_with_variant_t, S>)
                 {
                     static_assert(std::is_same_v<tag_invoke_result_t<sync_wait_with_variant_t, S>, var_result_t<S>>);
-                    return clu::tag_invoke(*this, static_cast<S&&>(snd));
+                    return clu::tag_invoke(sync_wait_with_variant_t{}, static_cast<S&&>(snd));
                 }
                 else
                     return sync_wait_t{}(exec::into_variant(static_cast<S&&>(snd)));
