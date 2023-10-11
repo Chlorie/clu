@@ -49,3 +49,11 @@ add_custom_command(
     COMMENT "Generating documentation with Sphinx")
 
 add_custom_target(Sphinx ALL DEPENDS ${SPHINX_INDEX_FILE})
+
+# Don't build the docs when building "all"
+set_target_properties(
+    Doxygen Sphinx
+PROPERTIES
+    EXCLUDE_FROM_ALL TRUE
+    FOLDER docs
+)

@@ -6,6 +6,7 @@ project(clu LANGUAGES CXX VERSION 0.43.3)
 
 set(CMAKE_SCRIPTS "${PROJECT_SOURCE_DIR}/cmake")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SCRIPTS})
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 add_library(project_options INTERFACE)
 include("cmake/ProjectSettings.cmake")
@@ -28,6 +29,7 @@ endif ()
 
 option(CLU_BUILD_TESTS "Build unit tests" OFF)
 if (CLU_BUILD_TESTS)
+    enable_testing()
     list(APPEND VCPKG_MANIFEST_FEATURES "unit-test")
     add_subdirectory(tests)
 endif ()
