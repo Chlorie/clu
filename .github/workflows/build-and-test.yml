@@ -21,8 +21,8 @@ jobs:
             c_compiler: cl
             cpp_compiler: cl
           - os: ubuntu-latest
-            c_compiler: gcc-13
-            cpp_compiler: g++-13
+            c_compiler: /home/linuxbrew/.linuxbrew/bin/gcc-13
+            cpp_compiler: /home/linuxbrew/.linuxbrew/bin/g++-13
 
     steps:
     - uses: actions/checkout@v3
