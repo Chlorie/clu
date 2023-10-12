@@ -1,0 +1,46 @@
+name: Build and test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  job:
+    name: "${{ github.workflow }}: ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+        build_preset: [debug, release]
+        include:
+          - os: windows-latest
+            c_compiler: cl
+            cpp_compiler: cl
+          - os: ubuntu-latest
+            c_compiler: gcc-13
+            cpp_compiler: g++-13
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install gcc-13 on Ubuntu
+      if: contains(matrix.os, 'ubuntu')
+      shell: bash
+      run: |
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+        brew install gcc@13
+
+    - uses: lukka/get-cmake@latest
+
+    - uses: lukka/run-vcpkg@v11
+
+    - uses: lukka/run-cmake@v10
+      with: 
+        configurePreset: default
+        configurePresetAdditionalArgs: "['-DCMAKE_C_COMPILER=${{ matrix.c_compiler }}', '-DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}']"
+        buildPreset: ${{ matrix.build_preset }}
+        testPreset: default
