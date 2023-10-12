@@ -1,4 +1,4 @@
-name: Build and test
+name: "Ubuntu"
 
 on:
   push:
@@ -8,18 +8,15 @@ on:
 
 jobs:
   job:
-    name: "${{ github.workflow }}: ${{ matrix.os }}-${{ matrix.build_preset }}"
+    name: "${{ matrix.os }}-${{ matrix.build_preset }}"
     runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest]
+        os: [ubuntu-latest]
         build_preset: [debug, release]
         include:
-          - os: windows-latest
-            c_compiler: cl
-            cpp_compiler: cl
           - os: ubuntu-latest
             c_compiler: /home/linuxbrew/.linuxbrew/bin/gcc-13
             cpp_compiler: /home/linuxbrew/.linuxbrew/bin/g++-13
@@ -28,7 +25,6 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Install gcc-13 on Ubuntu
-      if: contains(matrix.os, 'ubuntu')
       shell: bash
       run: |
         eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"

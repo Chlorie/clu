@@ -1,0 +1,38 @@
+name: "Windows"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  job:
+    name: "${{ matrix.os }}-${{ matrix.build_preset }}"
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest]
+        build_preset: [debug, release]
+        include:
+          - os: windows-latest
+            c_compiler: cl
+            cpp_compiler: cl
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - uses: lukka/get-cmake@latest
+
+    - uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: 662dbb50e63af15baa2909b7eac5b1b87e86a0aa
+
+    - uses: lukka/run-cmake@v10
+      with: 
+        configurePreset: default
+        configurePresetAdditionalArgs: "['-DCMAKE_C_COMPILER=${{ matrix.c_compiler }}', '-DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}', '-DCLU_BUILD_EXAMPLES=OFF']"
+        buildPreset: ${{ matrix.build_preset }}
+        testPreset: default
