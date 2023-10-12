@@ -43,6 +43,6 @@ jobs:
     - uses: lukka/run-cmake@v10
       with: 
         configurePreset: default
-        configurePresetAdditionalArgs: "['-DCMAKE_C_COMPILER=${{ matrix.c_compiler }}', '-DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}']"
+        configurePresetAdditionalArgs: "['-DCMAKE_C_COMPILER=${{ matrix.c_compiler }}', '-DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}', '-DCLU_BUILD_EXAMPLES=OFF']"
         buildPreset: ${{ matrix.build_preset }}
         testPreset: default
