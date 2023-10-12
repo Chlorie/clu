@@ -1,10 +1,6 @@
 #include "clu/semver.h"
 #include "clu/parse.h"
 
-#if !CLU_HAS_STD_FORMAT
-#include <sstream>
-#endif
-
 namespace clu
 {
     void semver::error(const char* desc) noexcept(false) { throw std::runtime_error(desc); }
@@ -166,18 +162,10 @@ namespace clu
 
     std::string semver::to_string() const
     {
-#if CLU_HAS_STD_FORMAT
         return std::format("{}.{}.{}{}{}{}{}", //
             major_, minor_, patch_, //
             prerelease_.empty() ? "" : "-", prerelease_, //
             build_.empty() ? "" : "+", build_);
-#else
-        std::ostringstream oss;
-        oss << major_ << '.' << minor_ << '.' << patch_ //
-            << (prerelease_.empty() ? "" : "-") << prerelease_ //
-            << (build_.empty() ? "" : "+") << build_;
-        return std::move(oss).str();
-#endif
     }
 
     std::weak_ordering operator<=>(const semver& lhs, const semver& rhs)

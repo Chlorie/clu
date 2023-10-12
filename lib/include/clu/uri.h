@@ -3,8 +3,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
-
-#include "macros.h"
+#include <format>
 
 namespace clu
 {
@@ -119,10 +118,6 @@ struct std::hash<clu::uri>
     std::size_t operator()(const clu::uri& uri) const noexcept { return std::hash<std::string>{}(uri.full()); }
 };
 
-#if CLU_HAS_STD_FORMAT
-
-#include <format>
-
 template <>
 struct std::formatter<clu::uri> : std::formatter<std::string_view>
 {
@@ -132,5 +127,3 @@ struct std::formatter<clu::uri> : std::formatter<std::string_view>
         return std::formatter<std::string_view>::format(uri.full(), ctx);
     }
 };
-
-#endif

@@ -71,36 +71,16 @@ namespace clu
 
     std::string uuid::to_string() const
     {
-#if CLU_HAS_STD_FORMAT
         const auto u8byte = [&](const size_t i) { return static_cast<uint8_t>(data_[i]); };
-        // clang-format off
-        return std::format(
+        return std::format( //
             "{:02x}{:02x}{:02x}{:02x}-"
             "{:02x}{:02x}-{:02x}{:02x}-"
             "{:02x}{:02x}-{:02x}{:02x}"
             "{:02x}{:02x}{:02x}{:02x}",
-            u8byte(0), u8byte(1), u8byte(2), u8byte(3),
-            u8byte(4), u8byte(5), u8byte(6), u8byte(7),
-            u8byte(8), u8byte(9), u8byte(10), u8byte(11),
+            u8byte(0), u8byte(1), u8byte(2), u8byte(3), //
+            u8byte(4), u8byte(5), u8byte(6), u8byte(7), //
+            u8byte(8), u8byte(9), u8byte(10), u8byte(11), //
             u8byte(12), u8byte(13), u8byte(14), u8byte(15));
-        // clang-format on
-#else
-        static constexpr const char* hex = "0123456789abcdef";
-        std::string res = "00000000-0000-0000-0000-000000000000";
-        const auto place_byte = [&](const size_t byte_idx, const size_t str_idx) noexcept
-        {
-            const u8 value = static_cast<u8>(data_[byte_idx]);
-            res[str_idx] = hex[value / 16];
-            res[str_idx + 1] = hex[value % 16];
-        };
-        // clang-format off
-        place_byte(0, 0);   place_byte(1, 2);   place_byte(2, 4);   place_byte(3, 6);
-        place_byte(4, 9);   place_byte(5, 11);  place_byte(6, 14);  place_byte(7, 16);
-        place_byte(8, 19);  place_byte(9, 21);  place_byte(10, 24); place_byte(11, 26);
-        place_byte(12, 28); place_byte(13, 30); place_byte(14, 32); place_byte(15, 34);
-        // clang-format on
-        return res;
-#endif
     }
 
     void uuid::parse_error() { throw std::runtime_error("invalid uuid string"); }

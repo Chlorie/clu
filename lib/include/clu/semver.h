@@ -3,8 +3,8 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <format>
 
-#include "macros.h"
 #include "integer_literals.h"
 
 namespace clu
@@ -81,10 +81,6 @@ namespace clu
     } // namespace literals
 } // namespace clu
 
-#if CLU_HAS_STD_FORMAT
-
-#include <format>
-
 template <>
 struct std::formatter<clu::semver> : std::formatter<std::string_view>
 {
@@ -94,5 +90,3 @@ struct std::formatter<clu::semver> : std::formatter<std::string_view>
         return std::formatter<std::string_view>::format(ver.to_string(), ctx);
     }
 };
-
-#endif

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <format>
 
 #include "hash.h"
 #include "random.h"
@@ -133,10 +134,6 @@ struct std::hash<clu::uuid>
     }
 };
 
-#if CLU_HAS_STD_FORMAT
-
-#include <format>
-
 template <>
 struct std::formatter<clu::uuid> : std::formatter<std::string_view>
 {
@@ -146,5 +143,3 @@ struct std::formatter<clu::uuid> : std::formatter<std::string_view>
         return std::formatter<std::string_view>::format(ver.to_string(), ctx);
     }
 };
-
-#endif

@@ -92,10 +92,9 @@ function (target_set_options TGT ACCESS)
         endif ()
     elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         target_compile_options(${TGT} ${ACCESS}
-            -stdlib=libc++
             -fcolor-diagnostics
             -ftemplate-backtrace-limit=32)
-        target_link_options(${TGT} ${ACCESS} -stdlib=libc++)
+        target_link_options(${TGT} ${ACCESS})
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         target_compile_options(${TGT}
             ${ACCESS}

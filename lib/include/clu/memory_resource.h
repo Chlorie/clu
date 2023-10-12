@@ -52,10 +52,13 @@ namespace clu
         polymorphic_allocator(const polymorphic_allocator&) noexcept = default;
 
         template <typename U>
+            requires(!std::same_as<T, U>)
         explicit(false) polymorphic_allocator(const polymorphic_allocator<U, Traits, Tag>& other) noexcept: //
             res_(other.resource())
         {
         }
+
+        polymorphic_allocator& operator=(const polymorphic_allocator&) noexcept = default;
 
         [[nodiscard]] T* allocate(const std::size_t n)
         {
