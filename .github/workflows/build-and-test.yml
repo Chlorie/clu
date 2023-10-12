@@ -8,7 +8,7 @@ on:
 
 jobs:
   job:
-    name: "${{ github.workflow }}: ${{ matrix.os }}"
+    name: "${{ github.workflow }}: ${{ matrix.os }}-${{ matrix.build_preset }}"
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -37,6 +37,8 @@ jobs:
     - uses: lukka/get-cmake@latest
 
     - uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: 662dbb50e63af15baa2909b7eac5b1b87e86a0aa
 
     - uses: lukka/run-cmake@v10
       with: 
