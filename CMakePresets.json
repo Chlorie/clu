@@ -1,49 +1,54 @@
 {
-    "version": 2,
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 20,
+        "patch": 0
+    },
     "configurePresets": [
         {
-            "name": "windows-x64-debug",
-            "displayName": "Windows x64 Debug",
-            "description": "Target Windows with the Visual Studio development environment.",
-            "generator": "Ninja",
+            "name": "default",
+            "displayName": "Default Config",
+            "description": "Default build with Ninja Multi-Config generator",
+            "generator": "Ninja Multi-Config",
             "binaryDir": "${sourceDir}/out/build/${presetName}",
-            "architecture": {
-                "value": "x64",
-                "strategy": "external"
-            },
             "cacheVariables": {
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "True",
-                "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
                 "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-                "_VCPKG_INSTALLED_DIR": "${sourceDir}/out/vcpkg_installed",
-                "VCPKG_MANIFEST_FEATURES": "testing",
-                "CLU_BUILD_TESTS": "True",
-                "CLU_BUILD_DOCS": "True"
-            },
-            "vendor": { "microsoft.com/VisualStudioSettings/CMake/1.0": { "hostOS": [ "Windows" ] } }
+                "VCPKG_MANIFEST_FEATURES": "build-tests",
+                "CLU_BUILD_TESTS": "True"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "debug",
+            "displayName": "Debug Build",
+            "description": "Unoptimized debug build",
+            "configurePreset": "default",
+            "configuration": "Debug"
         },
         {
-            "name": "windows-x64-release",
-            "displayName": "Windows x64 Release",
-            "description": "Target Windows with the Visual Studio development environment.",
-            "generator": "Ninja",
-            "binaryDir": "${sourceDir}/out/build/${presetName}",
-            "architecture": {
-                "value": "x64",
-                "strategy": "external"
-            },
-            "cacheVariables": {
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "True",
-                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
-                "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-                "_VCPKG_INSTALLED_DIR": "${sourceDir}/out/vcpkg_installed",
-                "VCPKG_MANIFEST_FEATURES": "testing",
-                "CLU_BUILD_TESTS": "True",
-                "CLU_BUILD_DOCS": "True"
-            },
-            "vendor": { "microsoft.com/VisualStudioSettings/CMake/1.0": { "hostOS": [ "Windows" ] } }
+            "name": "optimized",
+            "displayName": "Optimized Build",
+            "description": "Release build with debug symbols",
+            "configurePreset": "default",
+            "configuration": "RelWithDebInfo"
+        },
+        {
+            "name": "release",
+            "displayName": "Release Build",
+            "description": "Release build with no debug support",
+            "configurePreset": "default",
+            "configuration": "Release"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "default",
+            "displayName": "Default Test",
+            "configurePreset": "default"
         }
     ]
 }
