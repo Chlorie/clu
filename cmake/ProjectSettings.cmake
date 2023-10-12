@@ -32,7 +32,7 @@ function (target_set_warnings TGT ACCESS)
     set(CLANG_WARNINGS
         -Wall -Wextra -Wpedantic
         -Wnon-virtual-dtor -Wold-style-cast -Wcast-align
-        -Wunused -Woverloaded-virtual -Wconversion -Wno-sign-conversion -Wno-sign-compare
+        -Wunused -Woverloaded-virtual -Wconversion
         -Wnull-dereference -Wdouble-promotion -Wformat=2)
 
     if (WARNINGS_AS_ERRORS)

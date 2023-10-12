@@ -42,7 +42,7 @@ void fill_iota(auto&& span)
 bool is_iota(auto&& span)
 {
     for (std::size_t i = 0; i < span.size(); i++)
-        if (::get_value(span[i]) != i)
+        if (std::cmp_not_equal(::get_value(span[i]), i))
             return false;
     return true;
 }
