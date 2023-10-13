@@ -18,6 +18,10 @@ Documentation (largely unfinished): <https://clutils.readthedocs.io/en/latest/>
 - STL-style containers and algorithms that complements the standard library, e.g. `static_vector`, `forest`, `indices`, find and replace for `string`s.
 - Rough implementations of proposals for future versions of C++, for instance `tag_invoke`, `generator`, `expected`, and the senders/receivers framework for asynchronous programming.
 
+## How to use
+
+You can manually compile this library using CMake yourself, or you can use the [`vcpkg`](https://github.com/microsoft/vcpkg) package manager. This library isn't included (as it shouldn't be) in the main `vcpkg` repository, and it resides in [my own personal registry](https://github.com/Chlorie/vcpkg-ports). Follow the link for more details.
+
 ## Supported Configurations
 
 Please use the latest compiler appropriate for your system. If you want to try this library out with older compilers, you are on your own.
