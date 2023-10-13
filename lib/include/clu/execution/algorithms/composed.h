@@ -62,7 +62,7 @@ namespace clu::exec
         template <std::invocable F>
             requires sender<std::invoke_result_t<F>>
         constexpr CLU_STATIC_CALL_OPERATOR(auto)(F&& func)
-        { //
+        {
             return just() | let_value(static_cast<F&&>(func));
         }
     };

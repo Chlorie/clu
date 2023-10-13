@@ -21,12 +21,12 @@ namespace clu
         {
             template <typename T>
             CLU_STATIC_CALL_OPERATOR(decltype(auto))
-            (T&& value) noexcept
+            (const T& value) noexcept
             {
                 if constexpr (tag_invocable<get_env_t, T>)
                 {
                     static_assert(queryable<tag_invoke_result_t<get_env_t, T>>, "get_env should return a queryable");
-                    return tag_invoke(get_env_t{}, static_cast<T&&>(value));
+                    return tag_invoke(get_env_t{}, value);
                 }
                 else
                     return empty_env{};
@@ -84,12 +84,12 @@ namespace clu
         };
 
         template <typename Env, typename... Qs>
-        class adapted_env_t
+        class adapted_env_t_
         {
         public:
             // clang-format off
             template <typename Env2, typename... Ts>
-            constexpr explicit adapted_env_t(Env2&& base, Ts&&... values) noexcept(
+            constexpr explicit adapted_env_t_(Env2&& base, Ts&&... values) noexcept(
                 std::is_nothrow_constructible_v<Env, Env2> &&
                 (std::is_nothrow_constructible_v<typename Qs::type, Ts> && ...)):
                 base_(static_cast<Env2&&>(base)),
@@ -120,12 +120,15 @@ namespace clu
         };
 
         template <typename Env, typename... Qs>
+        using adapted_env_t = adapted_env_t_<std::decay_t<Env>, Qs...>;
+
+        template <typename Env, typename... Qs>
             requires(template_of<Qs, query_value> && ...)
         constexpr auto adapt_env(Env&& base, Qs&&... qvs) noexcept(
-            std::is_nothrow_constructible_v<adapted_env_t<std::remove_cvref_t<Env>, Qs...>, //
+            std::is_nothrow_constructible_v<adapted_env_t<Env, Qs...>, //
                 Env, typename std::remove_cvref_t<Qs>::type...>)
         {
-            return adapted_env_t<std::remove_cvref_t<Env>, Qs...>( //
+            return adapted_env_t<Env, Qs...>( //
                 static_cast<Env&&>(base), static_cast<Qs&&>(qvs).value...);
         }
     } // namespace detail
