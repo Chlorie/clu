@@ -294,7 +294,7 @@ namespace clu
 
         constexpr void process_block(const block32_t& block) noexcept
         {
-            // SHA1 operations
+            // MD5 operations
             const auto r0 = [&](const size_t i, uint32_t& a, const uint32_t b, const uint32_t c, const uint32_t d)
             {
                 const uint32_t f = (b & c) | (~b & d);
@@ -380,7 +380,7 @@ namespace clu
         template <hasher H>
         constexpr void constexpr_update_hash_sv(H& h, std::string_view sv) noexcept
         {
-            if (std::is_constant_evaluated())
+            CLU_IF_CONSTEVAL
             {
                 constexpr size_t chunk_size = 512;
                 std::array<std::byte, chunk_size> byte_array{};

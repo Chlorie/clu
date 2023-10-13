@@ -41,6 +41,12 @@
 #define CLU_STATIC_CALL_OPERATOR(...) __VA_ARGS__ operator() CLU_STATIC_CALL_OPERATOR_ARGS_
 #endif
 
+#if __cplusplus >= 202302L && __cpp_if_consteval >= 202106L
+#define CLU_IF_CONSTEVAL if consteval
+#else
+#define CLU_IF_CONSTEVAL if (std::is_constant_evaluated())
+#endif
+
 // Boilerplate generators
 
 // clang-format off

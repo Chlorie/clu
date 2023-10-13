@@ -43,7 +43,7 @@ namespace clu
     template <alias_safe T>
     constexpr void memmove(T* dst, const T* src, const size_t size) noexcept
     {
-        if (std::is_constant_evaluated())
+        CLU_IF_CONSTEVAL
         {
             for (std::size_t i = 0; i < size; ++i)
                 if (src + i == dst) // should copy backwards
@@ -132,7 +132,7 @@ namespace clu
         [[nodiscard]] constexpr U as() const noexcept
         {
             CLU_ASSERT(size() == sizeof(U), "mismatched size");
-            if (std::is_constant_evaluated())
+            CLU_IF_CONSTEVAL
             {
                 std::remove_const_t<T> arr[sizeof(U)]{};
                 for (size_t i = 0; i < sizeof(U); i++)
