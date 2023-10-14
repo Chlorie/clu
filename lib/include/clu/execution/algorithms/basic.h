@@ -744,7 +744,8 @@ namespace clu::exec
                 template <typename R2, typename T2>
                 recv_t_(R2&& recv, T2&& value):
                     receiver_adaptor<recv_t_, R>(static_cast<R2&&>(recv)),
-                    env_(clu::get_env(receiver_adaptor<recv_t_, R>::base()), static_cast<T2&&>(value)) {}
+                    env_(clu::adapt_env(clu::get_env(receiver_adaptor<recv_t_, R>::base()), //
+                        clu::query_value<Q, T>{Q{}, static_cast<T2&&>(value)})) {}
                 // clang-format on
 
                 const auto& get_env() const noexcept { return env_; }
