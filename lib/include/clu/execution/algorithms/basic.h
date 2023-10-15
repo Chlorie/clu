@@ -128,7 +128,7 @@ namespace clu::exec
                 using is_sender = void;
 
                 template <typename R>
-                auto tag_invoke(connect_t, R&& recv) const noexcept(std::is_nothrow_move_constructible_v<R>)
+                static auto tag_invoke(connect_t, R&& recv) noexcept(std::is_nothrow_move_constructible_v<R>)
                 {
                     if constexpr (unstoppable_token<stop_token_of_t<env_of_t<R>>>)
                         return exec::connect(just::just_t{}(), static_cast<R&&>(recv));
@@ -137,7 +137,7 @@ namespace clu::exec
                 }
 
                 template <typename Env>
-                auto tag_invoke(get_completion_signatures_t, Env&&) const noexcept
+                static auto tag_invoke(get_completion_signatures_t, Env&&) noexcept
                 {
                     if constexpr (unstoppable_token<stop_token_of_t<Env>>)
                         return completion_signatures<set_value_t()>{};
