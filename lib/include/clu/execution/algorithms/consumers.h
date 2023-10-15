@@ -247,7 +247,13 @@ namespace clu::this_thread
                     return clu::tag_invoke(sync_wait_with_variant_t{}, static_cast<S&&>(snd));
                 }
                 else
-                    return sync_wait_t{}(exec::into_variant(static_cast<S&&>(snd)));
+                {
+                    // optional<tuple<variant<tuple<...>...>>>
+                    auto raw = sync_wait_t{}(exec::into_variant(static_cast<S&&>(snd)));
+                    using variant_type = std::tuple_element_t<0, typename decltype(raw)::value_type>;
+                    using result_type = std::optional<variant_type>;
+                    return raw ? result_type(std::get<0>(*raw)) : result_type();
+                }
             }
         };
     } // namespace detail::sync_wait

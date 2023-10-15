@@ -175,7 +175,7 @@ namespace clu::exec
         void set_continuation(const coro::coroutine_handle<P2> h) noexcept
         {
             cont_ = h;
-            if constexpr (requires(P2 & other) { other.unhandled_stopped(); })
+            if constexpr (requires(P2& other) { other.unhandled_stopped(); })
                 stopped_handler_ = [](void* p) noexcept -> coro::coroutine_handle<>
                 { return coro::coroutine_handle<P2>::from_address(p).promise().unhandled_stopped(); };
             else
@@ -260,8 +260,15 @@ namespace clu::exec
             template <typename IndType>
             using leaf_of = leaf<IndType::index, typename IndType::type>;
 
+            // ADL isolation for Ts
             template <typename... Ts>
-            class type : leaf_of<Ts>...
+            struct tuple_
+            {
+                class type;
+            };
+
+            template <typename... Ts>
+            class tuple_<Ts...>::type : leaf_of<Ts>...
             {
             public:
                 type(const type&) = delete;
@@ -283,12 +290,12 @@ namespace clu::exec
                 }
             };
 
-            template <typename... Ts, std::size_t... Is>
-            type<meta::indexed_type<Is, Ts>...> get_type(std::index_sequence<Is...>);
+            template <typename... Ts>
+            using tuple = typename tuple_<Ts...>::type;
         } // namespace ops_tpl
 
         template <typename... Ts>
-        using ops_tuple = decltype(ops_tpl::get_type<Ts...>(std::index_sequence_for<Ts...>{}));
+        using ops_tuple = meta::unpack_invoke<meta::enumerate<Ts...>, meta::quote<ops_tpl::tuple>>;
 
         template <typename... Ts>
         class ops_variant // NOLINT(cppcoreguidelines-pro-type-member-init)
@@ -432,40 +439,24 @@ namespace clu::exec
         namespace schd_env
         {
             template <typename Schd>
-            struct env_t_
-            {
-                class type;
-            };
-
-            template <typename Schd>
-            using env_t = typename env_t_<std::remove_cvref_t<Schd>>::type;
-
-            template <typename Schd>
-            class env_t_<Schd>::type
+            class env_t_
             {
             public:
                 template <forwarding<Schd> S = Schd>
-                explicit type(S&& schd) noexcept(std::is_nothrow_constructible_v<Schd, S>):
+                explicit env_t_(S&& schd) noexcept(std::is_nothrow_constructible_v<Schd, S>):
                     schd_(static_cast<S&&>(schd))
                 {
                 }
 
+                Schd tag_invoke(get_completion_scheduler_t<set_value_t>) const noexcept { return schd_; }
+                Schd tag_invoke(get_completion_scheduler_t<set_stopped_t>) const noexcept { return schd_; }
+
             private:
                 Schd schd_;
-
-                friend Schd tag_invoke(get_completion_scheduler_t<set_value_t>, const type& self) noexcept
-                {
-                    return self.schd_;
-                }
-
-                friend Schd tag_invoke(get_completion_scheduler_t<set_stopped_t>, const type& self) noexcept
-                {
-                    return self.schd_;
-                }
             };
         } // namespace schd_env
 
         template <typename Schd>
-        using comp_schd_env = schd_env::env_t<Schd>;
+        using comp_schd_env = schd_env::env_t_<std::remove_cvref_t<Schd>>;
     } // namespace detail
 } // namespace clu::exec
