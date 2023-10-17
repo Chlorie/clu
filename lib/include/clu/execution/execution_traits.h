@@ -102,13 +102,13 @@ namespace clu::exec
         {
             E env;
 
-            friend const E& tag_invoke(const env_promise& self) noexcept { return self.env; }
+            const E& tag_invoke(get_env_t) const noexcept { return env; }
 
             template <typename A>
             decltype(auto) await_transform(A&& a)
             {
                 if constexpr (tag_invocable<as_awaitable_t, A, env_promise&>)
-                    return tag_invoke(as_awaitable, static_cast<A&&>(a), *this);
+                    return clu::tag_invoke(as_awaitable, static_cast<A&&>(a), *this);
                 else
                     return static_cast<A&&>(a);
             }
@@ -489,9 +489,7 @@ namespace clu::exec
         requires(S&& schd, const get_completion_scheduler_t<set_value_t>& cpo)
         {
             { schedule(static_cast<S&&>(schd)) };
-            {
-                tag_invoke(cpo, get_env(schedule(static_cast<S&&>(schd))))
-            } -> std::same_as<std::remove_cvref_t<S>>;
+            { tag_invoke(cpo, get_env(schedule(static_cast<S&&>(schd)))) } -> std::same_as<std::remove_cvref_t<S>>;
         } &&
         std::copy_constructible<std::remove_cvref_t<S>> && // TODO: enforce noexcept
         std::equality_comparable<std::remove_cvref_t<S>>;
@@ -593,51 +591,48 @@ namespace clu::exec
         namespace wo_thunk
         {
             template <typename S>
-            struct member_comp_sigs
-            {
-            };
-            template <typename S>
-                requires requires { typename S::completion_signatures; }
-            struct member_comp_sigs<S>
-            {
-                using completion_signatures = typename S::completion_signatures;
-            };
-
-            template <typename S>
-            struct snd_t_
-            {
-                class type;
-            };
-
-            template <typename S>
-            using snd_t = typename snd_t_<std::remove_cvref_t<S>>::type;
-
-            template <typename S>
-            class snd_t_<S>::type : public member_comp_sigs<S>
+            class snd_t_
             {
             public:
                 using is_sender = void;
 
                 // clang-format off
                 template <forwarding<S> S2>
-                explicit type(S2&& snd): snd_(static_cast<S2&&>(snd)) {}
+                explicit snd_t_(S2&& snd): snd_(static_cast<S2&&>(snd)) {}
                 // clang-format on
+
+                auto tag_invoke(get_env_t) const
+                    CLU_SINGLE_RETURN(clu::adapt_env(get_env(snd_), query_value{no_await_thunk, std::true_type{}}));
+
+                // Forward all other CPO's
+                template <typename Env>
+                static auto tag_invoke(get_completion_signatures_t, Env&&)
+                {
+                    return completion_signatures_of_t<S, Env>{};
+                }
+
+                template <typename Cpo, typename... Args>
+                    requires tag_invocable<Cpo, const S&, Args...> && (!std::same_as<Cpo, get_env_t>)
+                constexpr decltype(auto)
+                    tag_invoke(Cpo, Args&&... args) const& noexcept(nothrow_tag_invocable<Cpo, const S&, Args...>)
+                {
+                    return clu::tag_invoke(Cpo{}, snd_, static_cast<Args&&>(args)...);
+                }
+
+                template <typename Cpo, typename... Args>
+                    requires tag_invocable<Cpo, S, Args...> && (!std::same_as<Cpo, get_env_t>)
+                constexpr decltype(auto)
+                    tag_invoke(Cpo, Args&&... args) && noexcept(nothrow_tag_invocable<Cpo, S, Args...>)
+                {
+                    return clu::tag_invoke(Cpo{}, std::move(snd_), static_cast<Args&&>(args)...);
+                }
 
             private:
                 S snd_;
-
-                // Forward all other CPO-s
-                template <typename Cpo, forwarding<type> Self, typename... Args>
-                    requires tag_invocable<Cpo, copy_cvref_t<Self, S>, Args...> && (!std::same_as<Cpo, get_env_t>)
-                constexpr friend decltype(auto) tag_invoke(Cpo, Self&& self, Args&&... args) noexcept(
-                    nothrow_tag_invocable<Cpo, copy_cvref_t<Self, S>, Args...>)
-                {
-                    return clu::tag_invoke(Cpo{}, static_cast<Self&&>(self).snd_, static_cast<Args&&>(args)...);
-                }
-
-                friend auto tag_invoke(get_env_t, const type& self) CLU_SINGLE_RETURN(
-                    clu::adapt_env(get_env(self.snd_), query_value{no_await_thunk, std::true_type{}}));
             };
+
+            template <typename S>
+            using snd_t = snd_t_<std::remove_cvref_t<S>>;
 
             // Wrap up a sender to use no await thunk
             struct without_await_thunk_t
@@ -646,7 +641,9 @@ namespace clu::exec
                 CLU_STATIC_CALL_OPERATOR(auto)
                 (S&& snd)
                 {
-                    return snd_t<S>(static_cast<S&&>(snd));
+                    // Avoid wrapping the same sender multiple times
+                    using result_t = conditional_t<no_await_thunk_sender<S>, std::remove_cvref_t<S>, snd_t<S>>;
+                    return result_t(static_cast<S&&>(snd));
                 }
                 constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(without_await_thunk_t{}); }
             };
@@ -744,8 +741,8 @@ namespace clu::exec
             using is_sender = void;
 
             // clang-format off
-            constexpr completion_signatures<set_value_t()> tag_invoke(
-                get_completion_signatures_t, auto&&) const noexcept { return {}; }
+            constexpr static completion_signatures<set_value_t()> tag_invoke(
+                get_completion_signatures_t, auto&&) noexcept { return {}; }
             // clang-format on
 
             template <typename R>
@@ -866,10 +863,7 @@ namespace clu::exec
             else
                 return std::make_exception_ptr(static_cast<E&&>(error));
         }
-    } // namespace detail
 
-    namespace detail
-    {
         template <typename S, typename E>
         using single_sender_value_type = std::decay_t<value_types_of_t<S, E, collapse_types_t, collapse_types_t>>;
 

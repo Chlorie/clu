@@ -50,11 +50,11 @@ namespace clu::exec
                     std::is_nothrow_constructible_v<std::tuple<Ts...>, Us...>):
                     values_(static_cast<Us&&>(args)...) {}
 
-                template <typename R>
+                template <receiver R>
                 auto tag_invoke(connect_t, R&& recv) const& CLU_SINGLE_RETURN(
                     ops_t<R, Cpo, Ts...>{static_cast<R&&>(recv), values_});
 
-                template <typename R>
+                template <receiver R>
                 auto tag_invoke(connect_t, R&& recv) && CLU_SINGLE_RETURN(
                     ops_t<R, Cpo, Ts...>{static_cast<R&&>(recv), std::move(values_)});
 
@@ -127,7 +127,7 @@ namespace clu::exec
             {
                 using is_sender = void;
 
-                template <typename R>
+                template <receiver R>
                 static auto tag_invoke(connect_t, R&& recv) noexcept(std::is_nothrow_move_constructible_v<R>)
                 {
                     if constexpr (unstoppable_token<stop_token_of_t<env_of_t<R>>>)
@@ -178,9 +178,14 @@ namespace clu::exec
                 // clang-format on
 
                 // Transformed
-                template <typename... Args>
-                    requires std::invocable<F, Args...> && receiver_of<R, sigs_of_inv<F, Args...>>
-                void tag_invoke(Cpo, Args&&... args) && noexcept
+                // WORKAROUND: templatized Cpo to avoid unwanted instantiations
+                // gcc prior to 14 literally follows CWG2369, causing counter-intuitive behaviors
+                // see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=99599#c18
+                // also https://cplusplus.github.io/CWG/issues/2369.html
+                template <typename Tag, typename... Args>
+                    requires std::same_as<Tag, Cpo> && std::invocable<F, Args...> &&
+                    receiver_of<R, sigs_of_inv<F, Args...>>
+                void tag_invoke(Tag, Args&&... args) && noexcept
                 {
                     // clang-format off
                     if constexpr (nothrow_invocable<F, Args...>)
@@ -195,9 +200,9 @@ namespace clu::exec
 
                 template <completion_cpo Tag, typename... Args>
                     requires(!std::same_as<Tag, Cpo>) && receiver_of<R, completion_signatures<Tag(Args...)>>
-                constexpr void tag_invoke(Tag cpo, Args&&... args) && noexcept
+                void tag_invoke(Tag, Args&&... args) && noexcept
                 {
-                    cpo(static_cast<R&&>(recv_), static_cast<Args&&>(args)...);
+                    Tag{}(static_cast<R&&>(recv_), static_cast<Args&&>(args)...);
                 }
 
             private:
@@ -268,14 +273,14 @@ namespace clu::exec
                     func_(static_cast<F2&&>(func)) {}
                 // clang-format on
 
-                template <typename R>
+                template <receiver R>
                     requires sender_to<const S&, recv_t<R, Cpo, F>>
                 auto tag_invoke(connect_t, R&& recv) const& noexcept(nothrow_connectable<S, recv_t<R, Cpo, F>>)
                 {
                     return exec::connect(snd_, recv_t<R, Cpo, F>(static_cast<R&&>(recv), func_));
                 }
 
-                template <typename R>
+                template <receiver R>
                     requires sender_to<S&&, recv_t<R, Cpo, F>>
                 auto tag_invoke(connect_t, R&& recv) && noexcept(nothrow_connectable<S, recv_t<R, Cpo, F>>)
                 {
@@ -287,9 +292,9 @@ namespace clu::exec
                 using make_sig = make_sig_impl<Cpo, F>;
 
                 template <typename Env>
-                constexpr make_completion_signatures<S, Env, completion_signatures<>, //
+                constexpr static make_completion_signatures<S, Env, completion_signatures<>, //
                     make_sig::template value_sig, make_sig::template error_sig, typename make_sig::stopped_sig>
-                tag_invoke(get_completion_signatures_t, Env) const noexcept
+                tag_invoke(get_completion_signatures_t, Env) noexcept
                 {
                     return {};
                 }
@@ -384,7 +389,7 @@ namespace clu::exec
                 explicit snd_t_(S2&& snd) noexcept(std::is_nothrow_constructible_v<S, S2>):
                     snd_(static_cast<S2&&>(snd)) {}
 
-                template <typename R>
+                template <receiver R>
                 auto tag_invoke(connect_t, R&& recv) &&
                     CLU_SINGLE_RETURN(connect(static_cast<S&&>(snd_), recv_t<R>(static_cast<R&&>(recv))));
 
@@ -467,7 +472,7 @@ namespace clu::exec
                 explicit snd_t_(S2&& snd) noexcept(std::is_nothrow_constructible_v<S, S2>):
                     snd_(static_cast<S2&&>(snd)) {}
 
-                template <typename R>
+                template <receiver R>
                 auto tag_invoke(connect_t, R&& recv) &&
                     CLU_SINGLE_RETURN(connect(static_cast<S&&>(snd_), recv_t<R>(static_cast<R&&>(recv))));
 
@@ -671,12 +676,12 @@ namespace clu::exec
                     snd_(static_cast<S2&&>(snd)), func_(static_cast<F2&&>(func)) {}
                 // clang-format on
 
-                template <typename R>
+                template <receiver R>
                     requires sender_to<const S&, recv_t<S, R, Cpo, F>>
                 auto tag_invoke(connect_t, R&& recv) const& CLU_SINGLE_RETURN(
                     ops_t<const S&, R, Cpo, F>(snd_, static_cast<R&&>(recv), func_));
 
-                template <typename R>
+                template <receiver R>
                     requires sender_to<S&&, recv_t<S, R, Cpo, F>>
                 auto tag_invoke(connect_t, R&& recv) &&
                     CLU_SINGLE_RETURN(ops_t<S, R, Cpo, F>(std::move(snd_), static_cast<R&&>(recv), std::move(func_)));
@@ -685,12 +690,12 @@ namespace clu::exec
 
                 // clang-format off
                 template <typename Env>
-                constexpr make_completion_signatures<S, Env,
+                constexpr static make_completion_signatures<S, Env,
                     completion_signatures<set_error_t(std::exception_ptr)>,
                     make_sig_impl<Cpo, Env, F>::template value_sig,
                     make_sig_impl<Cpo, Env, F>::template error_sig,
                     typename make_sig_impl<Cpo, Env, F>::stopped_sig>
-                tag_invoke(get_completion_signatures_t, Env) const noexcept { return {}; }
+                tag_invoke(get_completion_signatures_t, Env&&) noexcept { return {}; }
                 // clang-format on
 
             private:
@@ -745,7 +750,7 @@ namespace clu::exec
                 recv_t_(R2&& recv, T2&& value):
                     receiver_adaptor<recv_t_, R>(static_cast<R2&&>(recv)),
                     env_(clu::adapt_env(clu::get_env(receiver_adaptor<recv_t_, R>::base()), //
-                        clu::query_value<Q, T>{Q{}, static_cast<T2&&>(value)})) {}
+                        query_value{Q{}, static_cast<T2&&>(value)})) {}
                 // clang-format on
 
                 const auto& get_env() const noexcept { return env_; }
@@ -769,7 +774,7 @@ namespace clu::exec
                     snd_(static_cast<S2&&>(snd)), value_(static_cast<T2&&>(value)) {}
                 // clang-format on
 
-                template <typename R>
+                template <receiver R>
                 auto tag_invoke(connect_t, R&& recv) &&
                 {
                     return connect(static_cast<S&&>(snd_), //
@@ -780,8 +785,8 @@ namespace clu::exec
 
                 // clang-format off
                 template <typename Env>
-                constexpr completion_signatures_of_t<S, adapted_env_t<Env, query_value<Q, T>>>
-                tag_invoke(get_completion_signatures_t, Env&&) const noexcept { return {}; }
+                constexpr static completion_signatures_of_t<S, adapted_env_t<Env, query_value<Q, T>>>
+                tag_invoke(get_completion_signatures_t, Env&&) noexcept { return {}; }
                 // clang-format on
 
             private:
@@ -878,7 +883,7 @@ namespace clu::exec
                     snd_(static_cast<S2&&>(snd)) {}
                 // clang-format on
 
-                template <typename R>
+                template <receiver R>
                 constexpr auto tag_invoke(connect_t, R&& recv) &&
                 {
                     return exec::connect(

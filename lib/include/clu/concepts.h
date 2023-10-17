@@ -97,7 +97,7 @@ namespace clu
     template <typename T, typename... Us>
     concept same_as_any_of = (std::same_as<T, Us> || ...);
     template <typename T, typename... Us>
-    concept same_as_none_of = (!same_as_any_of<T, Us...>);
+    concept same_as_none_of = (!std::same_as<T, Us> && ...);
 
     // clang-format off
     template <typename T, typename U>

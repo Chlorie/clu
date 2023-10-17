@@ -81,6 +81,9 @@ namespace clu
             CLU_NO_UNIQUE_ADDRESS type value;
         };
 
+        template <typename Qry, typename T>
+        query_value(Qry, T) -> query_value<Qry, T>;
+
         template <typename Q>
         using is_fwd_qv = std::bool_constant<fwd_query<typename Q::query_type>>;
 

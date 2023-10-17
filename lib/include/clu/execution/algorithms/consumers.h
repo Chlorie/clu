@@ -221,7 +221,8 @@ namespace clu::this_thread
         using into_var_snd_t = call_result_t<exec::into_variant_t, S>;
 
         template <typename S>
-        using var_result_t = result_t<into_var_snd_t<S>>;
+        using var_result_t =
+            std::optional<exec::value_types_of_t<into_var_snd_t<S>, env_t, single_type_t, single_type_t>>;
 
         struct sync_wait_with_variant_t
         {
@@ -248,11 +249,9 @@ namespace clu::this_thread
                 }
                 else
                 {
-                    // optional<tuple<variant<tuple<...>...>>>
+                    // raw is optional<tuple<variant<tuple<...>...>>>
                     auto raw = sync_wait_t{}(exec::into_variant(static_cast<S&&>(snd)));
-                    using variant_type = std::tuple_element_t<0, typename decltype(raw)::value_type>;
-                    using result_type = std::optional<variant_type>;
-                    return raw ? result_type(std::get<0>(*raw)) : result_type();
+                    return raw ? var_result_t<S>(std::get<0>(*raw)) : var_result_t<S>();
                 }
             }
         };

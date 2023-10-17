@@ -18,7 +18,6 @@ TEST_CASE("start detached", "[execution]")
         | ex::then([&] { REQUIRE(!flag.test_and_set(std::memory_order::relaxed)); }) //
     );
     flag.wait(true, std::memory_order::relaxed);
-    thr.finish();
 }
 
 TEST_CASE("execute", "[execution]")
@@ -33,7 +32,6 @@ TEST_CASE("execute", "[execution]")
             flag.test_and_set(std::memory_order::relaxed);
         });
     flag.wait(true, std::memory_order::relaxed);
-    thr.finish();
 }
 
 // No need to test sync_wait since it's used everywhere in tests for other algorithms

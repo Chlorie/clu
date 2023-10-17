@@ -45,38 +45,4 @@ TEST_CASE("transfer", "[execution]")
     }
 }
 
-TEST_CASE("when all", "[execution]")
-{
-    SECTION("zero")
-    {
-        const auto res = tt::sync_wait(ex::when_all());
-        REQUIRE(res);
-        STATIC_REQUIRE(std::tuple_size_v<std::decay_t<decltype(*res)>> == 0);
-    }
-
-    SECTION("just concatenation")
-    {
-        const auto res = tt::sync_wait(ex::when_all( //
-            ex::just(1), //
-            ex::just(), //
-            ex::just(42., nullptr) //
-            ));
-        REQUIRE(res);
-        STATIC_REQUIRE(std::tuple_size_v<std::decay_t<decltype(*res)>> == 3);
-        const auto [i, d, n] = *res;
-        REQUIRE((i == 1 && d == 42. && n == nullptr));
-    }
-
-    SECTION("no value")
-    {
-        const auto res = tt::sync_wait_with_variant(ex::when_all( //
-            ex::just(1), //
-            ex::just_stopped() //
-            ));
-        REQUIRE_FALSE(res); // is stopped
-    }
-
-    SECTION("basic usage") {}
-}
-
 // TODO: more tests!
