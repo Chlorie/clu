@@ -3,7 +3,6 @@
 #include <array>
 
 #include "execution_traits.h"
-#include "../macros.h"
 
 namespace clu::exec
 {
@@ -251,51 +250,29 @@ namespace clu::exec
 
         namespace ops_tpl
         {
-            template <std::size_t I, typename T>
-            struct leaf
-            {
-                CLU_NO_UNIQUE_ADDRESS T value;
-            };
-
-            template <typename IndType>
-            using leaf_of = leaf<IndType::index, typename IndType::type>;
-
-            // ADL isolation for Ts
-            template <typename... Ts>
-            struct tuple_
-            {
-                class type;
-            };
+            // clang-format off
+            template <std::size_t I, typename T> struct leaf { T value; };
+            template <typename... Ts> struct tuple_ { struct type; };
+            template <typename... Ts> using tuple = typename tuple_<Ts...>::type;
+            template <typename... Ts, std::size_t... Is> tuple<leaf<Is, Ts>...> type_impl(std::index_sequence<Is...>);
+            // clang-format on
 
             template <typename... Ts>
-            class tuple_<Ts...>::type : leaf_of<Ts>...
+            struct tuple_<Ts...>::type : Ts...
             {
-            public:
-                type(const type&) = delete;
-                type(type&&) = delete;
-                ~type() noexcept = default;
-
-                // clang-format off
-                template <typename... Fn>
-                explicit type(Fn&&... func):
-                    leaf_of<Ts>{static_cast<Fn&&>(func)()}... {}
-                // clang-format on
-
-            private:
                 template <forwarding<type> Self, typename Fn>
-                friend decltype(auto) apply(Fn&& func, Self&& self)
-                {
-                    return static_cast<Fn&&>(func)( //
-                        static_cast<copy_cvref_t<Self&&, leaf_of<Ts>>>(self).value...);
-                }
+                constexpr friend decltype(auto) apply(Fn&& func, Self&& self)
+                    CLU_SINGLE_RETURN(static_cast<Fn&&>(func)( //
+                        static_cast<copy_cvref_t<Self&&, Ts>>(self).value...));
             };
-
-            template <typename... Ts>
-            using tuple = typename tuple_<Ts...>::type;
         } // namespace ops_tpl
 
         template <typename... Ts>
-        using ops_tuple = meta::unpack_invoke<meta::enumerate<Ts...>, meta::quote<ops_tpl::tuple>>;
+        using ops_tuple = decltype(ops_tpl::type_impl<Ts...>(std::index_sequence_for<Ts...>{}));
+
+        template <typename... Fs>
+        constexpr auto make_ops_tuple_from(Fs&&... fns)
+            CLU_SINGLE_RETURN(ops_tuple<call_result_t<Fs>...>{{static_cast<Fs&&>(fns)()}...});
 
         template <typename... Ts>
         class ops_variant // NOLINT(cppcoreguidelines-pro-type-member-init)

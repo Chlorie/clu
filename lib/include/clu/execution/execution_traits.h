@@ -745,7 +745,7 @@ namespace clu::exec
                 get_completion_signatures_t, auto&&) noexcept { return {}; }
             // clang-format on
 
-            template <typename R>
+            template <receiver R>
             auto tag_invoke(connect_t, R&& recv) const
                 CLU_SINGLE_RETURN(just_void_ops_t<std::decay_t<R>>(static_cast<R&&>(recv)));
         };
