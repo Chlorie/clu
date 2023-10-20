@@ -1,4 +1,5 @@
 #include "clu/uuid.h"
+#include "clu/parse.h"
 
 namespace clu
 {
