@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers.hpp>
 
-#include "clu/overload.h"
 #include "clu/execution/algorithms/basic.h"
 #include "clu/execution/algorithms/consumers.h"
 #include "clu/execution/algorithms/composed.h"
@@ -12,6 +12,13 @@ using enum std::memory_order;
 namespace ex = clu::exec;
 namespace tt = clu::this_thread;
 namespace meta = clu::meta;
+
+clu::timer_thread_context timer;
+const auto wait_short = [] { return ex::schedule_after(timer.get_scheduler(), 25ms); };
+const auto wait_long = [] { return ex::schedule_after(timer.get_scheduler(), 50ms); };
+const auto then_fail = [] { return ex::then([] { FAIL(); }); };
+const auto then_throw = [](const char* msg) { return ex::then([=] { throw std::runtime_error(msg); }); };
+const auto then_stop = [] { return ex::let_value([] { return ex::stop(); }); };
 
 TEST_CASE("when all", "[execution]")
 {
@@ -58,36 +65,25 @@ TEST_CASE("when all", "[execution]")
 
     SECTION("early exit")
     {
-        clu::timer_thread_context timer;
-        const auto should_be_cancelled = [&]
-        { return ex::schedule_after(timer.get_scheduler(), 50ms) | ex::then([] { FAIL(); }); };
-
         SECTION("via exception")
         {
-            try
-            {
-                // clang-format off
-                tt::sync_wait_with_variant(ex::when_all(
-                    ex::schedule_after(timer.get_scheduler(), 25ms)
-                    | ex::let_value(
-                          [] { return ex::just_error(std::make_exception_ptr(std::runtime_error("yeet"))); }),
-                    should_be_cancelled()
-                ));
-                // clang-format on
-                FAIL();
-            }
-            catch (const std::runtime_error& e)
-            {
-                REQUIRE(e.what() == "yeet"sv);
-            }
+            // clang-format off
+            REQUIRE_THROWS_WITH( //
+                tt::sync_wait(ex::when_all(
+                    wait_short() | then_throw("yeet"),
+                    wait_long() | then_fail()
+                )),
+                "yeet"
+            );
+            // clang-format on
         }
 
         SECTION("via cancellation")
         {
             // clang-format off
             const auto res = tt::sync_wait_with_variant(ex::when_all( //
-                ex::schedule_after(timer.get_scheduler(), 25ms) | ex::let_value([] { return ex::stop(); }),
-                should_be_cancelled() //
+                wait_short() | then_stop(), //
+                wait_long() | then_fail()
             ));
             // clang-format on
             REQUIRE_FALSE(res);
@@ -106,14 +102,12 @@ TEST_CASE("when any", "[execution]")
 
     SECTION("all values")
     {
-        clu::timer_thread_context timer;
-
         SECTION("same type")
         {
             // clang-format off
             const auto res = tt::sync_wait(ex::when_any( //
-                ex::schedule_after(timer.get_scheduler(), 25ms) | ex::then([] { return 1; }),
-                ex::schedule_after(timer.get_scheduler(), 50ms) | ex::then([] { return 2; }) //
+                wait_short() | ex::then([] { return 1; }),
+                wait_long() | ex::then([] { return 2; }) //
             ));
             // clang-format on
             REQUIRE(res);
@@ -125,8 +119,8 @@ TEST_CASE("when any", "[execution]")
         {
             // clang-format off
             const auto res = tt::sync_wait_with_variant(ex::when_any( //
-                ex::schedule_after(timer.get_scheduler(), 25ms) | ex::then([] { return "hello"s; }),
-                ex::schedule_after(timer.get_scheduler(), 50ms) | ex::then([] { return 42; }) //
+                wait_short() | ex::then([] { return "hello"s; }),
+                wait_long() | ex::then([] { return 42; }) //
             ));
             // clang-format on
             REQUIRE(res);
@@ -139,6 +133,138 @@ TEST_CASE("when any", "[execution]")
                         REQUIRE(std::get<0>(tuple) == "hello");
                 },
                 *res);
+        }
+    }
+
+    SECTION("fail to complete")
+    {
+        SECTION("all stopped")
+        {
+            const auto res = tt::sync_wait_with_variant(ex::when_any(ex::stop(), ex::stop()));
+            REQUIRE_FALSE(res);
+        }
+
+        SECTION("all errors")
+        {
+            // The first one counts, the rest gets ignored
+            REQUIRE_THROWS_WITH( //
+                tt::sync_wait(ex::when_any( //
+                    wait_short() | then_throw("short"), //
+                    wait_long() | then_throw("long") //
+                    )),
+                "short");
+        }
+
+        SECTION("error first")
+        {
+            REQUIRE_THROWS_WITH( //
+                tt::sync_wait(ex::when_any( //
+                    wait_short() | then_throw("oh no!"), //
+                    wait_long() | then_stop() //
+                    )),
+                "oh no!");
+        }
+
+        SECTION("stop first")
+        {
+            REQUIRE_THROWS_WITH( //
+                tt::sync_wait(ex::when_any( //
+                    wait_long() | then_throw("oh no!"), //
+                    wait_short() | then_stop() //
+                    )),
+                "oh no!");
+        }
+    }
+
+    SECTION("non-value before first value")
+    {
+        SECTION("stop first")
+        {
+            const auto res = tt::sync_wait(ex::when_any( //
+                wait_long() | ex::then([] { return 42; }), //
+                wait_short() | then_stop() //
+                ));
+            REQUIRE(res);
+            const auto [i] = *res;
+            REQUIRE(i == 42);
+        }
+
+        SECTION("stop first")
+        {
+            const auto res = tt::sync_wait(ex::when_any( //
+                wait_long() | ex::then([] { return 42; }), //
+                wait_short() | ex::let_value([] { return ex::just_error("yeet!"sv); }) //
+                ));
+            REQUIRE(res);
+            const auto [i] = *res;
+            REQUIRE(i == 42);
+        }
+    }
+}
+
+TEST_CASE("stop when", "[execution]")
+{
+    SECTION("source finishes first")
+    {
+        SECTION("with value")
+        {
+            const auto res = tt::sync_wait(ex::stop_when( //
+                wait_short() | ex::then([] { return 42; }), //
+                wait_long() | then_fail() //
+                ));
+            REQUIRE(res);
+            const auto [i] = *res;
+            REQUIRE(i == 42);
+        }
+
+        SECTION("with error")
+        {
+            REQUIRE_THROWS_WITH( //
+                tt::sync_wait(ex::stop_when( //
+                    wait_short() | then_throw("oh no!"), //
+                    wait_long() | then_fail() //
+                    )),
+                "oh no!");
+        }
+
+        SECTION("with stopped")
+        {
+            const auto res = tt::sync_wait_with_variant(ex::stop_when( //
+                wait_short() | then_stop(), //
+                wait_long() | then_fail() //
+                ));
+            REQUIRE_FALSE(res);
+        }
+    }
+
+    SECTION("trigger finishes first")
+    {
+        SECTION("with value")
+        {
+            const auto res = tt::sync_wait(ex::stop_when( //
+                wait_long() | then_fail(), //
+                wait_short() //
+                ));
+            REQUIRE_FALSE(res);
+        }
+
+        SECTION("with error")
+        {
+            REQUIRE_THROWS_WITH( //
+                tt::sync_wait(ex::stop_when( //
+                    wait_long() | then_fail(), //
+                    wait_short() | then_throw("oh no!") //
+                    )),
+                "oh no!");
+        }
+
+        SECTION("with stopped")
+        {
+            const auto res = tt::sync_wait_with_variant(ex::stop_when( //
+                wait_long() | then_fail(), //
+                wait_short() | then_stop() //
+                ));
+            REQUIRE_FALSE(res);
         }
     }
 }

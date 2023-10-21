@@ -652,6 +652,8 @@ namespace clu::exec
         {
             template <typename Env>
             using env_t = adapted_env_t<Env, query_value<get_stop_token_t, in_place_stop_token>>;
+            template <typename R>
+            using recv_env_t = env_t<env_of_t<R>>;
 
             template <typename S, typename T, typename Env>
             using comp_sigs = make_completion_signatures<S, env_t<Env>,
@@ -670,100 +672,54 @@ namespace clu::exec
                 meta::quote<nullable_variant>>;
 
             template <typename S, typename T, typename R>
-            struct recv_t_
-            {
-                class type;
-            };
-
+            class ops_t_;
             template <typename S, typename T, typename R>
-            using recv_t = typename recv_t_<S, T, std::decay_t<R>>::type;
+            using ops_t = ops_t_<S, T, std::remove_cvref_t<R>>;
 
-            template <typename S, typename T, typename R>
-            struct trig_recv_t_
-            {
-                class type;
-            };
-
-            template <typename S, typename T, typename R>
-            using trig_recv_t = typename trig_recv_t_<S, T, std::decay_t<R>>::type;
-
-            template <typename S, typename T, typename R>
-            struct ops_t_
-            {
-                class type;
-            };
-
-            template <typename S, typename T, typename R>
-            using ops_t = typename ops_t_<S, T, R>::type;
-
-            template <typename R>
-            using recv_env_t = env_t<env_of_t<R>>; // gcc 12.2 bug workaround
-
-            // TODO: recv_t and trig_recv_t should share some code
-
-            template <typename S, typename T, typename R>
-            class recv_t_<S, T, R>::type
+            template <typename S, typename T, typename R, bool IsTrig>
+            class recv_t_
             {
             public:
                 using is_receiver = void;
 
-                explicit type(ops_t<S, T, R>* ops) noexcept: ops_(ops) {}
+                explicit recv_t_(ops_t<S, T, R>* ops) noexcept: ops_(ops) {}
 
-            private:
-                ops_t<S, T, R>* ops_;
-
-                const R& get_base() const noexcept;
-
-                recv_env_t<R> get_env() const;
-                friend auto tag_invoke(get_env_t, const type& self) { return self.get_env(); }
+                const recv_env_t<R>& tag_invoke(get_env_t) const noexcept;
 
                 template <completion_cpo Cpo, typename... Ts>
-                friend void tag_invoke(Cpo, type&& self, Ts&&... args) noexcept
+                void tag_invoke(Cpo, Ts&&... args) && noexcept
                 {
-                    self.ops_->set(Cpo{}, static_cast<Ts&&>(args)...);
-                }
-            };
-
-            template <typename S, typename T, typename R>
-            class trig_recv_t_<S, T, R>::type
-            {
-            public:
-                using is_receiver = void;
-
-                explicit type(ops_t<S, T, R>* ops) noexcept: ops_(ops) {}
-
-            private:
-                ops_t<S, T, R>* ops_;
-
-                const R& get_base() const noexcept;
-
-                recv_env_t<R> get_env() const;
-                friend auto tag_invoke(get_env_t, const type& self) { return self.get_env(); }
-
-                template <completion_cpo Cpo, typename... Ts>
-                friend void tag_invoke(Cpo, type&& self, Ts&&... args) noexcept
-                {
-                    if constexpr (std::is_same_v<Cpo, set_error_t>)
-                        self.ops_->set(set_error, static_cast<Ts&&>(args)...);
+                    if constexpr (!IsTrig)
+                        ops_->set(Cpo{}, static_cast<Ts&&>(args)...);
+                    else if constexpr (std::is_same_v<Cpo, set_error_t>)
+                        ops_->set(set_error, static_cast<Ts&&>(args)...);
                     else // value and stopped all map to stopped for the trigger
-                        self.ops_->set(set_stopped);
+                        ops_->set(set_stopped);
                 }
+
+            private:
+                ops_t<S, T, R>* ops_;
             };
 
             template <typename S, typename T, typename R>
-            class ops_t_<S, T, R>::type
+            using recv_t = recv_t_<S, T, std::decay_t<R>, false>;
+            template <typename S, typename T, typename R>
+            using trig_recv_t = recv_t_<S, T, std::decay_t<R>, true>;
+
+            template <typename S, typename T, typename R>
+            class ops_t_
             {
             public:
                 // clang-format off
                 template <typename S2, typename T2, typename R2>
-                type(S2&& src, T2&& trigger, R2&& recv):
+                ops_t_(S2&& src, T2&& trigger, R2&& recv):
                     recv_(static_cast<R2&&>(recv)),
+                    env_(clu::adapt_env(get_env(recv_), query_value{get_stop_token, stop_src_.get_token()})),
                     src_ops_(connect(static_cast<S2&&>(src), recv_t<S, T, R>(this))),
                     trig_ops_(connect(static_cast<T2&&>(trigger), trig_recv_t<S, T, R>(this))) {}
                 // clang-format on
 
-                const R& get_recv() noexcept { return recv_; }
-                env_t<env_of_t<R>> get_recv_env() { return {get_env(recv_), stop_src_.get_token()}; }
+                const auto& get_recv_env() { return env_; }
 
                 template <typename Cpo, typename... Ts>
                 void set(Cpo, Ts&&... args) noexcept
@@ -782,6 +738,20 @@ namespace clu::exec
                         }
                 }
 
+                void tag_invoke(start_t) noexcept
+                {
+                    callback_.emplace( // Propagate stop signal
+                        get_stop_token(get_env(recv_)), stop_callback{stop_src_});
+                    if (stop_src_.stop_requested()) // Shortcut when the operation is preemptively stopped
+                    {
+                        callback_.reset();
+                        exec::set_stopped(static_cast<R&&>(recv_));
+                        return;
+                    }
+                    start(src_ops_);
+                    start(trig_ops_);
+                }
+
             private:
                 struct stop_callback
                 {
@@ -791,9 +761,10 @@ namespace clu::exec
                 using callback_t = typename stop_token_of_t<env_of_t<R>>::template callback_type<stop_callback>;
 
                 R recv_;
+                in_place_stop_source stop_src_;
+                recv_env_t<R> env_;
                 std::atomic_uint8_t counter_{0};
                 storage_variant<S, T, R> storage_;
-                in_place_stop_source stop_src_;
                 std::optional<callback_t> callback_;
                 connect_result_t<S, recv_t<S, T, R>> src_ops_;
                 connect_result_t<T, trig_recv_t<S, T, R>> trig_ops_;
@@ -813,87 +784,47 @@ namespace clu::exec
                         },
                         std::move(storage_));
                 }
-
-                friend void tag_invoke(start_t, type& self) noexcept
-                {
-                    self.callback_.emplace( // Propagate stop signal
-                        get_stop_token(get_env(self.recv_)), stop_callback{self.stop_src_});
-                    if (self.stop_src_.stop_requested()) // Shortcut when the operation is preemptively stopped
-                    {
-                        self.callback_.reset();
-                        exec::set_stopped(static_cast<R&&>(self.recv_));
-                        return;
-                    }
-                    start(self.src_ops_);
-                    start(self.trig_ops_);
-                }
             };
 
-            template <typename S, typename T, typename R>
-            const R& recv_t_<S, T, R>::type::get_base() const noexcept
-            {
-                return ops_->get_recv();
-            }
-
-            template <typename S, typename T, typename R>
-            recv_env_t<R> recv_t_<S, T, R>::type::get_env() const
-            {
-                return ops_->get_recv_env();
-            }
-
-            template <typename S, typename T, typename R>
-            const R& trig_recv_t_<S, T, R>::type::get_base() const noexcept
-            {
-                return ops_->get_recv();
-            }
-
-            template <typename S, typename T, typename R>
-            recv_env_t<R> trig_recv_t_<S, T, R>::type::get_env() const
+            template <typename S, typename T, typename R, bool IsTrig>
+            const recv_env_t<R>& recv_t_<S, T, R, IsTrig>::tag_invoke(get_env_t) const noexcept
             {
                 return ops_->get_recv_env();
             }
 
             template <typename S, typename T>
-            struct snd_t_
-            {
-                class type;
-            };
-
-            template <typename S, typename T>
-            using snd_t = typename snd_t_<std::decay_t<S>, std::decay_t<T>>::type;
-
-            template <typename S, typename T>
-            class snd_t_<S, T>::type
+            class snd_t_
             {
             public:
                 using is_sender = void;
 
                 // clang-format off
                 template <typename S2, typename T2>
-                type(S2&& src, T2&& trigger):
+                snd_t_(S2&& src, T2&& trigger):
                     src_(static_cast<S2&&>(src)), trigger_(static_cast<T2&&>(trigger)) {}
+
+                template <receiver R>
+                auto tag_invoke(connect_t, R&& recv) &&
+                {
+                    return ops_t<S, T, R>( //
+                        static_cast<S&&>(src_), static_cast<T&&>(trigger_), static_cast<R&&>(recv));
+                }
+
+                template <typename Env>
+                static make_completion_signatures<S, env_t<Env>,
+                    make_completion_signatures<T, env_t<Env>,
+                        completion_signatures<set_error_t(std::exception_ptr), set_stopped_t()>,
+                        meta::constant_q<completion_signatures<>>::fn>>
+                tag_invoke(get_completion_signatures_t, Env&&) noexcept { return {}; }
                 // clang-format on
 
             private:
                 S src_;
                 T trigger_;
-
-                template <typename R>
-                friend auto tag_invoke(connect_t, type&& self, R&& recv)
-                {
-                    return ops_t<S, T, R>(
-                        static_cast<S&&>(self.src_), static_cast<T&&>(self.trigger_), static_cast<R&&>(recv));
-                }
-
-                // clang-format off
-                template <typename Env>
-                friend make_completion_signatures<S, env_t<Env>,
-                    make_completion_signatures<T, env_t<Env>,
-                        completion_signatures<set_error_t(std::exception_ptr), set_stopped_t()>,
-                        meta::constant_q<completion_signatures<>>::fn>>
-                tag_invoke(get_completion_signatures_t, const type&, Env&&) noexcept { return {}; }
-                // clang-format on
             };
+
+            template <typename S, typename T>
+            using snd_t = snd_t_<std::remove_cvref_t<S>, std::remove_cvref_t<T>>;
 
             struct stop_when_t
             {
@@ -1062,15 +993,15 @@ namespace clu::exec
                     env_(get_env(shst_->recv), never_stop_token{}) {}
                 // clang-format on
 
+                void tag_invoke(set_value_t) && noexcept { shst_.reset(); }
+                static void tag_invoke(set_error_t, auto&&) noexcept { std::terminate(); }
+                void tag_invoke(set_stopped_t) && noexcept { shst_.reset(); }
+                const auto& tag_invoke(get_env_t) const noexcept { return env_; }
+
             private:
                 std::shared_ptr<shared_state<S, R, F>> shst_;
                 CLU_NO_UNIQUE_ADDRESS
                 adapted_env_t<env_of_t<R>, query_value<get_stop_token_t, never_stop_token>> env_{};
-
-                friend void tag_invoke(set_value_t, type&& self) noexcept { self.shst_.reset(); }
-                friend void tag_invoke(set_error_t, type&&, auto&&) noexcept { std::terminate(); }
-                friend void tag_invoke(set_stopped_t, type&& self) noexcept { self.shst_.reset(); }
-                friend const auto& tag_invoke(get_env_t, const type& self) noexcept { return self.env_; }
             };
 
             template <typename S, typename R, typename F>

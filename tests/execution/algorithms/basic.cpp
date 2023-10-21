@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers.hpp>
 
 #include "clu/overload.h"
 #include "clu/execution/algorithms/basic.h"
@@ -258,16 +259,10 @@ TEST_CASE("let", "[execution]")
     }
     SECTION("error propagates")
     {
-        try
-        {
+        REQUIRE_THROWS_WITH( //
             tt::sync_wait(
-                ex::just() | ex::let_value([]() -> decltype(ex::just()) { throw std::runtime_error("oh no"); }));
-            FAIL();
-        }
-        catch (const std::runtime_error& e)
-        {
-            REQUIRE(e.what() == "oh no"sv);
-        }
+                ex::just() | ex::let_value([]() -> decltype(ex::just()) { throw std::runtime_error("oh no"); })),
+            "oh no");
     }
     SECTION("error to value")
     {
@@ -404,18 +399,7 @@ TEST_CASE("into variant", "[execution]")
             },
             std::get<0>(*res));
     }
-    SECTION("err")
-    {
-        try
-        {
-            tt::sync_wait(factory(err));
-            FAIL();
-        }
-        catch (const std::runtime_error& e)
-        {
-            REQUIRE(e.what() == "oh no"sv);
-        }
-    }
+    SECTION("err") { REQUIRE_THROWS_WITH(tt::sync_wait(factory(err)), "oh no"); }
     SECTION("stop")
     {
         const auto res = tt::sync_wait(factory(stop));
