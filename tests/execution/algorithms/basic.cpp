@@ -283,8 +283,8 @@ TEST_CASE("with query value", "[execution]")
     SECTION("basic")
     {
         const auto res = tt::sync_wait( //
-            ex::read(clu::get_stop_token) //
-            | ex::with_query_value(clu::get_stop_token, clu::in_place_stop_token{}) //
+            ex::with_query_value(ex::read(clu::get_stop_token), //
+                clu::get_stop_token, clu::in_place_stop_token{}) //
         );
         REQUIRE(res);
         const auto [token] = *res;
@@ -293,38 +293,49 @@ TEST_CASE("with query value", "[execution]")
     }
     SECTION("innermost value is active")
     {
-        tt::sync_wait( //
-            ex::read(clu::get_stop_token) //
-            | ex::then(
-                  [](const auto token)
-                  {
-                      STATIC_REQUIRE(std::same_as<std::decay_t<decltype(token)>, clu::in_place_stop_token>);
-                      REQUIRE(!token.stop_possible());
-                  }) //
-            | ex::with_query_value(clu::get_stop_token, clu::in_place_stop_token{}) //
-            | ex::let_value([] { return ex::read(clu::get_stop_token); }) //
-            | ex::then([](const auto token)
-                  { STATIC_REQUIRE(std::same_as<std::decay_t<decltype(token)>, clu::never_stop_token>); }) //
-            | ex::with_query_value(clu::get_stop_token, clu::never_stop_token{}) //
+        // clang-format off
+        tt::sync_wait(
+            ex::with_query_value(
+                ex::with_query_value(
+                    ex::read(clu::get_stop_token)
+                    | ex::then(
+                          [](const auto token)
+                          {
+                              STATIC_REQUIRE(std::same_as<std::decay_t<decltype(token)>, clu::in_place_stop_token>);
+                              REQUIRE(!token.stop_possible());
+                          }),
+                    clu::get_stop_token, clu::in_place_stop_token{}
+                )
+                | ex::let_value([] { return ex::read(clu::get_stop_token); }) //
+                | ex::then([](const auto token)
+                      { STATIC_REQUIRE(std::same_as<std::decay_t<decltype(token)>, clu::never_stop_token>); }),
+                clu::get_stop_token, clu::never_stop_token{}
+            )
         );
+        // clang-format on
     }
     SECTION("multiple values")
     {
         using alloc_t = std::pmr::polymorphic_allocator<>;
         const alloc_t alloc;
-        tt::sync_wait( //
-            ex::read(clu::get_stop_token) //
-            | ex::then(
-                  [](const auto token)
-                  {
-                      STATIC_REQUIRE(std::same_as<std::decay_t<decltype(token)>, clu::in_place_stop_token>);
-                      REQUIRE(!token.stop_possible());
-                  }) //
-            | ex::let_value([] { return ex::read(clu::get_allocator); }) //
-            | ex::then([=](const auto a) { REQUIRE(a == alloc); }) //
-            | ex::with_query_value(clu::get_stop_token, clu::in_place_stop_token{}) //
-            | ex::with_query_value(clu::get_allocator, alloc) //
+        // clang-format off
+        tt::sync_wait(
+            ex::with_query_value(
+                ex::with_query_value(
+                    ex::read(clu::get_stop_token) 
+                    | ex::then(
+                          [](const auto token)
+                          {
+                              STATIC_REQUIRE(std::same_as<std::decay_t<decltype(token)>, clu::in_place_stop_token>);
+                              REQUIRE(!token.stop_possible());
+                          }) //
+                    | ex::let_value([] { return ex::read(clu::get_allocator); }) 
+                    | ex::then([=](const auto a) { REQUIRE(a == alloc); }),
+                    clu::get_stop_token, clu::in_place_stop_token{}
+                ), clu::get_allocator, alloc
+            ) 
         );
+        // clang-format on
     }
 }
 
