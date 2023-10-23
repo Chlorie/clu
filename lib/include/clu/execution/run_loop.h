@@ -34,12 +34,7 @@ namespace clu
         auto get_scheduler() noexcept
         {
             return exec::create_scheduler<ops_state>(schd_state{this}, //
-                                                                       // clang-format off
-                [](ops_base& ops)
-                {
-                    ops.scheduler_state().loop->enqueue(ops);
-                });
-            // clang-format on
+                [](ops_base& ops) { ops.scheduler_state().loop->enqueue(ops); });
         }
 
     private:

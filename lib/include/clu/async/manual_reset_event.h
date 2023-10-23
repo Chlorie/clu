@@ -22,32 +22,25 @@ namespace clu::async
         };
 
         template <typename R>
-        struct ops_t_
-        {
-            class type;
-        };
-
-        template <typename R>
-        using ops_t = typename ops_t_<std::decay_t<R>>::type;
-
-        template <typename R>
-        class ops_t_<R>::type final : public ops_base
+        class ops_t_ final : public ops_base
         {
         public:
             // clang-format off
             template <typename R2>
-            type(manual_reset_event* ev, R2&& recv):
+            ops_t_(manual_reset_event* ev, R2&& recv):
                 ev_(ev), recv_(static_cast<R2&&>(recv)) {}
             // clang-format on
 
             void set() noexcept override { exec::set_value(static_cast<R&&>(recv_)); }
+            void tag_invoke(exec::start_t) noexcept;
 
         private:
             manual_reset_event* ev_;
             CLU_NO_UNIQUE_ADDRESS R recv_;
-
-            friend void tag_invoke(exec::start_t, type& self) noexcept { start_ops(*self.ev_, self); }
         };
+
+        template <typename R>
+        using ops_t = ops_t_<std::remove_cvref_t<R>>;
 
         class snd_t
         {
@@ -56,19 +49,16 @@ namespace clu::async
 
             explicit snd_t(manual_reset_event* ev) noexcept: ev_(ev) {}
 
-        private:
-            manual_reset_event* ev_;
-
             // clang-format off
-            friend exec::completion_signatures<exec::set_value_t()> tag_invoke(
-                exec::get_completion_signatures_t, snd_t, auto&&) noexcept { return {}; }
+            static exec::completion_signatures<exec::set_value_t()> tag_invoke(
+                exec::get_completion_signatures_t, auto&&) noexcept { return {}; }
+
+            template <exec::receiver R>
+            auto tag_invoke(exec::connect_t, R&& recv) const { return ops_t<R>(ev_, static_cast<R&&>(recv)); }
             // clang-format on
 
-            template <typename R>
-            friend auto tag_invoke(exec::connect_t, const snd_t self, R&& recv)
-            {
-                return ops_t<R>(self.ev_, static_cast<R&&>(recv));
-            }
+        private:
+            manual_reset_event* ev_;
         };
     } // namespace detail::amre
 
@@ -86,10 +76,19 @@ namespace clu::async
         [[nodiscard]] auto wait_async() noexcept { return detail::amre::snd_t(this); }
 
     private:
+        template <typename R>
+        friend class detail::amre::ops_t_;
+
         // The tail stores this when the event is set, and stores a pointer to
         // the last inserted pending ops_base* if there is any, or nullptr otherwise.
         std::atomic<void*> tail_{nullptr};
 
-        friend void start_ops(manual_reset_event& self, detail::amre::ops_base& ops);
+        void start_ops(detail::amre::ops_base& ops);
     };
+
+    template <typename R>
+    void detail::amre::ops_t_<R>::tag_invoke(exec::start_t) noexcept
+    {
+        ev_->start_ops(*this);
+    }
 } // namespace clu::async

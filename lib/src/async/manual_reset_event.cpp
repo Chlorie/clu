@@ -24,8 +24,9 @@ namespace clu::async
         // list reversed, now just traverse the list and execute the tasks one by one
         while (head)
         {
+            ops_base* next = head->next; // *head might be destroyed after calling set() on it
             head->set();
-            head = head->next;
+            head = next;
         }
     }
 
@@ -36,19 +37,19 @@ namespace clu::async
         (void)tail_.compare_exchange_strong(expected, nullptr, std::memory_order::acq_rel);
     }
 
-    void start_ops(manual_reset_event& self, ops_base& ops)
+    void manual_reset_event::start_ops(ops_base& ops)
     {
-        void* tail = self.tail_.load(std::memory_order::acquire);
+        void* tail = tail_.load(std::memory_order::acquire);
         while (true)
         {
-            if (tail == &self) // set state, complete synchronously
+            if (tail == this) // set state, complete synchronously
             {
                 ops.set();
                 return;
             }
             ops.next = static_cast<ops_base*>(tail);
             // try to append task to the list
-            if (self.tail_.compare_exchange_weak(tail, &ops, //
+            if (tail_.compare_exchange_weak(tail, &ops, //
                     std::memory_order::release, std::memory_order::acquire))
                 return; // we succeeded
         }

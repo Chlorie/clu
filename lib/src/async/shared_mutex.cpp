@@ -29,8 +29,9 @@ namespace clu::async
         }();
         while (res)
         {
+            auto* next = res->next; // In case set() destroys *res
             res->set();
-            res = res->next;
+            res = next;
         }
     }
 
@@ -61,8 +62,9 @@ namespace clu::async
         }();
         while (res)
         {
+            auto* next = res->next; // In case set() destroys *res
             res->set();
-            res = res->next;
+            res = next;
         }
     }
 
