@@ -146,7 +146,11 @@ namespace clu
 
     void hazard_pointer_domain::retire_object(detail::hp_obj_node* node) noexcept
     {
+        // TSan warns about not supporting C++ atomic thread fence, but actually
+        // the bug only affects acquire/release fences, not sequentially consistent ones
+        CLU_GCC_WNO_TSAN
         std::atomic_thread_fence(std::memory_order::seq_cst);
+        CLU_GCC_RESTORE_WARNING
         const auto shard_idx =
             (std::hash<std::uintptr_t>()(reinterpret_cast<std::uintptr_t>(node)) >> ignored_bits) & shard_mask;
         auto& shard = retired_[shard_idx];
@@ -208,7 +212,9 @@ namespace clu
             }
             if (!empty)
             {
-                std::atomic_thread_fence(std::memory_order_seq_cst);
+                CLU_GCC_WNO_TSAN
+                std::atomic_thread_fence(std::memory_order::seq_cst);
+                CLU_GCC_RESTORE_WARNING
                 count -= reclaim_all_non_matching(lists, done);
             }
             if (count)

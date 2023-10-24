@@ -4,8 +4,9 @@
 #include "clu/execution/algorithms/basic.h"
 #include "clu/execution/algorithms/consumers.h"
 #include "clu/execution/algorithms/composed.h"
+#include "clu/execution/algorithms/parallel.h"
 #include "clu/execution_contexts.h"
-#include "clu/task.h"
+#include "clu/async/manual_reset_event.h"
 
 using namespace std::literals;
 using enum std::memory_order;
@@ -14,8 +15,8 @@ namespace tt = clu::this_thread;
 namespace meta = clu::meta;
 
 clu::timer_thread_context timer;
-const auto wait_short = [] { return ex::schedule_after(timer.get_scheduler(), 25ms); };
-const auto wait_long = [] { return ex::schedule_after(timer.get_scheduler(), 50ms); };
+const auto wait_short = [] { return ex::schedule_after(timer.get_scheduler(), 5ms); };
+const auto wait_long = [] { return ex::schedule_after(timer.get_scheduler(), 30ms); };
 const auto then_fail = [] { return ex::then([] { FAIL(); }); };
 const auto then_throw = [](const char* msg) { return ex::then([=] { throw std::runtime_error(msg); }); };
 const auto then_stop = [] { return ex::let_value([] { return ex::stop(); }); };
@@ -266,5 +267,50 @@ TEST_CASE("stop when", "[execution]")
                 ));
             REQUIRE_FALSE(res);
         }
+    }
+}
+
+TEST_CASE("detach on stop request", "[execution]")
+{
+    SECTION("pass through")
+    {
+        SECTION("value")
+        {
+            const auto res = tt::sync_wait(ex::just(42) | ex::detach_on_stop_request());
+            REQUIRE(res);
+            const auto [i] = *res;
+            REQUIRE(i == 42);
+        }
+
+        SECTION("error")
+        {
+            REQUIRE_THROWS_WITH(
+                tt::sync_wait_with_variant(ex::just_error(std::make_exception_ptr(std::runtime_error("yeet!")))),
+                "yeet!");
+        }
+
+        SECTION("stop")
+        {
+            const auto res = tt::sync_wait_with_variant(ex::stop());
+            REQUIRE_FALSE(res);
+        }
+    }
+
+    SECTION("detached")
+    {
+        clu::async::manual_reset_event ev;
+        const auto wait_event_on_thread = [&] { return ex::on(timer.get_scheduler(), ev.wait_async()); };
+
+        SECTION("value ignored")
+        {
+            tt::sync_wait(
+                // If the execution is not detached, the source task will hang forever
+                wait_event_on_thread() | ex::detach_on_stop_request() | ex::stop_when(wait_short()) //
+            );
+            SUCCEED();
+            ev.set(); // Set the event to let the source task finish
+        }
+
+        SECTION("also stopped") {}
     }
 }

@@ -847,31 +847,17 @@ namespace clu::exec
         namespace dtch_cncl
         {
             template <typename S, typename R, typename F>
-            struct recv_t_
-            {
-                class type;
-            };
-
+            class recv_t_;
             template <typename S, typename R, typename F>
-            using recv_t = typename recv_t_<S, std::decay_t<R>, F>::type;
-
+            using recv_t = recv_t_<S, std::remove_cvref_t<R>, F>;
             template <typename S, typename R, typename F>
-            struct cleanup_recv_t_
-            {
-                class type;
-            };
-
+            class cleanup_recv_t_;
             template <typename S, typename R, typename F>
-            using cleanup_recv_t = typename cleanup_recv_t_<S, R, F>::type;
-
+            using cleanup_recv_t = cleanup_recv_t_<S, R, F>;
             template <typename S, typename R, typename F>
-            struct ops_t_
-            {
-                class type;
-            };
-
+            class ops_t_;
             template <typename S, typename R, typename F>
-            using ops_t = typename ops_t_<S, R, F>::type;
+            using ops_t = ops_t_<S, std::remove_cvref_t<R>, F>;
 
             template <typename S, typename R, typename F>
             struct shared_state;
@@ -886,14 +872,15 @@ namespace clu::exec
             template <typename S, typename R, typename F>
             struct shared_state
             {
-                using callback_type =
-                    typename stop_token_of_t<env_of_t<R>>::template callback_type<stop_callback<S, R, F>>;
+                using env_t = std::remove_cvref_t<env_of_t<R>>;
+                using callback_type = typename stop_token_of_t<env_t>::template callback_type<stop_callback<S, R, F>>;
 
                 template <typename... Ts>
                 using ops_type_of_values = connect_result_t<std::invoke_result_t<F, Ts...>, cleanup_recv_t<S, R, F>>;
 
                 R recv;
                 F func;
+                env_t env; // The receiver might be destroyed after we detach, cache the environment here
                 std::atomic_flag value_sent;
                 ops_optional<connect_result_t<S, recv_t<S, R, F>>> ops;
                 value_types_of_t<S, env_of_t<R>, ops_type_of_values, nullable_ops_variant> cleanup_ops;
@@ -902,16 +889,16 @@ namespace clu::exec
                 // clang-format off
                 template <typename R2, typename F2>
                 shared_state(R2&& recv, F2&& func):
-                    recv(static_cast<R2&&>(recv)), func(static_cast<F2&&>(func)) {}
+                    recv(static_cast<R2&&>(recv)), func(static_cast<F2&&>(func)), env(get_env(recv)) {}
                 // clang-format on
             };
 
             template <typename S, typename R, typename F>
-            class ops_t_<S, R, F>::type
+            class ops_t_
             {
             public:
                 template <typename S2, typename R2, typename F2>
-                type(S2&& snd, R2&& recv, F2&& func):
+                ops_t_(S2&& snd, R2&& recv, F2&& func):
                     shst_(std::allocate_shared< //
                         shared_state<S, R, F>, call_result_t<get_allocator_t, env_of_t<R>>>(
                         get_allocator(get_env(recv)), //
@@ -921,76 +908,84 @@ namespace clu::exec
                         [&] { return connect(static_cast<S2&&>(snd), recv_t<S, R, F>(shst_)); });
                 }
 
-            private:
-                std::shared_ptr<shared_state<S, R, F>> shst_;
-
-                friend void tag_invoke(start_t, type& self) noexcept
+                void tag_invoke(start_t) noexcept
                 {
                     // Cache the shared state in case we get destroyed by starting the operation
-                    const auto shst = std::move(self.shst_);
+                    const auto shst = std::move(shst_);
                     shst->cb.emplace(get_stop_token(get_env(shst->recv)), stop_callback<S, R, F>{*shst});
                     start(*shst->ops);
                 }
+
+            private:
+                std::shared_ptr<shared_state<S, R, F>> shst_;
             };
 
             template <typename S, typename R, typename F>
             void stop_callback<S, R, F>::operator()() const noexcept
             {
-                if (shst.value_sent.test_and_set(std::memory_order_release)) // We're not the first
+                // We need to cache the pointer to shared state here since *this will be destroyed
+                auto* state = &shst;
+                // The reset here (which then detaches the current stop callback) is necessary.
+                // We need to make sure that the callback doesn't outlive its corresponding source.
+                // We are sure that the source is still alive here, since this function is called by
+                // the source's request_stop(). After this function returns, the operation is detached,
+                // thus it might run concurrently with the destruction of the stop source, causing dangling
+                // pointer problems.
+                state->cb.reset();
+                if (state->value_sent.test_and_set(std::memory_order::acq_rel)) // We're not the first
                     return;
                 // Send a stopped signal to the receiver and let the detached operation run till completion
-                set_stopped(static_cast<R&&>(shst.recv));
+                set_stopped(static_cast<R&&>(state->recv));
             }
 
             template <typename S, typename R, typename F>
-            class recv_t_<S, R, F>::type
+            class recv_t_
             {
             public:
                 using is_receiver = void;
 
-                explicit type(std::shared_ptr<shared_state<S, R, F>> shst) noexcept: shst_(std::move(shst)) {}
-
-            private:
-                std::shared_ptr<shared_state<S, R, F>> shst_;
+                explicit recv_t_(std::shared_ptr<shared_state<S, R, F>> shst) noexcept: shst_(std::move(shst)) {}
 
                 template <completion_cpo Cpo, typename... Ts>
-                friend void tag_invoke(Cpo, type&& self, Ts&&... args) noexcept
+                void tag_invoke(Cpo, Ts&&... args) && noexcept
                 {
                     // We're detached, forward the results to the cleanup factory
-                    if (self.shst_->value_sent.test_and_set(std::memory_order_release))
+                    if (shst_->value_sent.test_and_set(std::memory_order::acq_rel))
                     {
                         if constexpr (std::is_same_v<Cpo, set_value_t>)
-                            self.set_value_detached(static_cast<Ts&&>(args)...);
+                            this->set_value_detached(static_cast<Ts&&>(args)...);
                         else if constexpr (std::is_same_v<Cpo, set_error_t>)
                             std::terminate();
                         else // set_stopped
-                            self.shst_.reset();
+                            shst_.reset();
                     }
                     // All is good, forward the args to the upstream receiver
                     else
                     {
-                        Cpo{}(static_cast<R&&>(self.shst_->recv), static_cast<Ts&&>(args)...);
-                        self.shst_.reset(); // This effectively destroys *this
+                        Cpo{}(static_cast<R&&>(shst_->recv), static_cast<Ts&&>(args)...);
+                        shst_.reset(); // This effectively destroys *this
                     }
                 }
 
-                friend env_of_t<R> tag_invoke(get_env_t, const type& self) noexcept
-                {
-                    return get_env(self.shst_->recv);
-                }
+                env_of_t<R> tag_invoke(get_env_t) const noexcept { return get_env(shst_->recv); }
+
+            private:
+                std::shared_ptr<shared_state<S, R, F>> shst_;
 
                 template <typename... Ts>
                 void set_value_detached(Ts&&... args) noexcept;
             };
 
             template <typename S, typename R, typename F>
-            class cleanup_recv_t_<S, R, F>::type
+            class cleanup_recv_t_
             {
             public:
+                using is_receiver = void;
+
                 // clang-format off
-                explicit type(std::shared_ptr<shared_state<S, R, F>> shst) noexcept:
+                explicit cleanup_recv_t_(std::shared_ptr<shared_state<S, R, F>> shst) noexcept:
                     shst_(std::move(shst)),
-                    env_(get_env(shst_->recv), never_stop_token{}) {}
+                    env_(clu::adapt_env(shst_->env, query_value{get_stop_token, never_stop_token{}})) {}
                 // clang-format on
 
                 void tag_invoke(set_value_t) && noexcept { shst_.reset(); }
@@ -1001,12 +996,12 @@ namespace clu::exec
             private:
                 std::shared_ptr<shared_state<S, R, F>> shst_;
                 CLU_NO_UNIQUE_ADDRESS
-                adapted_env_t<env_of_t<R>, query_value<get_stop_token_t, never_stop_token>> env_{};
+                adapted_env_t<env_of_t<R>, query_value<get_stop_token_t, never_stop_token>> env_;
             };
 
             template <typename S, typename R, typename F>
             template <typename... Ts>
-            void recv_t_<S, R, F>::type::set_value_detached(Ts&&... args) noexcept
+            void recv_t_<S, R, F>::set_value_detached(Ts&&... args) noexcept
             {
                 using shst_t = shared_state<S, R, F>;
                 using cleanup_ops_t = typename shst_t::template ops_type_of_values<Ts...>;
@@ -1020,46 +1015,39 @@ namespace clu::exec
             }
 
             template <typename S, typename F>
-            struct snd_t_
-            {
-                class type;
-            };
-
-            template <typename S, typename F>
-            using snd_t = typename snd_t_<std::decay_t<S>, std::decay_t<F>>::type;
-
-            template <typename S, typename F>
-            class snd_t_<S, F>::type
+            class snd_t_
             {
             public:
                 using is_sender = void;
 
                 // clang-format off
                 template <typename S2, typename F2>
-                type(S2&& snd, F2&& func): snd_(static_cast<S2&&>(snd)), func_(static_cast<F2&&>(func)) {}
+                snd_t_(S2&& snd, F2&& func): snd_(static_cast<S2&&>(snd)), func_(static_cast<F2&&>(func)) {}
                 // clang-format on
 
-            private:
-                S snd_;
-                F func_;
-
-                template <typename R> // TODO: constrain R s.t. F is a cleanup factory for (S, Env)
-                friend auto tag_invoke(connect_t, type&& self, R&& recv)
+                template <receiver R> // TODO: constrain R s.t. F is a cleanup factory for (S, Env)
+                auto tag_invoke(connect_t, R&& recv) &&
                 {
                     return ops_t<S, R, F>( //
-                        static_cast<S&&>(self.snd_), static_cast<R&&>(recv), static_cast<F&&>(self.func_));
+                        static_cast<S&&>(snd_), static_cast<R&&>(recv), static_cast<F&&>(func_));
                 }
 
                 // clang-format off
                 template <typename Env>
-                friend make_completion_signatures<S, Env,
+                static make_completion_signatures<S, Env,
                     completion_signatures<set_error_t(std::exception_ptr), set_stopped_t()>>
-                tag_invoke(get_completion_signatures_t, const type&, Env&&) noexcept { return {}; }
+                tag_invoke(get_completion_signatures_t, Env&&) noexcept { return {}; }
                 // clang-format on
 
-                friend auto tag_invoke(get_env_t, const type& self)
-                    CLU_SINGLE_RETURN(clu::adapt_env(get_env(self.snd_)));
+                auto tag_invoke(get_env_t) const CLU_SINGLE_RETURN(clu::adapt_env(get_env(snd_)));
+
+            private:
+                S snd_;
+                F func_;
             };
+
+            template <typename S, typename F>
+            using snd_t = snd_t_<std::remove_cvref_t<S>, std::decay_t<F>>;
 
             inline constexpr auto noop_cleanup_factory = [](auto&&...) noexcept { return just_void; };
             using noop_cleanup_factory_t = decltype(noop_cleanup_factory);
