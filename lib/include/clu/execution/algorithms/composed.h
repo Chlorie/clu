@@ -126,11 +126,6 @@ namespace clu::exec
         {
             return with_query_value(static_cast<S&&>(snd), get_stop_token, token);
         }
-
-        CLU_STATIC_CALL_OPERATOR(auto)(const stoppable_token auto token)
-        {
-            return clu::make_piper(clu::bind_back(with_stop_token_t{}, token));
-        }
     };
     inline constexpr with_stop_token_t with_stop_token{};
 

@@ -1,7 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include "clu/execution/algorithms/basic.h"
-#include "clu/execution/algorithms/consumers.h"
+#include "clu/execution/algorithms.h"
 #include "clu/execution_contexts.h"
 
 using namespace std::literals;

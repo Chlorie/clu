@@ -2,9 +2,7 @@
 #include <catch2/matchers/catch_matchers.hpp>
 
 #include "clu/overload.h"
-#include "clu/execution/algorithms/basic.h"
-#include "clu/execution/algorithms/consumers.h"
-#include "clu/execution/algorithms/composed.h"
+#include "clu/execution/algorithms.h"
 #include "clu/execution_contexts.h"
 #include "clu/task.h"
 
@@ -67,14 +65,14 @@ TEST_CASE("stop if requested", "[execution]")
     SECTION("not stopped")
     {
         clu::in_place_stop_source src;
-        const auto res = tt::sync_wait(ex::stop_if_requested() | ex::with_stop_token(src.get_token()));
+        const auto res = tt::sync_wait(ex::with_stop_token(ex::stop_if_requested(), src.get_token()));
         REQUIRE(res);
     }
     SECTION("stopped")
     {
         clu::in_place_stop_source src;
         src.request_stop();
-        const auto res = tt::sync_wait(ex::stop_if_requested() | ex::with_stop_token(src.get_token()));
+        const auto res = tt::sync_wait(ex::with_stop_token(ex::stop_if_requested(), src.get_token()));
         REQUIRE_FALSE(res);
     }
 }

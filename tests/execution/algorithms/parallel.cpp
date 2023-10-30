@@ -1,10 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers.hpp>
 
-#include "clu/execution/algorithms/basic.h"
-#include "clu/execution/algorithms/consumers.h"
-#include "clu/execution/algorithms/composed.h"
-#include "clu/execution/algorithms/parallel.h"
+#include "clu/execution/algorithms.h"
 #include "clu/execution_contexts.h"
 #include "clu/async/manual_reset_event.h"
 
