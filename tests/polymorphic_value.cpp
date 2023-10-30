@@ -49,7 +49,8 @@ TEST_CASE("polymorphic value constructors", "[polymorphic_value]")
     {
         const ShapeValue rect(new Rectangle(3.0f, 4.0f));
         REQUIRE(rect);
-        REQUIRE(typeid(*rect) == typeid(Rectangle));
+        const auto& ref = *rect;
+        REQUIRE(typeid(ref) == typeid(Rectangle));
         REQUIRE(rect->area() == 12.0_a);
     }
     SECTION("raw base pointer")
@@ -58,31 +59,36 @@ TEST_CASE("polymorphic value constructors", "[polymorphic_value]")
         const ShapeValue rect(
             ptr, [](const Shape& s) -> Shape* { return new Rectangle(dynamic_cast<const Rectangle&>(s)); });
         REQUIRE(rect);
-        REQUIRE(typeid(*rect) == typeid(Rectangle));
+        const auto& ref = *rect;
+        REQUIRE(typeid(ref) == typeid(Rectangle));
         REQUIRE(rect->area() == 20.0_a);
     }
     SECTION("in place")
     {
         const RectValue rect(std::in_place, 2.5f, 4.0f);
         REQUIRE(rect);
-        REQUIRE(typeid(*rect) == typeid(Rectangle));
+        const auto& ref1 = *rect;
+        REQUIRE(typeid(ref1) == typeid(Rectangle));
         REQUIRE(rect->area() == 10.0_a);
 
         const ShapeValue shape(std::in_place_type<Rectangle>, 2.0f, 2.5f);
         REQUIRE(shape);
-        REQUIRE(typeid(*shape) == typeid(Rectangle));
+        const auto& ref2 = *rect;
+        REQUIRE(typeid(ref2) == typeid(Rectangle));
         REQUIRE(shape->area() == 5.0_a);
     }
     SECTION("value conversion")
     {
         const RectValue rect = Rectangle(2.5f, 4.0f);
         REQUIRE(rect);
-        REQUIRE(typeid(*rect) == typeid(Rectangle));
+        const auto& ref1 = *rect;
+        REQUIRE(typeid(ref1) == typeid(Rectangle));
         REQUIRE(rect->area() == 10.0_a);
 
         const ShapeValue shape = Rectangle(2.0f, 2.5f);
         REQUIRE(shape);
-        REQUIRE(typeid(*shape) == typeid(Rectangle));
+        const auto& ref2 = *rect;
+        REQUIRE(typeid(ref2) == typeid(Rectangle));
         REQUIRE(shape->area() == 5.0_a);
     }
     SECTION("copy")
@@ -90,7 +96,8 @@ TEST_CASE("polymorphic value constructors", "[polymorphic_value]")
         const ShapeValue disk(std::in_place_type<Disk>, 3.0f);
         const ShapeValue copy = disk; // NOLINT(performance-unnecessary-copy-initialization)
         REQUIRE(copy);
-        REQUIRE(typeid(*copy) == typeid(Disk));
+        const auto& ref = *copy;
+        REQUIRE(typeid(ref) == typeid(Disk));
         REQUIRE(&*disk != &*copy); // Deep copy
         REQUIRE(disk->area() == Approx(copy->area()));
     }
@@ -99,7 +106,8 @@ TEST_CASE("polymorphic value constructors", "[polymorphic_value]")
         const DiskValue disk(std::in_place, 2.5f);
         const ShapeValue copy = disk;
         REQUIRE(copy);
-        REQUIRE(typeid(*copy) == typeid(Disk));
+        const auto& ref = *copy;
+        REQUIRE(typeid(ref) == typeid(Disk));
         REQUIRE(&*disk != &*copy);
         REQUIRE(disk->area() == Approx(copy->area()));
     }

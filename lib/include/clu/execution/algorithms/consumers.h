@@ -15,40 +15,27 @@ namespace clu::exec
             struct ops_wrapper;
 
             template <typename S>
-            struct recv_t_
-            {
-                struct type;
-            };
-
-            template <typename S>
-            struct recv_t_<S>::type
+            struct recv_t
             {
                 using is_receiver = void;
 
                 ops_wrapper<S>* ptr = nullptr;
 
                 template <typename... Ts>
-                friend void tag_invoke(set_value_t, type&& self, Ts&&...) noexcept
+                void tag_invoke(set_value_t, Ts&&...) && noexcept
                 {
-                    delete self.ptr;
-                }
-
-                template <typename = int>
-                friend void tag_invoke(set_stopped_t, type&& self) noexcept
-                {
-                    delete self.ptr;
+                    delete ptr;
                 }
 
                 template <typename E>
-                friend void tag_invoke(set_error_t, type&& self, E&&) noexcept
+                void tag_invoke(set_error_t, E&&) && noexcept
                 {
-                    delete self.ptr;
+                    delete ptr;
                     std::terminate();
                 }
-            };
 
-            template <typename S>
-            using recv_t = typename recv_t_<S>::type;
+                void tag_invoke(set_stopped_t) && noexcept { delete ptr; }
+            };
 
             template <typename S>
             struct ops_wrapper
@@ -71,13 +58,14 @@ namespace clu::exec
                         static_assert(std::is_void_v<tag_invoke_result_t<start_detached_t,
                                           call_result_t<get_completion_scheduler_t<set_value_t>, S>, S>>,
                             "start_detached should return void");
-                        clu::tag_invoke(*this, exec::get_completion_scheduler<set_value_t>(snd), static_cast<S&&>(snd));
+                        clu::tag_invoke(start_detached_t{}, //
+                            exec::get_completion_scheduler<set_value_t>(snd), static_cast<S&&>(snd));
                     }
                     else if constexpr (tag_invocable<start_detached_t, S>)
                     {
                         static_assert(std::is_void_v<tag_invoke_result_t<start_detached_t, S>>,
                             "start_detached should return void");
-                        clu::tag_invoke(*this, static_cast<S&&>(snd));
+                        clu::tag_invoke(start_detached_t{}, static_cast<S&&>(snd));
                     }
                     else
                         exec::start((new ops_wrapper<S>(static_cast<S&&>(snd)))->op_state);
@@ -85,32 +73,29 @@ namespace clu::exec
             };
         } // namespace start_det
 
-        namespace execute
+        struct execute_t
         {
-            struct execute_t
+            template <scheduler S, std::invocable F>
+            CLU_STATIC_CALL_OPERATOR(void)
+            (S&& schd, F&& func)
             {
-                template <scheduler S, std::invocable F>
-                CLU_STATIC_CALL_OPERATOR(void)
-                (S&& schd, F&& func)
+                if constexpr (tag_invocable<execute_t, S, F>)
                 {
-                    if constexpr (tag_invocable<execute_t, S, F>)
-                    {
-                        static_assert(std::is_void_v<tag_invoke_result_t<execute_t, S, F>>,
-                            "customization for execute should return void");
-                        clu::tag_invoke(*this, static_cast<S&&>(schd), static_cast<F&&>(func));
-                    }
-                    else
-                    {
-                        start_det::start_detached_t{}(
-                            then(exec::schedule(static_cast<S&&>(schd)), static_cast<F&&>(func)));
-                    }
+                    static_assert(std::is_void_v<tag_invoke_result_t<execute_t, S, F>>,
+                        "customization for execute should return void");
+                    clu::tag_invoke(execute_t{}, static_cast<S&&>(schd), static_cast<F&&>(func));
                 }
-            };
-        } // namespace execute
+                else
+                {
+                    start_det::start_detached_t{}( //
+                        then(exec::schedule(static_cast<S&&>(schd)), static_cast<F&&>(func)));
+                }
+            }
+        };
     } // namespace detail
 
     using detail::start_det::start_detached_t;
-    using detail::execute::execute_t;
+    using detail::execute_t;
 
     inline constexpr start_detached_t start_detached{};
     inline constexpr execute_t execute{};
@@ -120,12 +105,6 @@ namespace clu::this_thread
 {
     namespace detail::sync_wait
     {
-        template <typename S>
-        struct recv_
-        {
-            class type;
-        };
-
         using loop_schd = decltype(std::declval<run_loop&>().get_scheduler());
 
         struct env_t
@@ -153,50 +132,50 @@ namespace clu::this_thread
         // clang-format on
 
         template <typename S>
-        class recv_<S>::type
+        class recv_t_
         {
         public:
             using is_receiver = void;
 
-            type(run_loop* loop, variant_t<S>* ptr): loop_(loop), ptr_(ptr) {}
+            recv_t_(run_loop* loop, variant_t<S>* ptr): loop_(loop), ptr_(ptr) {}
 
-        private:
-            run_loop* loop_;
-            variant_t<S>* ptr_;
-
-            friend env_t tag_invoke(get_env_t, const type& self) noexcept { return {self.loop_->get_scheduler()}; }
+            env_t tag_invoke(get_env_t) const noexcept { return {loop_->get_scheduler()}; }
 
             template <typename... Ts>
                 requires std::constructible_from<value_types_t<S>, Ts...>
-            friend void tag_invoke(exec::set_value_t, type&& self, Ts&&... args) noexcept
+            void tag_invoke(exec::set_value_t, Ts&&... args) && noexcept
             {
                 try
                 {
-                    self.ptr_->template emplace<1>(static_cast<Ts&&>(args)...);
-                    self.loop_->finish();
+                    ptr_->template emplace<1>(static_cast<Ts&&>(args)...);
+                    loop_->finish();
                 }
                 catch (...)
                 {
-                    exec::set_error(std::move(self), std::current_exception());
+                    exec::set_error(std::move(*this), std::current_exception());
                 }
             }
 
             template <typename E>
-            friend void tag_invoke(exec::set_error_t, type&& self, E&& error) noexcept
+            void tag_invoke(exec::set_error_t, E&& error) && noexcept
             {
-                self.ptr_->template emplace<2>(exec::detail::make_exception_ptr(static_cast<E&&>(error)));
-                self.loop_->finish();
+                ptr_->template emplace<2>(exec::detail::make_exception_ptr(static_cast<E&&>(error)));
+                loop_->finish();
             }
 
-            friend void tag_invoke(exec::set_stopped_t, type&& self) noexcept
+            void tag_invoke(exec::set_stopped_t) && noexcept
             {
-                self.ptr_->template emplace<3>();
-                self.loop_->finish();
+                ptr_->template emplace<3>();
+                loop_->finish();
             }
+
+        private:
+            run_loop* loop_;
+            variant_t<S>* ptr_;
         };
 
         template <typename S>
-        using recv_t = typename recv_<std::remove_cvref_t<S>>::type;
+        using recv_t = recv_t_<std::remove_cvref_t<S>>;
 
         struct sync_wait_t
         {
@@ -211,14 +190,14 @@ namespace clu::this_thread
                 {
                     using comp_schd = exec::detail::completion_scheduler_of_t<exec::set_value_t, S>;
                     static_assert(std::is_same_v<tag_invoke_result_t<sync_wait_t, comp_schd, S>, result_t<S>>);
-                    return clu::tag_invoke(*this,
+                    return clu::tag_invoke(sync_wait_t{},
                         exec::get_completion_scheduler<exec::set_value_t>(static_cast<S&&>(snd)),
                         static_cast<S&&>(snd));
                 }
                 else if constexpr (tag_invocable<sync_wait_t, S>)
                 {
                     static_assert(std::is_same_v<tag_invoke_result_t<sync_wait_t, S>, result_t<S>>);
-                    return clu::tag_invoke(*this, static_cast<S&&>(snd));
+                    return clu::tag_invoke(sync_wait_t{}, static_cast<S&&>(snd));
                 }
                 else
                 {
@@ -242,7 +221,8 @@ namespace clu::this_thread
         using into_var_snd_t = call_result_t<exec::into_variant_t, S>;
 
         template <typename S>
-        using var_result_t = result_t<into_var_snd_t<S>>;
+        using var_result_t =
+            std::optional<exec::value_types_of_t<into_var_snd_t<S>, env_t, single_type_t, single_type_t>>;
 
         struct sync_wait_with_variant_t
         {
@@ -258,17 +238,21 @@ namespace clu::this_thread
                     using comp_schd = exec::detail::completion_scheduler_of_t<exec::set_value_t, S>;
                     static_assert(
                         std::is_same_v<tag_invoke_result_t<sync_wait_with_variant_t, comp_schd, S>, var_result_t<S>>);
-                    return clu::tag_invoke(*this,
+                    return clu::tag_invoke(sync_wait_with_variant_t{},
                         exec::get_completion_scheduler<exec::set_value_t>(static_cast<S&&>(snd)),
                         static_cast<S&&>(snd));
                 }
                 else if constexpr (tag_invocable<sync_wait_with_variant_t, S>)
                 {
                     static_assert(std::is_same_v<tag_invoke_result_t<sync_wait_with_variant_t, S>, var_result_t<S>>);
-                    return clu::tag_invoke(*this, static_cast<S&&>(snd));
+                    return clu::tag_invoke(sync_wait_with_variant_t{}, static_cast<S&&>(snd));
                 }
                 else
-                    return sync_wait_t{}(exec::into_variant(static_cast<S&&>(snd)));
+                {
+                    // raw is optional<tuple<variant<tuple<...>...>>>
+                    auto raw = sync_wait_t{}(exec::into_variant(static_cast<S&&>(snd)));
+                    return raw ? var_result_t<S>(std::get<0>(*raw)) : var_result_t<S>();
+                }
             }
         };
     } // namespace detail::sync_wait

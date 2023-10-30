@@ -120,7 +120,7 @@ namespace clu::exec
                 {
                     return stream_t<S>(static_cast<S&&>(snd));
                 }
-                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(*this); }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(single_stream_t{}); }
             };
         } // namespace sngl
 
@@ -185,7 +185,7 @@ namespace clu::exec
                 {
                     return rng_strm::stream_t<R>(static_cast<R&&>(range));
                 }
-                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(*this); }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(as_stream_t{}); }
             };
         } // namespace as_strm
     } // namespace detail

@@ -21,7 +21,7 @@ namespace clu::exec
         template <typename F>
         CLU_STATIC_CALL_OPERATOR(auto)(F&& func) 
         {
-            return clu::make_piper(clu::bind_back(*this, static_cast<F&&>(func)));
+            return clu::make_piper(clu::bind_back(for_each_t{}, static_cast<F&&>(func)));
         }
     } constexpr for_each{};
 
@@ -38,7 +38,7 @@ namespace clu::exec
         template <typename F>
         CLU_STATIC_CALL_OPERATOR(auto)(F&& func) 
         {
-            return clu::make_piper(clu::bind_back(*this, static_cast<F&&>(func)));
+            return clu::make_piper(clu::bind_back(upon_each_t{}, static_cast<F&&>(func)));
         }
     } constexpr upon_each{};
 
@@ -55,7 +55,7 @@ namespace clu::exec
         template <typename F>
         CLU_STATIC_CALL_OPERATOR(auto)(F&& func) 
         {
-            return clu::make_piper(clu::bind_back(*this, static_cast<F&&>(func)));
+            return clu::make_piper(clu::bind_back(let_each_t{}, static_cast<F&&>(func)));
         }
     } constexpr let_each{};
 
@@ -67,7 +67,7 @@ namespace clu::exec
             return reduce(strm, 0_uz, //
                 [](const std::size_t partial, auto&&...) noexcept { return just(partial + 1); });
         }
-        constexpr CLU_STATIC_CALL_OPERATOR(auto)()  noexcept { return make_piper(*this); }
+        constexpr CLU_STATIC_CALL_OPERATOR(auto)()  noexcept { return make_piper(stream_size_t{}); }
     } constexpr stream_size{};
 
     inline struct count_if_t
@@ -86,7 +86,7 @@ namespace clu::exec
         template <typename Pred>
         constexpr CLU_STATIC_CALL_OPERATOR(auto)(Pred&& pred) 
         {
-            return clu::make_piper(clu::bind_back(*this, static_cast<Pred&&>(pred)));
+            return clu::make_piper(clu::bind_back(count_if_t{}, static_cast<Pred&&>(pred)));
         }
     } constexpr count_if{};
 
@@ -103,7 +103,7 @@ namespace clu::exec
         template <typename T>
         constexpr CLU_STATIC_CALL_OPERATOR(auto)(T&& value) 
         {
-            return clu::make_piper(clu::bind_back(*this, static_cast<T&&>(value)));
+            return clu::make_piper(clu::bind_back(count_t{}, static_cast<T&&>(value)));
         }
     } constexpr count{};
 
@@ -114,7 +114,7 @@ namespace clu::exec
         {
             return finally(next(strm), cleanup(strm));
         }
-        constexpr CLU_STATIC_CALL_OPERATOR(auto)()  noexcept { return make_piper(*this); }
+        constexpr CLU_STATIC_CALL_OPERATOR(auto)()  noexcept { return make_piper(first_t{}); }
     } constexpr first{};
 
     inline struct each_on_t
@@ -130,7 +130,7 @@ namespace clu::exec
         template <scheduler Schd>
         constexpr CLU_STATIC_CALL_OPERATOR(auto)(Schd&& schd) 
         {
-            return clu::make_piper(clu::bind_back(*this, static_cast<Schd&&>(schd)));
+            return clu::make_piper(clu::bind_back(each_on_t{}, static_cast<Schd&&>(schd)));
         }
     } constexpr each_on{};
 } // namespace clu::exec

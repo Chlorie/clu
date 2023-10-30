@@ -68,24 +68,29 @@ namespace clu
             template <typename R>
             static auto tag_invoke(exec::connect_t, R&& recv) //
                 CLU_SINGLE_RETURN(ops_t<std::decay_t<R>>(static_cast<R&&>(recv)));
+
+            static exec::detail::comp_schd_env<schd_t> tag_invoke(get_env_t) noexcept;
         };
 
         // exec::schedule_at / exec::schedule_after
 
         template <typename Fn, typename R>
-        struct timed_non_stop_ops_t_
-        {
-            class type;
-        };
-        template <typename Fn, typename R>
-        class timed_non_stop_ops_t_<Fn, R>::type
+        class timed_non_stop_ops_t_
         {
         public:
             // clang-format off
             template <typename R2>
-            type(Fn fn, R2&& recv) noexcept(std::is_nothrow_constructible_v<R, R2>):
+            timed_non_stop_ops_t_(Fn fn, R2&& recv) noexcept(std::is_nothrow_constructible_v<R, R2>):
                 fn_(fn), recv_(static_cast<R2&&>(recv)) {}
             // clang-format on
+
+            void tag_invoke(exec::start_t) noexcept
+            {
+                // clang-format off
+                try { std::thread([&] { start(); }).detach(); }
+                catch (...) { exec::set_error(static_cast<R&&>(recv_), std::current_exception()); }
+                // clang-format on
+            }
 
         private:
             Fn fn_;
@@ -96,35 +101,30 @@ namespace clu
                 std::this_thread::sleep_until(fn_());
                 exec::set_value(static_cast<R&&>(recv_)); // NOLINT(bugprone-branch-clone)
             }
-
-            friend void tag_invoke(exec::start_t, type& self) noexcept
-            {
-                // clang-format off
-                try { std::thread([&] { self.start(); }).detach(); }
-                catch (...) { exec::set_error(static_cast<R&&>(self.recv_), std::current_exception()); }
-                // clang-format on
-            }
         };
 
         template <typename Fn, typename R>
-        struct timed_stoppable_ops_t_
-        {
-            class type;
-        };
-
-        template <typename Fn, typename R>
-        class timed_stoppable_ops_t_<Fn, R>::type
+        class timed_stoppable_ops_t_
         {
         public:
             // clang-format off
             template <typename R2>
-            type(Fn fn, R2&& recv): fn_(fn), recv_(static_cast<R2&&>(recv)) {}
+            timed_stoppable_ops_t_(Fn fn, R2&& recv): fn_(fn), recv_(static_cast<R2&&>(recv)) {}
             // clang-format on
+
+            void tag_invoke(exec::start_t) noexcept
+            {
+                const auto token = get_stop_token(get_env(recv_));
+                callback_.emplace(token, stop_callback{*this});
+                if (token.stop_requested())
+                    exec::set_stopped(static_cast<R&&>(recv_));
+                std::thread([this, token] { this->work(token); }).detach();
+            }
 
         private:
             struct stop_callback
             {
-                type& self;
+                timed_stoppable_ops_t_& self;
                 void operator()() const noexcept { self.cv_.notify_one(); }
             };
 
@@ -149,37 +149,19 @@ namespace clu
                 else
                     exec::set_value(static_cast<R&&>(recv_));
             }
-
-            friend void tag_invoke(exec::start_t, type& self) noexcept
-            {
-                const auto token = get_stop_token(get_env(self.recv_));
-                self.callback_.emplace(token, stop_callback{self});
-                if (token.stop_requested())
-                    exec::set_stopped(static_cast<R&&>(self.recv_));
-                std::thread([&self, token] { self.work(token); }).detach();
-            }
         };
 
         template <typename Fn, typename R>
-        using timed_ops_t = typename conditional_t<unstoppable_token<stop_token_of_t<env_of_t<R>>>,
-            timed_non_stop_ops_t_<Fn, std::decay_t<R>>, timed_stoppable_ops_t_<Fn, std::decay_t<R>>>::type;
+        using timed_ops_t = conditional_t<unstoppable_token<stop_token_of_t<env_of_t<R>>>,
+            timed_non_stop_ops_t_<Fn, std::decay_t<R>>, timed_stoppable_ops_t_<Fn, std::decay_t<R>>>;
 
         template <typename Fn>
-        struct timed_snd_t_
-        {
-            class type;
-        };
-
-        template <typename Fn>
-        using timed_snd_t = typename timed_snd_t_<std::decay_t<Fn>>::type;
-
-        template <typename Fn>
-        class timed_snd_t_<Fn>::type
+        class timed_snd_t_
         {
         public:
             using is_sender = void;
 
-            explicit type(Fn fn) noexcept: fn_(fn) {}
+            explicit timed_snd_t_(Fn fn) noexcept: fn_(fn) {}
 
             // clang-format off
             template <typename Env>
@@ -191,9 +173,14 @@ namespace clu
             auto tag_invoke(exec::connect_t, R&& recv) const //
                 CLU_SINGLE_RETURN(timed_ops_t<Fn, R>(fn_, static_cast<R&&>(recv)));
 
+            static exec::detail::comp_schd_env<schd_t> tag_invoke(get_env_t) noexcept;
+
         private:
             Fn fn_;
         };
+
+        template <typename Fn>
+        using timed_snd_t = timed_snd_t_<std::decay_t<Fn>>;
 
         template <typename Fn>
         auto make_timed_snd(Fn fn) noexcept
@@ -220,11 +207,16 @@ namespace clu
             }
         };
 
-        // clang-format off
-        inline auto tag_invoke(get_env_t, snd_t) noexcept { return exec::detail::comp_schd_env<schd_t>({}); }
+        inline exec::detail::comp_schd_env<schd_t> snd_t::tag_invoke(get_env_t) noexcept
+        {
+            return exec::detail::comp_schd_env<schd_t>({});
+        }
+
         template <typename Fn>
-        auto tag_invoke(get_env_t, timed_snd_t<Fn>) noexcept { return exec::detail::comp_schd_env<schd_t>({}); }
-        // clang-format on
+        exec::detail::comp_schd_env<schd_t> timed_snd_t_<Fn>::tag_invoke(get_env_t) noexcept
+        {
+            return exec::detail::comp_schd_env<schd_t>({});
+        }
     } // namespace detail::new_thrd_ctx
 
     using new_thread_scheduler = detail::new_thrd_ctx::schd_t;
@@ -382,43 +374,28 @@ namespace clu
         };
 
         template <typename R>
-        struct at_ops_t_
-        {
-            class type;
-        };
-
-        template <typename R>
-        using at_ops_t = typename at_ops_t_<std::decay_t<R>>::type;
-
-        template <typename R>
-        class at_ops_t_<R>::type final : public ops_recv_base<R>
+        class at_ops_t_ final : public ops_recv_base<R>
         {
         public:
             // clang-format off
             template <typename R2>
-            type(timer_loop* loop, R2&& recv, const time_point tp):
+            at_ops_t_(timer_loop* loop, R2&& recv, const time_point tp):
                 ops_recv_base<R>(loop, static_cast<R2&&>(recv)) { this->deadline = tp; }
             // clang-format on
 
             void tag_invoke(exec::start_t) noexcept { this->start(); }
         };
 
-        template <typename R, typename Dur>
-        struct after_ops_t_
-        {
-            class type;
-        };
+        template <typename R>
+        using at_ops_t = typename at_ops_t_<std::decay_t<R>>::type;
 
         template <typename R, typename Dur>
-        using after_ops_t = typename after_ops_t_<std::decay_t<R>, Dur>::type;
-
-        template <typename R, typename Dur>
-        class after_ops_t_<R, Dur>::type final : public ops_recv_base<R>
+        class after_ops_t_ final : public ops_recv_base<R>
         {
         public:
             // clang-format off
             template <typename R2>
-            type(timer_loop* loop, R2&& recv, const Dur dur):
+            after_ops_t_(timer_loop* loop, R2&& recv, const Dur dur):
                 ops_recv_base<R>(loop, static_cast<R2&&>(recv)), dur_(dur) {}
             // clang-format on
 
@@ -433,17 +410,14 @@ namespace clu
             Dur dur_;
         };
 
+        template <typename R, typename Dur>
+        using after_ops_t = after_ops_t_<std::decay_t<R>, Dur>;
+
         using sigs = exec::completion_signatures< //
             exec::set_value_t(), exec::set_error_t(std::exception_ptr), exec::set_stopped_t()>;
 
         template <typename Dur>
-        struct after_snd_t_
-        {
-            class type;
-        };
-
-        template <typename Dur>
-        using after_snd_t = typename after_snd_t_<Dur>::type;
+        class after_snd_t;
 
         class schd_t
         {
@@ -451,6 +425,11 @@ namespace clu
             explicit schd_t(timer_loop* loop) noexcept: loop_(loop) {}
 
             auto tag_invoke(exec::schedule_at_t, const time_point tp) const noexcept { return at_snd_t(loop_, tp); }
+
+            after_snd_t<std::chrono::seconds> tag_invoke(exec::schedule_t) const noexcept;
+
+            template <exec::duration Dur>
+            after_snd_t<Dur> tag_invoke(exec::schedule_after_t, Dur dur) const noexcept;
 
         private:
             class at_snd_t
@@ -476,19 +455,15 @@ namespace clu
             timer_loop* loop_ = nullptr;
 
             friend bool operator==(schd_t, schd_t) noexcept = default;
-
-            friend after_snd_t<std::chrono::seconds> tag_invoke(exec::schedule_t, schd_t self) noexcept;
-            template <exec::duration Dur>
-            friend after_snd_t<Dur> tag_invoke(exec::schedule_after_t, schd_t self, Dur dur) noexcept;
         };
 
         template <typename Dur>
-        class after_snd_t_<Dur>::type
+        class after_snd_t
         {
         public:
             using is_sender = void;
             using completion_signatures = sigs;
-            explicit type(timer_loop* loop, const Dur dur) noexcept: loop_(loop), dur_(dur) {}
+            explicit after_snd_t(timer_loop* loop, const Dur dur) noexcept: loop_(loop), dur_(dur) {}
 
             auto tag_invoke(get_env_t) const noexcept { return comp_schd_env<schd_t>(schd_t(loop_)); }
 
@@ -510,9 +485,9 @@ namespace clu
         }
 
         template <exec::duration Dur>
-        after_snd_t<Dur> tag_invoke(exec::schedule_after_t, const schd_t self, const Dur dur) noexcept
+        after_snd_t<Dur> schd_t::tag_invoke(exec::schedule_after_t, const Dur dur) const noexcept
         {
-            return tm_loop::make_after_snd(self.loop_, dur);
+            return tm_loop::make_after_snd(loop_, dur);
         }
     } // namespace detail::tm_loop
 

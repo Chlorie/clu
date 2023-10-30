@@ -15,52 +15,42 @@ namespace clu::exec
             using one_or_zero_type = std::bool_constant<(sizeof...(Ts) < 2)>;
             template <typename... Ts>
             using sig_of_decayed_rref = set_value_t(std::decay_t<Ts>&&...);
+            template <typename R>
+            using recv_env_t = env_t<env_of_t<R>>;
             template <typename R, typename... Ts>
             inline constexpr bool can_send_value =
-                meta::none_of_q<>::value<value_types_of_t<Ts, env_t<env_of_t<R>>, decayed_tuple, meta::empty>...>;
+                meta::none_of_q<>::value<value_types_of_t<Ts, recv_env_t<R>, decayed_tuple, meta::empty>...>;
 
             template <typename R, typename... Ts>
-            struct ops_t_
-            {
-                class type;
-            };
+            class ops_t_;
 
             template <typename R, typename... Ts>
-            using ops_t = typename ops_t_<R, Ts...>::type;
+            using ops_t = ops_t_<std::remove_cvref_t<R>, Ts...>;
 
-            template <typename R, typename S, std::size_t I, typename... Ts>
-            struct recv_t_
-            {
-                class type;
-            };
-
-            template <typename R, typename S, std::size_t I, typename... Ts>
-            using recv_t = typename recv_t_<R, S, I, Ts...>::type;
-
-            template <typename R>
-            using recv_env_t = env_t<env_of_t<R>>; // gcc bug workaround
-
-            template <typename R, typename S, std::size_t I, typename... Ts>
-            class recv_t_<R, S, I, Ts...>::type
+            template <typename R, std::size_t I, typename... Ts>
+            class recv_t_
             {
             public:
                 using is_receiver = void;
 
-                explicit type(ops_t<R, Ts...>* ops) noexcept: ops_(ops) {}
+                explicit recv_t_(ops_t<R, Ts...>* ops) noexcept: ops_(ops) {}
+
+                const recv_env_t<R>& tag_invoke(get_env_t) const noexcept;
+
+                template <completion_cpo SetCpo, typename... Args>
+                void tag_invoke(SetCpo, Args&&... args) && noexcept
+                {
+                    ops_->template set<I>(SetCpo{}, static_cast<Args&&>(args)...);
+                }
 
             private:
                 ops_t<R, Ts...>* ops_;
 
                 const R& get_base() const noexcept;
-                recv_env_t<R> get_env() const;
-                friend auto tag_invoke(get_env_t, const type& self) noexcept { return self.get_env(); }
-
-                template <recvs::completion_cpo SetCpo, typename... Args>
-                friend void tag_invoke(SetCpo, type&& self, Args&&... args) noexcept
-                {
-                    self.ops_->template set<I>(SetCpo{}, static_cast<Args&&>(args)...);
-                }
             };
+
+            template <typename R, std::size_t I, typename... Ts>
+            using recv_t = recv_t_<R, I, Ts...>;
 
             template <typename... Ts>
             using optional_of_single = std::optional<single_type_t<Ts...>>;
@@ -75,9 +65,8 @@ namespace clu::exec
             template <typename R, typename... Ts, std::size_t... Is>
             auto connect_children(std::index_sequence<Is...>, ops_t<R, Ts...>* ops, Ts&&... snds)
             {
-                return ops_tuple<connect_result_t<Ts, recv_t<R, Ts, Is, Ts...>>...>{[&] { //
-                    return exec::connect(static_cast<Ts&&>(snds), recv_t<R, Ts, Is, Ts...>(ops));
-                }...};
+                return detail::make_ops_tuple_from(
+                    [&] { return exec::connect(static_cast<Ts&&>(snds), recv_t<R, Is, Ts...>(ops)); }...);
             }
 
             template <typename R, typename... Ts>
@@ -95,19 +84,20 @@ namespace clu::exec
             }
 
             template <typename R, typename... Ts>
-            class ops_t_<R, Ts...>::type
+            class ops_t_
             {
             public:
                 // clang-format off
                 template <forwarding<R> R2, typename... Us>
-                explicit type(R2&& recv, Us&&... snds):
+                explicit ops_t_(R2&& recv, Us&&... snds):
                     recv_(static_cast<R2&&>(recv)),
+                    env_(clu::adapt_env(get_env(recv_), query_value{get_stop_token, stop_src_.get_token()})),
                     children_(when_all::connect_children<R>(
                         std::index_sequence_for<Ts...>{}, this, static_cast<Us&&>(snds)...)) {}
                 // clang-format on
 
                 const R& get_recv() const noexcept { return recv_; }
-                auto get_recv_env() { return env_t<env_of_t<R>>{get_env(recv_), stop_src_.get_token()}; }
+                const auto& get_recv_env() const noexcept { return env_; }
 
                 template <std::size_t I, typename... Us>
                 void set(set_value_t, [[maybe_unused]] Us&&... values) noexcept
@@ -132,7 +122,7 @@ namespace clu::exec
                     increase_counter(); // Arrives
                 }
 
-                template <std::size_t I, typename E>
+                template <std::size_t, typename E>
                 void set(set_error_t, E&& error) noexcept
                 {
                     // Only do things if we are the first one arriving with a non-value signal
@@ -152,7 +142,7 @@ namespace clu::exec
                     increase_counter(); // Arrives
                 }
 
-                template <std::size_t I>
+                template <std::size_t>
                 void set(set_stopped_t) noexcept
                 {
                     // Only do things if we are the first one arriving with a non-value signal
@@ -162,9 +152,23 @@ namespace clu::exec
                     increase_counter(); // Arrives
                 }
 
+                void tag_invoke(start_t) noexcept
+                {
+                    callback_.emplace( // Propagate stop signal
+                        get_stop_token(get_env(recv_)), stop_callback{stop_src_});
+                    if (stop_src_.stop_requested()) // Shortcut when the operation is preemptively stopped
+                    {
+                        callback_.reset();
+                        exec::set_stopped(static_cast<R&&>(recv_));
+                        return;
+                    }
+                    // Just start every child operation state
+                    apply([](auto&... children) { (exec::start(children), ...); }, children_);
+                }
+
             private:
-                template <typename S, std::size_t I>
-                using recv_for = recv_t<R, S, I, Ts...>;
+                template <std::size_t I>
+                using recv_for = recv_t<R, I, Ts...>;
 
                 struct stop_callback
                 {
@@ -181,26 +185,13 @@ namespace clu::exec
             private:
                 R recv_;
                 in_place_stop_source stop_src_;
+                recv_env_t<R> env_;
                 children_ops_t<R, Ts...> children_;
                 std::atomic_size_t finished_count_{};
                 std::atomic<final_signal> signal_{};
                 std::optional<callback_t> callback_;
                 CLU_NO_UNIQUE_ADDRESS values_t values_;
                 error_t error_;
-
-                friend void tag_invoke(start_t, type& self) noexcept
-                {
-                    self.callback_.emplace( // Propagate stop signal
-                        get_stop_token(get_env(self.recv_)), stop_callback{self.stop_src_});
-                    if (self.stop_src_.stop_requested()) // Shortcut when the operation is preemptively stopped
-                    {
-                        self.callback_.reset();
-                        exec::set_stopped(static_cast<R&&>(self.recv_));
-                        return;
-                    }
-                    // Just start every child operation state
-                    apply([](auto&... children) { (exec::start(children), ...); }, self.children_);
-                }
 
                 void increase_counter() noexcept
                 {
@@ -260,52 +251,40 @@ namespace clu::exec
                 }
             };
 
-            template <typename R, typename S, std::size_t I, typename... Ts>
-            const R& recv_t_<R, S, I, Ts...>::type::get_base() const noexcept
+            template <typename R, std::size_t I, typename... Ts>
+            const R& recv_t_<R, I, Ts...>::get_base() const noexcept
             {
                 return ops_->get_recv();
             }
 
-            template <typename R, typename S, std::size_t I, typename... Ts>
-            recv_env_t<R> recv_t_<R, S, I, Ts...>::type::get_env() const
+            template <typename R, std::size_t I, typename... Ts>
+            const recv_env_t<R>& recv_t_<R, I, Ts...>::tag_invoke(get_env_t) const noexcept
             {
                 return ops_->get_recv_env();
             }
 
             template <typename... Ts>
-            struct snd_t_
-            {
-                class type;
-            };
-
-            template <typename... Ts>
-            using snd_t = typename snd_t_<std::decay_t<Ts>...>::type;
-
-            template <typename... Ts>
-            class snd_t_<Ts...>::type
+            class snd_t_
             {
             public:
                 using is_sender = void;
 
                 // clang-format off
                 template <typename... Us>
-                explicit type(Us&&... snds):
+                explicit snd_t_(Us&&... snds):
                     snds_(static_cast<Us&&>(snds)...) {}
                 // clang-format on
 
-            private:
-                std::tuple<Ts...> snds_;
-
-                template <typename R>
-                friend auto tag_invoke(connect_t, type&& self, R&& recv)
+                template <receiver R>
+                auto tag_invoke(connect_t, R&& recv) &&
                 {
                     return std::apply([&](Ts&&... snds)
                         { return ops_t<R, Ts...>(static_cast<R&&>(recv), static_cast<Ts&&>(snds)...); },
-                        std::move(self).snds_);
+                        std::move(snds_));
                 }
 
                 template <typename Env>
-                constexpr friend auto tag_invoke(get_completion_signatures_t, type&&, Env&&) noexcept
+                constexpr static auto tag_invoke(get_completion_signatures_t, Env&&) noexcept
                 {
                     if constexpr (meta::all_of_q<> //
                         ::value<value_types_of_t<Ts, env_t<Env>, decayed_tuple, one_or_zero_type>...>)
@@ -327,7 +306,13 @@ namespace clu::exec
                         }
                     }
                 }
+
+            private:
+                std::tuple<Ts...> snds_;
             };
+
+            template <typename... Ts>
+            using snd_t = snd_t_<std::decay_t<Ts>...>;
 
             struct when_all_t
             {
@@ -339,7 +324,7 @@ namespace clu::exec
                     {
                         static_assert(sender<tag_invoke_result_t<when_all_t, Ts...>>,
                             "customization of when_all should return a sender");
-                        return clu::tag_invoke(*this, static_cast<Ts&&>(snds)...);
+                        return clu::tag_invoke(when_all_t{}, static_cast<Ts&&>(snds)...);
                     }
                     else
                     {
@@ -359,52 +344,42 @@ namespace clu::exec
 
             template <typename... Ts>
             using sig_of_decayed_rref = set_value_t(std::decay_t<Ts>&&...);
+            template <typename R>
+            using recv_env_t = env_t<env_of_t<R>>;
             template <typename R, typename... Ts>
             inline constexpr bool can_send_value =
-                !meta::all_of_q<>::value<value_types_of_t<Ts, env_t<env_of_t<R>>, decayed_tuple, meta::empty>...>;
+                !meta::all_of_q<>::value<value_types_of_t<Ts, recv_env_t<R>, decayed_tuple, meta::empty>...>;
 
             template <typename R, typename... Ts>
-            struct ops_t_
-            {
-                class type;
-            };
+            class ops_t_;
 
             template <typename R, typename... Ts>
-            using ops_t = typename ops_t_<R, Ts...>::type;
+            using ops_t = ops_t_<std::remove_cvref_t<R>, Ts...>;
 
-            template <typename R, typename S, std::size_t I, typename... Ts>
-            struct recv_t_
-            {
-                class type;
-            };
-
-            template <typename R, typename S, std::size_t I, typename... Ts>
-            using recv_t = typename recv_t_<R, S, I, Ts...>::type;
-
-            template <typename R>
-            using recv_env_t = env_t<env_of_t<R>>; // gcc 12.2 bug workaround
-
-            template <typename R, typename S, std::size_t I, typename... Ts>
-            class recv_t_<R, S, I, Ts...>::type
+            template <typename R, std::size_t I, typename... Ts>
+            class recv_t_
             {
             public:
                 using is_receiver = void;
 
-                explicit type(ops_t<R, Ts...>* ops) noexcept: ops_(ops) {}
+                explicit recv_t_(ops_t<R, Ts...>* ops) noexcept: ops_(ops) {}
+
+                const recv_env_t<R>& tag_invoke(get_env_t) const noexcept;
+
+                template <completion_cpo SetCpo, typename... Args>
+                void tag_invoke(SetCpo, Args&&... args) && noexcept
+                {
+                    ops_->template set<I>(SetCpo{}, static_cast<Args&&>(args)...);
+                }
 
             private:
                 ops_t<R, Ts...>* ops_;
 
                 const R& get_base() const noexcept;
-                recv_env_t<R> get_env() const;
-                friend auto tag_invoke(get_env_t, const type& self) noexcept { return self.get_env(); }
-
-                template <recvs::completion_cpo SetCpo, typename... Args>
-                friend void tag_invoke(SetCpo, type&& self, Args&&... args) noexcept
-                {
-                    self.ops_->template set<I>(SetCpo{}, static_cast<Args&&>(args)...);
-                }
             };
+
+            template <typename R, std::size_t I, typename... Ts>
+            using recv_t = recv_t_<R, I, Ts...>;
 
             enum class final_signal
             {
@@ -416,9 +391,8 @@ namespace clu::exec
             template <typename R, typename... Ts, std::size_t... Is>
             auto connect_children(std::index_sequence<Is...>, ops_t<R, Ts...>* ops, Ts&&... snds)
             {
-                return ops_tuple<connect_result_t<Ts, recv_t<R, Ts, Is, Ts...>>...>{[&] { //
-                    return exec::connect(static_cast<Ts&&>(snds), recv_t<R, Ts, Is, Ts...>(ops));
-                }...};
+                return detail::make_ops_tuple_from(
+                    [&] { return exec::connect(static_cast<Ts&&>(snds), recv_t<R, Is, Ts...>(ops)); }...);
             }
 
             template <typename R, typename... Ts>
@@ -438,19 +412,20 @@ namespace clu::exec
             }
 
             template <typename R, typename... Ts>
-            class ops_t_<R, Ts...>::type
+            class ops_t_
             {
             public:
                 // clang-format off
                 template <forwarding<R> R2, typename... Us>
-                explicit type(R2&& recv, Us&&... snds):
+                explicit ops_t_(R2&& recv, Us&&... snds):
                     recv_(static_cast<R2&&>(recv)),
+                    env_(clu::adapt_env(get_env(recv_), query_value{get_stop_token, stop_src_.get_token()})),
                     children_(when_any::connect_children<R>(
                         std::index_sequence_for<Ts...>{}, this, static_cast<Us&&>(snds)...)) {}
                 // clang-format on
 
                 const R& get_recv() const noexcept { return recv_; }
-                auto get_recv_env() { return env_t<env_of_t<R>>{get_env(recv_), stop_src_.get_token()}; }
+                const auto& get_recv_env() const noexcept { return env_; }
 
                 template <std::size_t I, typename... Us>
                 void set(set_value_t, [[maybe_unused]] Us&&... values) noexcept
@@ -500,9 +475,23 @@ namespace clu::exec
                     increase_counter(); // Arrives, no other action is needed
                 }
 
+                void tag_invoke(start_t) noexcept
+                {
+                    callback_.emplace( // Propagate stop signal
+                        get_stop_token(get_env(recv_)), stop_callback{stop_src_});
+                    if (stop_src_.stop_requested()) // Shortcut when the operation is preemptively stopped
+                    {
+                        callback_.reset();
+                        exec::set_stopped(static_cast<R&&>(recv_));
+                        return;
+                    }
+                    // Just start every child operation state
+                    apply([](auto&... children) { (exec::start(children), ...); }, children_);
+                }
+
             private:
-                template <typename S, std::size_t I>
-                using recv_for = recv_t<R, S, I, Ts...>;
+                template <std::size_t I>
+                using recv_for = recv_t<R, I, Ts...>;
 
                 struct stop_callback
                 {
@@ -518,26 +507,13 @@ namespace clu::exec
 
                 R recv_;
                 in_place_stop_source stop_src_;
+                recv_env_t<R> env_;
                 children_ops_t<R, Ts...> children_;
                 std::atomic_size_t finished_count_{};
                 std::atomic<final_signal> signal_{};
                 std::optional<callback_t> callback_;
                 CLU_NO_UNIQUE_ADDRESS values_t values_;
                 error_t error_;
-
-                friend void tag_invoke(start_t, type& self) noexcept
-                {
-                    self.callback_.emplace( // Propagate stop signal
-                        get_stop_token(get_env(self.recv_)), stop_callback{self.stop_src_});
-                    if (self.stop_src_.stop_requested()) // Shortcut when the operation is preemptively stopped
-                    {
-                        self.callback_.reset();
-                        exec::set_stopped(static_cast<R&&>(self.recv_));
-                        return;
-                    }
-                    // Just start every child operation state
-                    apply([](auto&... children) { (exec::start(children), ...); }, self.children_);
-                }
 
                 void increase_counter() noexcept
                 {
@@ -593,52 +569,40 @@ namespace clu::exec
                 }
             };
 
-            template <typename R, typename S, std::size_t I, typename... Ts>
-            const R& recv_t_<R, S, I, Ts...>::type::get_base() const noexcept
+            template <typename R, std::size_t I, typename... Ts>
+            const R& recv_t_<R, I, Ts...>::get_base() const noexcept
             {
                 return ops_->get_recv();
             }
 
-            template <typename R, typename S, std::size_t I, typename... Ts>
-            recv_env_t<R> recv_t_<R, S, I, Ts...>::type::get_env() const
+            template <typename R, std::size_t I, typename... Ts>
+            const recv_env_t<R>& recv_t_<R, I, Ts...>::tag_invoke(get_env_t) const noexcept
             {
                 return ops_->get_recv_env();
             }
 
             template <typename... Ts>
-            struct snd_t_
-            {
-                class type;
-            };
-
-            template <typename... Ts>
-            using snd_t = typename snd_t_<std::decay_t<Ts>...>::type;
-
-            template <typename... Ts>
-            class snd_t_<Ts...>::type
+            class snd_t_
             {
             public:
                 using is_sender = void;
 
                 // clang-format off
                 template <typename... Us>
-                explicit type(Us&&... snds):
+                explicit snd_t_(Us&&... snds):
                     snds_(static_cast<Us&&>(snds)...) {}
                 // clang-format on
 
-            private:
-                std::tuple<Ts...> snds_;
-
-                template <typename R>
-                friend auto tag_invoke(connect_t, type&& self, R&& recv)
+                template <receiver R>
+                auto tag_invoke(connect_t, R&& recv) &&
                 {
                     return std::apply([&](Ts&&... snds)
                         { return ops_t<R, Ts...>(static_cast<R&&>(recv), static_cast<Ts&&>(snds)...); },
-                        std::move(self).snds_);
+                        std::move(snds_));
                 }
 
                 template <typename Env>
-                constexpr friend auto tag_invoke(get_completion_signatures_t, type&&, Env&&) noexcept
+                constexpr static auto tag_invoke(get_completion_signatures_t, Env&&) noexcept
                 {
                     using non_value_sigs = join_sigs< //
                         make_completion_signatures<Ts, env_t<Env>, completion_signatures<>, //
@@ -653,7 +617,13 @@ namespace clu::exec
                             value_types_of_t<Ts, env_t<Env>, sig_of_decayed_rref, completion_signatures>...,
                             non_value_sigs>{};
                 }
+
+            private:
+                std::tuple<Ts...> snds_;
             };
+
+            template <typename... Ts>
+            using snd_t = snd_t_<std::decay_t<Ts>...>;
 
             struct when_any_t
             {
@@ -665,12 +635,12 @@ namespace clu::exec
                     {
                         static_assert(sender<tag_invoke_result_t<when_any_t, Ts...>>,
                             "customization of when_any should return a sender");
-                        return clu::tag_invoke(*this, static_cast<Ts&&>(snds)...);
+                        return clu::tag_invoke(when_any_t{}, static_cast<Ts&&>(snds)...);
                     }
                     else
                     {
                         if constexpr (sizeof...(Ts) == 0)
-                            return just_t{}(); // sends nothing
+                            return exec::just(); // sends nothing
                         else
                             return snd_t<Ts...>(static_cast<Ts&&>(snds)...);
                     }
@@ -747,7 +717,7 @@ namespace clu::exec
                 recv_env_t<R> get_env() const;
                 friend auto tag_invoke(get_env_t, const type& self) { return self.get_env(); }
 
-                template <recvs::completion_cpo Cpo, typename... Ts>
+                template <completion_cpo Cpo, typename... Ts>
                 friend void tag_invoke(Cpo, type&& self, Ts&&... args) noexcept
                 {
                     self.ops_->set(Cpo{}, static_cast<Ts&&>(args)...);
@@ -770,7 +740,7 @@ namespace clu::exec
                 recv_env_t<R> get_env() const;
                 friend auto tag_invoke(get_env_t, const type& self) { return self.get_env(); }
 
-                template <recvs::completion_cpo Cpo, typename... Ts>
+                template <completion_cpo Cpo, typename... Ts>
                 friend void tag_invoke(Cpo, type&& self, Ts&&... args) noexcept
                 {
                     if constexpr (std::is_same_v<Cpo, set_error_t>)
@@ -938,7 +908,7 @@ namespace clu::exec
                 CLU_STATIC_CALL_OPERATOR(auto)
                 (T&& trigger)
                 {
-                    return clu::make_piper(clu::bind_back(*this, static_cast<T&&>(trigger)));
+                    return clu::make_piper(clu::bind_back(stop_when_t{}, static_cast<T&&>(trigger)));
                 }
             };
         } // namespace stop_when
@@ -1052,7 +1022,7 @@ namespace clu::exec
             private:
                 std::shared_ptr<shared_state<S, R, F>> shst_;
 
-                template <recvs::completion_cpo Cpo, typename... Ts>
+                template <completion_cpo Cpo, typename... Ts>
                 friend void tag_invoke(Cpo, type&& self, Ts&&... args) noexcept
                 {
                     // We're detached, forward the results to the cleanup factory
@@ -1176,17 +1146,17 @@ namespace clu::exec
                 CLU_STATIC_CALL_OPERATOR(auto)
                 (S&& snd)
                 {
-                    return (*this)(static_cast<S&&>(snd), noop_cleanup_factory);
+                    return detach_on_stop_request_t{}(static_cast<S&&>(snd), noop_cleanup_factory);
                 }
 
                 template <typename F>
                 CLU_STATIC_CALL_OPERATOR(auto)
                 (F&& cleanup_factory)
                 {
-                    return clu::make_piper(clu::bind_back(*this, cleanup_factory));
+                    return clu::make_piper(clu::bind_back(detach_on_stop_request_t{}, cleanup_factory));
                 }
 
-                CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return (*this)(noop_cleanup_factory); }
+                CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return detach_on_stop_request_t{}(noop_cleanup_factory); }
             };
         } // namespace dtch_cncl
 

@@ -247,10 +247,10 @@ namespace clu
                 fix_parent_of_child(successor, right);
             }
         }
-        
-        after_snd_t<std::chrono::seconds> tag_invoke(exec::schedule_t, const schd_t self) noexcept
+
+        after_snd_t<std::chrono::seconds> schd_t::tag_invoke(exec::schedule_t) const noexcept
         {
-            return make_after_snd(self.loop_, std::chrono::seconds{0});
+            return make_after_snd(loop_, std::chrono::seconds{0});
         }
     } // namespace detail::tm_loop
 
@@ -275,14 +275,31 @@ namespace clu
 
     void timer_loop::enqueue(ops_base& ops)
     {
+        enum status
+        {
+            inserted,
+            new_minimum,
+            stopped
+        };
         const auto insert = [&]
         {
             std::unique_lock lock(mutex_);
+            if (stopped_)
+                return stopped;
             tree_.insert(&ops);
-            return &ops == tree_.minimum();
+            return &ops == tree_.minimum() ? new_minimum : inserted;
         };
-        if (insert()) // ops is the new minimum
-            cv_.notify_one();
+        switch (insert())
+        {
+            case new_minimum: cv_.notify_one(); return;
+            case stopped:
+            {
+                ops.cancelled = true;
+                ops.set();
+                return;
+            }
+            default: return;
+        }
     }
 
     void timer_loop::cancel(ops_base& ops) noexcept
@@ -298,12 +315,21 @@ namespace clu
 
     timer_loop::ops_base* timer_loop::dequeue()
     {
+        const auto pop_minimum = [&]() -> ops_base*
+        {
+            if (tree_.empty())
+                return nullptr;
+            ops_base* minimum = tree_.minimum();
+            tree_.remove(minimum);
+            return minimum;
+        };
+
         std::unique_lock lock(mutex_);
 
         // Wait for some deadline to appear
         cv_.wait(lock, [this] { return !tree_.empty() || stopped_; });
         if (stopped_)
-            return nullptr;
+            return pop_minimum();
 
         clock::time_point deadline = tree_.minimum()->deadline;
         while (true)
@@ -311,17 +337,9 @@ namespace clu
             // Wait until the deadline / a deadline update / a stop request
             cv_.wait_until(lock, deadline, //
                 [&] { return tree_.minimum()->deadline < deadline || stopped_; });
-            if (stopped_)
-                return nullptr;
-            deadline = tree_.minimum()->deadline;
-
-            // Deadline reached, pop minimum
-            if (deadline <= clock::now())
-            {
-                ops_base* minimum = tree_.minimum();
-                tree_.remove(minimum);
-                return minimum;
-            }
+            // When stopped or a deadline is reached, pop the minimum
+            if (stopped_ || (deadline = tree_.minimum()->deadline) <= clock::now())
+                return pop_minimum();
         }
     }
 } // namespace clu

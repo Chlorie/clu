@@ -142,6 +142,15 @@ target_set_options(clu PRIVATE)
 target_set_warnings(clu PRIVATE)
 target_set_cxx_std(clu)
 
+if (MSVC)
+    set(CLU_NATVIS_DIR "misc/natvis/")
+    set(CLU_NATVIS_FILE "${CLU_NATVIS_DIR}clu.natvis")
+    target_sources(clu INTERFACE
+        $<INSTALL_INTERFACE:${CLU_NATVIS_FILE}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${CLU_NATVIS_FILE}>
+    )
+endif ()
+
 if (BUILD_SHARED_LIBS)
     target_compile_definitions(clu
         PRIVATE CLU_EXPORT_SHARED
@@ -186,3 +195,7 @@ install(FILES "${PROJECT_BINARY_DIR}/cluConfigVersion.cmake"
                 "${PROJECT_BINARY_DIR}/cluConfig.cmake"
         DESTINATION lib/cmake/clu)
 install(DIRECTORY "${PROJECT_SOURCE_DIR}/lib/include/" DESTINATION "include")
+
+if (MSVC)
+    install(FILES ${CLU_NATVIS_FILE} DESTINATION ${CLU_NATVIS_DIR})
+endif()

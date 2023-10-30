@@ -56,7 +56,7 @@ namespace clu::exec
                 friend snd_t tag_invoke(schedule_t, schd_t) noexcept { return {}; }
             };
         } // namespace inl_schd
-
+        
         namespace trmp_schd
         {
             template <typename R>

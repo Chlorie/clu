@@ -209,7 +209,7 @@ namespace clu::exec
                     {
                         static_assert(
                             sender<tag_invoke_result_t<on_t, Schd, Snd>>, "customization of on should return a sender");
-                        return clu::tag_invoke(*this, static_cast<Schd&&>(schd), static_cast<Snd&&>(snd));
+                        return clu::tag_invoke(on_t{}, static_cast<Schd&&>(schd), static_cast<Snd&&>(snd));
                     }
                     else
                         return snd_t<Schd, Snd>(static_cast<Schd&&>(schd), static_cast<Snd&&>(snd));
@@ -420,7 +420,7 @@ namespace clu::exec
                     {
                         static_assert(sender<tag_invoke_result_t<schedule_from_t, Schd, Snd>>,
                             "customization of schedule_from should return a sender");
-                        return clu::tag_invoke(*this, static_cast<Schd&&>(schd), static_cast<Snd&&>(snd));
+                        return clu::tag_invoke(schedule_from_t{}, static_cast<Schd&&>(schd), static_cast<Snd&&>(snd));
                     }
                     else
                         return snd_t<Snd, Schd>(static_cast<Snd&&>(snd), static_cast<Schd&&>(schd));

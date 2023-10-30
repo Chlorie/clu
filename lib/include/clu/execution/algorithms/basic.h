@@ -9,82 +9,67 @@ namespace clu::exec
     namespace detail
     {
 #define CLU_EXEC_FWD_ENV(member)                                                                                       \
-    friend decltype(auto) tag_invoke(get_env_t, const type& self)                                                      \
-        CLU_SINGLE_RETURN(clu::adapt_env(get_env(self.member)))
+    decltype(auto) tag_invoke(get_env_t) const CLU_SINGLE_RETURN(clu::adapt_env(get_env(this->member)))
 
         namespace just
         {
             template <typename R, typename Cpo, typename... Ts>
-            struct ops_t_
-            {
-                class type;
-            };
-
-            template <typename R, typename Cpo, typename... Ts>
-            class ops_t_<R, Cpo, Ts...>::type
+            class ops_t
             {
             public:
                 // clang-format off
                 template <typename Tup>
-                type(R&& recv, Tup&& values) noexcept(
+                ops_t(R&& recv, Tup&& values) noexcept(
                     std::is_nothrow_move_constructible_v<R> &&
                     std::is_nothrow_constructible_v<std::tuple<Ts...>, Tup>):
                     recv_(static_cast<R&&>(recv)),
                     values_(static_cast<Tup&&>(values)) {}
                 // clang-format on
 
+                void tag_invoke(start_t) & noexcept
+                {
+                    std::apply([&](Ts&&... values) //
+                        { Cpo{}(std::move(*this).recv_, static_cast<Ts&&>(values)...); },
+                        std::move(*this).values_);
+                }
+
             private:
                 CLU_NO_UNIQUE_ADDRESS R recv_;
                 CLU_NO_UNIQUE_ADDRESS std::tuple<Ts...> values_;
-
-                friend void tag_invoke(start_t, type& ops) noexcept
-                {
-                    std::apply([&](Ts&&... values)
-                        { Cpo{}(static_cast<type&&>(ops).recv_, static_cast<Ts&&>(values)...); },
-                        static_cast<type&&>(ops).values_);
-                }
-            };
-
-            template <typename R, typename Cpo, typename... Ts>
-            using ops_t = typename ops_t_<R, Cpo, Ts...>::type;
-
-            template <typename Cpo, typename... Ts>
-            struct snd_t_
-            {
-                class type;
             };
 
             template <typename Cpo, typename... Ts>
-            class snd_t_<Cpo, Ts...>::type
+            class snd_t_
             {
             public:
                 using is_sender = void;
 
                 // clang-format off
                 template <forwarding<Ts>... Us>
-                constexpr explicit type(Us&&... args) noexcept(
+                constexpr explicit snd_t_(Us&&... args) noexcept(
                     std::is_nothrow_constructible_v<std::tuple<Ts...>, Us...>):
                     values_(static_cast<Us&&>(args)...) {}
+
+                template <receiver R>
+                auto tag_invoke(connect_t, R&& recv) const& CLU_SINGLE_RETURN(
+                    ops_t<R, Cpo, Ts...>{static_cast<R&&>(recv), values_});
+
+                template <receiver R>
+                auto tag_invoke(connect_t, R&& recv) && CLU_SINGLE_RETURN(
+                    ops_t<R, Cpo, Ts...>{static_cast<R&&>(recv), std::move(values_)});
+
+                completion_signatures<Cpo(Ts...)> tag_invoke(
+                    get_completion_signatures_t, auto) const noexcept { return {}; }
                 // clang-format on
+
+                std::true_type tag_invoke(completes_inline_t) const noexcept { return {}; }
 
             private:
                 CLU_NO_UNIQUE_ADDRESS std::tuple<Ts...> values_;
-
-                template <typename R, forwarding<type> Self>
-                friend auto tag_invoke(connect_t, Self&& snd, R&& recv)
-                    CLU_SINGLE_RETURN(ops_t<R, Cpo, Ts...>{static_cast<R&&>(recv), static_cast<Self&&>(snd).values_});
-
-                friend completion_signatures<Cpo(Ts...)> tag_invoke(
-                    get_completion_signatures_t, const type&, auto) noexcept
-                {
-                    return {};
-                }
-
-                friend std::true_type tag_invoke(completes_inline_t, const type&) noexcept { return {}; }
             };
 
             template <typename Cpo, typename... Ts>
-            using snd_t = typename snd_t_<Cpo, std::decay_t<Ts>...>::type;
+            using snd_t = snd_t_<Cpo, std::decay_t<Ts>...>;
 
             struct just_t
             {
@@ -115,50 +100,44 @@ namespace clu::exec
         namespace stop_req
         {
             template <typename R>
-            struct ops_t_
-            {
-                class type;
-            };
-
-            template <typename R>
-            using ops_t = typename ops_t_<std::remove_cvref_t<R>>::type;
-
-            template <typename R>
-            class ops_t_<R>::type
+            class ops_t_
             {
             public:
                 template <typename R2>
-                explicit type(R2&& recv): recv_(static_cast<R2&&>(recv))
+                explicit ops_t_(R2&& recv): recv_(static_cast<R2&&>(recv))
                 {
+                }
+
+                void tag_invoke(start_t) & noexcept
+                {
+                    if (get_stop_token(get_env(recv_)).stop_requested())
+                        exec::set_stopped(static_cast<R&&>(recv_));
+                    else
+                        exec::set_value(static_cast<R&&>(recv_));
                 }
 
             private:
                 R recv_;
-
-                friend void tag_invoke(start_t, type& self) noexcept
-                {
-                    if (get_stop_token(get_env(self.recv_)).stop_requested())
-                        exec::set_stopped(static_cast<R&&>(self.recv_));
-                    else
-                        exec::set_value(static_cast<R&&>(self.recv_));
-                }
             };
+
+            template <typename R>
+            using ops_t = ops_t_<std::remove_cvref_t<R>>;
 
             struct snd_t
             {
                 using is_sender = void;
 
-                template <typename R>
-                friend auto tag_invoke(connect_t, snd_t, R&& recv) noexcept(std::is_nothrow_move_constructible_v<R>)
+                template <receiver R>
+                static auto tag_invoke(connect_t, R&& recv) noexcept(std::is_nothrow_move_constructible_v<R>)
                 {
                     if constexpr (unstoppable_token<stop_token_of_t<env_of_t<R>>>)
-                        return exec::connect(just::just_t{}, static_cast<R&&>(recv));
+                        return exec::connect(just::just_t{}(), static_cast<R&&>(recv));
                     else
                         return ops_t<R>(static_cast<R&&>(recv));
                 }
 
                 template <typename Env>
-                friend auto tag_invoke(get_completion_signatures_t, snd_t, Env&&) noexcept
+                static auto tag_invoke(get_completion_signatures_t, Env&&) noexcept
                 {
                     if constexpr (unstoppable_token<stop_token_of_t<Env>>)
                         return completion_signatures<set_value_t()>{};
@@ -184,55 +163,51 @@ namespace clu::exec
                 maybe_add_throw<sigs_of_single<std::invoke_result_t<F, Args...>>, nothrow_invocable<F, Args...>>;
 
             template <typename R, typename Cpo, typename F>
-            struct recv_t_
-            {
-                class type;
-            };
-
-            template <typename R, typename Cpo, typename F>
-            using recv_t = typename recv_t_<std::remove_cvref_t<R>, Cpo, F>::type;
-
-            template <typename R, typename Cpo, typename F>
-            class recv_t_<R, Cpo, F>::type
+            class recv_t_
             {
             public:
                 using is_receiver = void;
 
                 // clang-format off
                 template <typename R2, typename F2>
-                type(R2&& recv, F2&& func) noexcept(
+                recv_t_(R2&& recv, F2&& func) noexcept(
                     std::is_nothrow_constructible_v<R, R2> &&
                     std::is_nothrow_constructible_v<F, F2>):
                     recv_(static_cast<R2&&>(recv)),
                     func_(static_cast<F2&&>(func)) {}
                 // clang-format on
 
-            private:
-                CLU_NO_UNIQUE_ADDRESS R recv_;
-                CLU_NO_UNIQUE_ADDRESS F func_;
-
                 // Transformed
-                template <typename... Args>
-                    requires std::invocable<F, Args...> && receiver_of<R, sigs_of_inv<F, Args...>>
-                friend void tag_invoke(Cpo, type&& self, Args&&... args) noexcept
+                // WORKAROUND: templatized Cpo to avoid unwanted instantiations
+                // gcc prior to 14 literally follows CWG2369, causing counter-intuitive behaviors
+                // see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=99599#c18
+                // also https://cplusplus.github.io/CWG/issues/2369.html
+                template <typename Tag, typename... Args>
+                    requires std::same_as<Tag, Cpo> && std::invocable<F, Args...> &&
+                    receiver_of<R, sigs_of_inv<F, Args...>>
+                void tag_invoke(Tag, Args&&... args) && noexcept
                 {
                     // clang-format off
                     if constexpr (nothrow_invocable<F, Args...>)
-                        self.set_impl(static_cast<Args&&>(args)...);
+                        this->set_impl(static_cast<Args&&>(args)...);
                     else
-                        try { self.set_impl(static_cast<Args&&>(args)...); }
-                        catch (...) { exec::set_error(static_cast<R&&>(self.recv_), std::current_exception()); }
+                        try { this->set_impl(static_cast<Args&&>(args)...); }
+                        catch (...) { exec::set_error(static_cast<R&&>(recv_), std::current_exception()); }
                     // clang-format on
                 }
 
                 CLU_EXEC_FWD_ENV(recv_); // Pass through
 
-                template <recvs::completion_cpo Tag, typename... Args>
+                template <completion_cpo Tag, typename... Args>
                     requires(!std::same_as<Tag, Cpo>) && receiver_of<R, completion_signatures<Tag(Args...)>>
-                constexpr friend void tag_invoke(Tag cpo, type&& self, Args&&... args) noexcept
+                void tag_invoke(Tag, Args&&... args) && noexcept
                 {
-                    cpo(static_cast<R&&>(self.recv_), static_cast<Args&&>(args)...);
+                    Tag{}(static_cast<R&&>(recv_), static_cast<Args&&>(args)...);
                 }
+
+            private:
+                CLU_NO_UNIQUE_ADDRESS R recv_;
+                CLU_NO_UNIQUE_ADDRESS F func_;
 
                 template <typename... Args>
                 constexpr void set_impl(Args&&... args) noexcept(nothrow_invocable<F, Args...>)
@@ -250,11 +225,8 @@ namespace clu::exec
                 }
             };
 
-            template <typename S, typename Cpo, typename F>
-            struct snd_t_
-            {
-                class type;
-            };
+            template <typename R, typename Cpo, typename F>
+            using recv_t = recv_t_<std::remove_cvref_t<R>, Cpo, F>;
 
             struct make_sig_impl_base
             {
@@ -287,31 +259,32 @@ namespace clu::exec
             };
 
             template <typename S, typename Cpo, typename F>
-            class snd_t_<S, Cpo, F>::type
+            class snd_t_
             {
             public:
                 using is_sender = void;
 
                 // clang-format off
                 template <typename S2, typename F2>
-                constexpr type(S2&& snd, F2&& func) noexcept(
+                constexpr snd_t_(S2&& snd, F2&& func) noexcept(
                     std::is_nothrow_constructible_v<S, S2> &&
                     std::is_nothrow_constructible_v<F, F2>):
                     snd_(static_cast<S2&&>(snd)),
                     func_(static_cast<F2&&>(func)) {}
                 // clang-format on
 
-            private:
-                CLU_NO_UNIQUE_ADDRESS S snd_;
-                CLU_NO_UNIQUE_ADDRESS F func_;
-
-                template <forwarding<type> Self, typename R>
-                    requires sender_to<copy_cvref_t<Self, S>, recv_t<R, Cpo, F>>
-                friend auto tag_invoke(connect_t, Self&& snd, R&& recv) noexcept(
-                    conn::nothrow_connectable<S, recv_t<R, Cpo, F>>)
+                template <receiver R>
+                    requires sender_to<const S&, recv_t<R, Cpo, F>>
+                auto tag_invoke(connect_t, R&& recv) const& noexcept(nothrow_connectable<S, recv_t<R, Cpo, F>>)
                 {
-                    return exec::connect(static_cast<Self&&>(snd).snd_,
-                        recv_t<R, Cpo, F>(static_cast<R&&>(recv), static_cast<Self&&>(snd).func_));
+                    return exec::connect(snd_, recv_t<R, Cpo, F>(static_cast<R&&>(recv), func_));
+                }
+
+                template <receiver R>
+                    requires sender_to<S&&, recv_t<R, Cpo, F>>
+                auto tag_invoke(connect_t, R&& recv) && noexcept(nothrow_connectable<S, recv_t<R, Cpo, F>>)
+                {
+                    return exec::connect(std::move(snd_), recv_t<R, Cpo, F>(static_cast<R&&>(recv), std::move(func_)));
                 }
 
                 CLU_EXEC_FWD_ENV(snd_);
@@ -319,16 +292,20 @@ namespace clu::exec
                 using make_sig = make_sig_impl<Cpo, F>;
 
                 template <typename Env>
-                constexpr friend make_completion_signatures<S, Env, completion_signatures<>,
+                constexpr static make_completion_signatures<S, Env, completion_signatures<>, //
                     make_sig::template value_sig, make_sig::template error_sig, typename make_sig::stopped_sig>
-                tag_invoke(get_completion_signatures_t, type&&, Env) noexcept
+                tag_invoke(get_completion_signatures_t, Env) noexcept
                 {
                     return {};
                 }
+
+            private:
+                CLU_NO_UNIQUE_ADDRESS S snd_;
+                CLU_NO_UNIQUE_ADDRESS F func_;
             };
 
             template <typename S, typename Cpo, typename F>
-            using snd_t = typename snd_t_<std::remove_cvref_t<S>, Cpo, std::decay_t<F>>::type;
+            using snd_t = snd_t_<std::remove_cvref_t<S>, Cpo, std::decay_t<F>>;
 
             template <typename UponCpo, typename SetCpo>
             struct upon_t
@@ -360,19 +337,10 @@ namespace clu::exec
         namespace mat
         {
             template <typename R>
-            struct recv_t_
-            {
-                class type;
-            };
-
-            template <typename R>
-            using recv_t = typename recv_t_<std::decay_t<R>>::type;
-
-            template <typename R>
-            class recv_t_<R>::type : public receiver_adaptor<type, R>
+            class recv_t_ : public receiver_adaptor<recv_t_<R>, R>
             {
             public:
-                using receiver_adaptor<type, R>::receiver_adaptor;
+                using receiver_adaptor<recv_t_, R>::receiver_adaptor;
 
                 template <typename... Ts>
                 void set_value(Ts&&... args) && noexcept
@@ -399,14 +367,8 @@ namespace clu::exec
                 void set_stopped() && noexcept { exec::set_value(std::move(*this).base(), exec::set_stopped); }
             };
 
-            template <typename S>
-            struct snd_t_
-            {
-                class type;
-            };
-
-            template <typename S>
-            using snd_t = typename snd_t_<std::decay_t<S>>::type;
+            template <typename R>
+            using recv_t = recv_t_<std::decay_t<R>>;
 
             template <typename... Ts>
             using value_sig = filtered_sigs<set_value_t(set_value_t, Ts...),
@@ -417,33 +379,34 @@ namespace clu::exec
             using error_sig = completion_signatures<set_value_t(set_error_t, E)>;
 
             template <typename S>
-            class snd_t_<S>::type
+            class snd_t_
             {
             public:
                 using is_sender = void;
 
                 // clang-format off
                 template <forwarding<S> S2>
-                explicit type(S2&& snd) noexcept(std::is_nothrow_constructible_v<S, S2>):
+                explicit snd_t_(S2&& snd) noexcept(std::is_nothrow_constructible_v<S, S2>):
                     snd_(static_cast<S2&&>(snd)) {}
+
+                template <receiver R>
+                auto tag_invoke(connect_t, R&& recv) &&
+                    CLU_SINGLE_RETURN(connect(static_cast<S&&>(snd_), recv_t<R>(static_cast<R&&>(recv))));
+
+                CLU_EXEC_FWD_ENV(snd_);
+
+                template <typename Env>
+                make_completion_signatures<S, Env, completion_signatures<>, //
+                    value_sig, error_sig, completion_signatures<set_value_t(set_stopped_t)>>
+                tag_invoke(get_completion_signatures_t, Env&&) const noexcept { return {}; }
                 // clang-format on
 
             private:
                 CLU_NO_UNIQUE_ADDRESS S snd_;
-
-                template <typename R>
-                friend auto tag_invoke(connect_t, type&& self, R&& recv)
-                    CLU_SINGLE_RETURN(connect(static_cast<S&&>(self.snd_), recv_t<R>(static_cast<R&&>(recv))));
-
-                CLU_EXEC_FWD_ENV(snd_);
-
-                // clang-format off
-                template <typename Env>
-                friend make_completion_signatures<S, Env, completion_signatures<>, //
-                    value_sig, error_sig, completion_signatures<set_value_t(set_stopped_t)>>
-                tag_invoke(get_completion_signatures_t, const type&, Env&&) noexcept { return {}; }
-                // clang-format on
             };
+
+            template <typename S>
+            using snd_t = snd_t_<std::decay_t<S>>;
 
             struct materialize_t
             {
@@ -454,28 +417,19 @@ namespace clu::exec
                 {
                     return snd_t<S>(static_cast<S&&>(snd));
                 }
-                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(*this); }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(materialize_t{}); }
             };
         } // namespace mat
 
         namespace demat
         {
             template <typename R>
-            struct recv_t_
-            {
-                class type;
-            };
-
-            template <typename R>
-            using recv_t = typename recv_t_<std::decay_t<R>>::type;
-
-            template <typename R>
-            class recv_t_<R>::type : public receiver_adaptor<type, R>
+            class recv_t_ : public receiver_adaptor<recv_t_<R>, R>
             {
             public:
-                using receiver_adaptor<type, R>::receiver_adaptor;
+                using receiver_adaptor<recv_t_, R>::receiver_adaptor;
 
-                template <recvs::completion_cpo Cpo, typename... Ts>
+                template <completion_cpo Cpo, typename... Ts>
                 void set_value(Cpo, Ts&&... args) && noexcept
                 {
                     if constexpr ((std::is_nothrow_constructible_v<std::decay_t<Ts>, Ts> && ...))
@@ -492,14 +446,8 @@ namespace clu::exec
                 }
             };
 
-            template <typename S>
-            struct snd_t_
-            {
-                class type;
-            };
-
-            template <typename S>
-            using snd_t = typename snd_t_<std::decay_t<S>>::type;
+            template <typename R>
+            using recv_t = recv_t_<std::decay_t<R>>;
 
             template <typename Cpo, typename... Ts>
             constexpr auto value_sig_impl() noexcept
@@ -514,32 +462,33 @@ namespace clu::exec
             using value_sig = decltype(value_sig_impl<Ts...>());
 
             template <typename S>
-            class snd_t_<S>::type
+            class snd_t_
             {
             public:
                 using is_sender = void;
 
                 // clang-format off
                 template <forwarding<S> S2>
-                explicit type(S2&& snd) noexcept(std::is_nothrow_constructible_v<S, S2>):
+                explicit snd_t_(S2&& snd) noexcept(std::is_nothrow_constructible_v<S, S2>):
                     snd_(static_cast<S2&&>(snd)) {}
+
+                template <receiver R>
+                auto tag_invoke(connect_t, R&& recv) &&
+                    CLU_SINGLE_RETURN(connect(static_cast<S&&>(snd_), recv_t<R>(static_cast<R&&>(recv))));
+
+                CLU_EXEC_FWD_ENV(snd_);
+
+                template <typename Env>
+                make_completion_signatures<S, Env, completion_signatures<>, value_sig>
+                tag_invoke(get_completion_signatures_t, Env&&) const noexcept { return {}; }
                 // clang-format on
 
             private:
                 CLU_NO_UNIQUE_ADDRESS S snd_;
-
-                template <typename R>
-                friend auto tag_invoke(connect_t, type&& self, R&& recv)
-                    CLU_SINGLE_RETURN(connect(static_cast<S&&>(self.snd_), recv_t<R>(static_cast<R&&>(recv))));
-
-                CLU_EXEC_FWD_ENV(snd_);
-
-                // clang-format off
-                template <typename Env>
-                friend make_completion_signatures<S, Env, completion_signatures<>, value_sig>
-                tag_invoke(get_completion_signatures_t, const type&, Env&&) noexcept { return {}; }
-                // clang-format on
             };
+
+            template <typename S>
+            using snd_t = snd_t_<std::decay_t<S>>;
 
             struct dematerialize_t
             {
@@ -550,7 +499,7 @@ namespace clu::exec
                 {
                     return snd_t<S>(static_cast<S&&>(snd));
                 }
-                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(*this); }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(dematerialize_t{}); }
             };
         } // namespace demat
 
@@ -594,33 +543,47 @@ namespace clu::exec
             };
 
             template <typename S, typename R, typename Cpo, typename F>
-            struct ops_t_
-            {
-                class type;
-            };
+            class ops_t_;
 
             template <typename S, typename R, typename Cpo, typename F>
-            using ops_t = typename ops_t_<S, std::remove_cvref_t<R>, Cpo, F>::type;
+            using ops_t = ops_t_<S, std::remove_cvref_t<R>, Cpo, F>;
 
             template <typename F, typename Env, typename... Args>
             using recv_sigs = completion_signatures_of_t<std::invoke_result_t<F, decay_lref<Args>...>, Env>;
 
             template <typename S, typename R, typename Cpo, typename F>
-            struct recv_t_
-            {
-                class type;
-            };
-
-            template <typename S, typename R, typename Cpo, typename F>
-            using recv_t = typename recv_t_<S, std::remove_cvref_t<R>, Cpo, F>::type;
-
-            template <typename S, typename R, typename Cpo, typename F>
-            class recv_t_<S, R, Cpo, F>::type
+            class recv_t_
             {
             public:
                 using is_receiver = void;
 
-                explicit type(ops_t<S, R, Cpo, F>* ops) noexcept: ops_(ops) {}
+                explicit recv_t_(ops_t<S, R, Cpo, F>* ops) noexcept: ops_(ops) {}
+
+                // Transformed
+                template <typename... Args>
+                    requires std::invocable<F, Args...> && receiver_of<R, recv_sigs<F, env_of_t<R>, Args...>>
+                void tag_invoke(Cpo, Args&&... args) && noexcept
+                {
+                    // clang-format off
+                    if constexpr (receiver_of<R, completion_signatures<set_error_t(std::exception_ptr)>>)
+                        try { this->set_impl(static_cast<Args&&>(args)...); }
+                        catch (...) { exec::set_error(recv(), std::current_exception()); }
+                    // clang-format on
+                    else
+                        this->set_impl(static_cast<Args&&>(args)...); // Shouldn't throw theoretically
+                }
+
+                CLU_EXEC_FWD_ENV(recv()); // Pass through
+
+                // clang-format off
+                template <completion_cpo Tag, typename... Args> requires
+                    (!std::same_as<Tag, Cpo>) &&
+                    receiver_of<R, completion_signatures<Tag(Args...)>>
+                constexpr void tag_invoke(Tag cpo, Args&&... args) && noexcept
+                {
+                    cpo(recv(), static_cast<Args&&>(args)...);
+                }
+                // clang-format on
 
             private:
                 ops_t<S, R, Cpo, F>* ops_;
@@ -638,47 +601,26 @@ namespace clu::exec
                     const auto ce = [&] { return exec::connect(std::apply(func(), tuple), recv()); };
                     exec::start(ops_->storage_.ops.template emplace<call_result_t<decltype(ce)>>(copy_elider{ce}));
                 }
-
-                // Transformed
-                template <typename... Args>
-                    requires std::invocable<F, Args...> && receiver_of<R, recv_sigs<F, env_of_t<R>, Args...>>
-                friend void tag_invoke(Cpo, type&& self, Args&&... args) noexcept
-                {
-                    // clang-format off
-                    if constexpr (receiver_of<R, completion_signatures<set_error_t(std::exception_ptr)>>)
-                        try { self.set_impl(static_cast<Args&&>(args)...); }
-                        catch (...) { exec::set_error(self.recv(), std::current_exception()); }
-                    // clang-format on
-                    else
-                        self.set_impl(static_cast<Args&&>(args)...); // Shouldn't throw theoretically
-                }
-
-                CLU_EXEC_FWD_ENV(recv()); // Pass through
-
-                // clang-format off
-                template <recvs::completion_cpo Tag, typename... Args> requires
-                    (!std::same_as<Tag, Cpo>) &&
-                    receiver_of<R, completion_signatures<Tag(Args...)>>
-                constexpr friend void tag_invoke(Tag cpo, type&& self, Args&&... args) noexcept
-                {
-                    cpo(self.recv(), static_cast<Args&&>(args)...);
-                }
-                // clang-format on
             };
 
             template <typename S, typename R, typename Cpo, typename F>
-            class ops_t_<S, R, Cpo, F>::type
+            using recv_t = recv_t_<S, std::remove_cvref_t<R>, Cpo, F>;
+
+            template <typename S, typename R, typename Cpo, typename F>
+            class ops_t_
             {
             public:
                 // clang-format off
                 template <typename R2, typename F2>
-                type(S&& snd, R2&& recv, F2&& func) noexcept(
-                    conn::nothrow_connectable<S, recv_t<S, R, Cpo, F>> &&
+                ops_t_(S&& snd, R2&& recv, F2&& func) noexcept(
+                    nothrow_connectable<S, recv_t<S, R, Cpo, F>> &&
                     std::is_nothrow_constructible_v<R, R2> &&
                     std::is_nothrow_constructible_v<F, F2>):
                     recv_(static_cast<R2&&>(recv)), func_(static_cast<F2&&>(func)),
                     initial_ops_(exec::connect(static_cast<S&&>(snd), recv_t<S, R, Cpo, F>(this))) {}
                 // clang-format on
+
+                void tag_invoke(start_t) & noexcept { exec::start(initial_ops_); }
 
             private:
                 friend recv_t<S, R, Cpo, F>;
@@ -687,8 +629,6 @@ namespace clu::exec
                 CLU_NO_UNIQUE_ADDRESS F func_;
                 connect_result_t<S, recv_t<S, R, Cpo, F>> initial_ops_;
                 storage<S, R, Cpo, F> storage_;
-
-                friend void tag_invoke(start_t, type& self) noexcept { exec::start(self.initial_ops_); }
             };
 
             struct make_sig_impl_base
@@ -723,49 +663,48 @@ namespace clu::exec
             };
 
             template <typename S, typename Cpo, typename F>
-            struct snd_t_
-            {
-                class type;
-            };
-
-            template <typename S, typename Cpo, typename F>
-            using snd_t = typename snd_t_<std::remove_cvref_t<S>, Cpo, std::decay_t<F>>::type;
-
-            template <typename S, typename Cpo, typename F>
-            class snd_t_<S, Cpo, F>::type
+            class snd_t_
             {
             public:
                 using is_sender = void;
 
                 // clang-format off
                 template <typename S2, typename F2>
-                type(S2&& snd, F2&& func) noexcept(
+                snd_t_(S2&& snd, F2&& func) noexcept(
                     std::is_nothrow_constructible_v<S, S2> &&
                     std::is_nothrow_constructible_v<F, F2>):
                     snd_(static_cast<S2&&>(snd)), func_(static_cast<F2&&>(func)) {}
                 // clang-format on
 
-            private:
-                CLU_NO_UNIQUE_ADDRESS S snd_;
-                CLU_NO_UNIQUE_ADDRESS F func_;
+                template <receiver R>
+                    requires sender_to<const S&, recv_t<S, R, Cpo, F>>
+                auto tag_invoke(connect_t, R&& recv) const& CLU_SINGLE_RETURN(
+                    ops_t<const S&, R, Cpo, F>(snd_, static_cast<R&&>(recv), func_));
 
-                template <forwarding<type> Self, typename R>
-                    requires sender_to<copy_cvref_t<Self, S>, recv_t<S, R, Cpo, F>>
-                friend auto tag_invoke(connect_t, Self&& self, R&& recv) CLU_SINGLE_RETURN(ops_t<S, R, Cpo, F>(
-                    static_cast<Self&&>(self).snd_, static_cast<R&&>(recv), static_cast<Self&&>(self).func_));
+                template <receiver R>
+                    requires sender_to<S&&, recv_t<S, R, Cpo, F>>
+                auto tag_invoke(connect_t, R&& recv) &&
+                    CLU_SINGLE_RETURN(ops_t<S, R, Cpo, F>(std::move(snd_), static_cast<R&&>(recv), std::move(func_)));
 
                 CLU_EXEC_FWD_ENV(snd_);
 
                 // clang-format off
                 template <typename Env>
-                constexpr friend make_completion_signatures<S, Env,
+                constexpr static make_completion_signatures<S, Env,
                     completion_signatures<set_error_t(std::exception_ptr)>,
                     make_sig_impl<Cpo, Env, F>::template value_sig,
                     make_sig_impl<Cpo, Env, F>::template error_sig,
                     typename make_sig_impl<Cpo, Env, F>::stopped_sig>
-                tag_invoke(get_completion_signatures_t, const type&, Env) noexcept { return {}; }
+                tag_invoke(get_completion_signatures_t, Env&&) noexcept { return {}; }
                 // clang-format on
+
+            private:
+                CLU_NO_UNIQUE_ADDRESS S snd_;
+                CLU_NO_UNIQUE_ADDRESS F func_;
             };
+
+            template <typename S, typename Cpo, typename F>
+            using snd_t = snd_t_<std::remove_cvref_t<S>, Cpo, std::decay_t<F>>;
 
             template <typename LetCpo, typename SetCpo>
             struct let_t
@@ -801,73 +740,62 @@ namespace clu::exec
         namespace qry_val
         {
             template <typename R, typename Q, typename T>
-            struct recv_t_
-            {
-                class type;
-            };
-
-            template <typename R, typename Q, typename T>
-            using recv_t = typename recv_t_<std::decay_t<R>, Q, T>::type;
-
-            template <typename R, typename Q, typename T>
-            class recv_t_<R, Q, T>::type : public receiver_adaptor<type, R>
+            class recv_t_ : public receiver_adaptor<recv_t_<R, Q, T>, R>
             {
             public:
                 using is_receiver = void;
 
                 // clang-format off
                 template <typename R2, typename T2>
-                type(R2&& recv, T2&& value):
-                    receiver_adaptor<type, R>(static_cast<R2&&>(recv)),
-                    env_(clu::get_env(receiver_adaptor<type, R>::base()), static_cast<T2&&>(value)) {}
+                recv_t_(R2&& recv, T2&& value):
+                    receiver_adaptor<recv_t_, R>(static_cast<R2&&>(recv)),
+                    env_(clu::adapt_env(clu::get_env(receiver_adaptor<recv_t_, R>::base()), //
+                        query_value{Q{}, static_cast<T2&&>(value)})) {}
                 // clang-format on
 
                 const auto& get_env() const noexcept { return env_; }
 
             private:
-                adapted_env_t<env_of_t<R>, Q, T> env_;
+                adapted_env_t<env_of_t<R>, query_value<Q, T>> env_;
             };
 
-            template <typename S, typename Q, typename T>
-            struct snd_t_
-            {
-                class type;
-            };
+            template <typename R, typename Q, typename T>
+            using recv_t = recv_t_<std::decay_t<R>, Q, T>;
 
             template <typename S, typename Q, typename T>
-            using snd_t = typename snd_t_<std::decay_t<S>, Q, std::decay_t<T>>::type;
-
-            template <typename S, typename Q, typename T>
-            class snd_t_<S, Q, T>::type
+            class snd_t_
             {
             public:
                 using is_sender = void;
 
                 // clang-format off
                 template <typename S2, typename T2>
-                type(S2&& snd, T2&& value):
+                snd_t_(S2&& snd, T2&& value):
                     snd_(static_cast<S2&&>(snd)), value_(static_cast<T2&&>(value)) {}
                 // clang-format on
 
-            private:
-                S snd_;
-                T value_;
-
-                template <typename R>
-                friend auto tag_invoke(connect_t, type&& self, R&& recv)
+                template <receiver R>
+                auto tag_invoke(connect_t, R&& recv) &&
                 {
-                    return connect(static_cast<S&&>(self.snd_), //
-                        recv_t<R, Q, T>(static_cast<R&&>(recv), static_cast<T&&>(self.value_)));
+                    return connect(static_cast<S&&>(snd_), //
+                        recv_t<R, Q, T>(static_cast<R&&>(recv), static_cast<T&&>(value_)));
                 }
 
                 CLU_EXEC_FWD_ENV(snd_);
 
                 // clang-format off
                 template <typename Env>
-                constexpr friend completion_signatures_of_t<S, adapted_env_t<Env, Q, T>>
-                tag_invoke(get_completion_signatures_t, const type&, Env&&) noexcept { return {}; }
+                constexpr static completion_signatures_of_t<S, adapted_env_t<Env, query_value<Q, T>>>
+                tag_invoke(get_completion_signatures_t, Env&&) noexcept { return {}; }
                 // clang-format on
+
+            private:
+                S snd_;
+                T value_;
             };
+
+            template <typename S, typename Q, typename T>
+            using snd_t = snd_t_<std::decay_t<S>, Q, std::decay_t<T>>;
 
             struct with_query_value_t
             {
@@ -882,7 +810,7 @@ namespace clu::exec
                 CLU_STATIC_CALL_OPERATOR(auto)
                 (Q, T&& value)
                 {
-                    return clu::make_piper(clu::bind_back(*this, //
+                    return clu::make_piper(clu::bind_back(with_query_value_t{}, //
                         Q{}, static_cast<T&&>(value)));
                 }
             };
@@ -908,18 +836,9 @@ namespace clu::exec
                     comp_sigs_of_construction<variant_of<S, Env>>::template fn>;
 
             template <typename R, typename Var>
-            struct recv_t_
+            struct recv_t_ : receiver_adaptor<recv_t_<R, Var>, R>
             {
-                struct type;
-            };
-
-            template <typename R, typename Var>
-            using recv_t = typename recv_t_<std::remove_cvref_t<R>, Var>::type;
-
-            template <typename R, typename Var>
-            struct recv_t_<R, Var>::type : receiver_adaptor<recv_t<R, Var>, R>
-            {
-                using receiver_adaptor<recv_t<R, Var>, R>::receiver_adaptor;
+                using receiver_adaptor<recv_t_, R>::receiver_adaptor;
 
                 template <typename... Ts>
                 using comp_sigs = typename comp_sigs_of_construction<decayed_tuple<Ts...>, true>::template fn<Ts...>;
@@ -949,45 +868,42 @@ namespace clu::exec
                 }
             };
 
-            template <typename S>
-            struct snd_t_
-            {
-                class type;
-            };
+            template <typename R, typename Var>
+            using recv_t = recv_t_<std::remove_cvref_t<R>, Var>;
 
             template <typename S>
-            class snd_t_<S>::type
+            class snd_t_
             {
             public:
                 using is_sender = void;
 
                 // clang-format off
                 template <typename S2>
-                constexpr explicit type(S2&& snd) noexcept(std::is_nothrow_constructible_v<S, S2>):
+                constexpr explicit snd_t_(S2&& snd) noexcept(std::is_nothrow_constructible_v<S, S2>):
                     snd_(static_cast<S2&&>(snd)) {}
                 // clang-format on
 
-            private:
-                CLU_NO_UNIQUE_ADDRESS S snd_;
-
-                template <typename R>
-                constexpr friend auto tag_invoke(connect_t, type&& snd, R&& recv)
+                template <receiver R>
+                constexpr auto tag_invoke(connect_t, R&& recv) &&
                 {
                     return exec::connect(
-                        static_cast<type&&>(snd).snd_, recv_t<R, variant_of<S, env_of_t<R>>>(static_cast<R&&>(recv)));
+                        std::move(snd_), recv_t<R, variant_of<S, env_of_t<R>>>(static_cast<R&&>(recv)));
                 }
 
                 CLU_EXEC_FWD_ENV(snd_);
 
                 template <typename Env>
-                constexpr friend snd_comp_sigs<S, Env> tag_invoke(get_completion_signatures_t, const type&, Env)
+                constexpr snd_comp_sigs<S, Env> tag_invoke(get_completion_signatures_t, Env) const
                 {
                     return {};
                 }
+
+            private:
+                CLU_NO_UNIQUE_ADDRESS S snd_;
             };
 
             template <typename S>
-            using snd_t = typename snd_t_<std::remove_cvref_t<S>>::type;
+            using snd_t = snd_t_<std::remove_cvref_t<S>>;
 
             struct into_variant_t
             {
@@ -997,7 +913,7 @@ namespace clu::exec
                 {
                     return snd_t<S>(static_cast<S&&>(snd));
                 }
-                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(*this); }
+                constexpr CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(into_variant_t{}); }
             };
         } // namespace into_var
 

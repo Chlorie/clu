@@ -5,7 +5,6 @@
 
 #include "hash.h"
 #include "random.h"
-#include "parse.h"
 #include "integer_literals.h"
 
 namespace clu
@@ -59,11 +58,11 @@ namespace clu
         [[nodiscard]] constexpr variant_type variant() const noexcept
         {
             using enum variant_type;
-            const auto n = static_cast<uint8_t>(data_[8] >> 4);
+            const auto octet = static_cast<uint8_t>(data_[8]);
             // clang-format off
-            if (n & 8u) return ncs;
-            if (n & 4u) return rfc4122;
-            if (n & 2u) return microsoft;
+            if (!(octet & 0x80)) return ncs;
+            if (!(octet & 0x40)) return rfc4122;
+            if (!(octet & 0x20)) return microsoft;
             return reserved;
             // clang-format on
         }

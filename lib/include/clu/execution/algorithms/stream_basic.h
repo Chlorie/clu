@@ -73,7 +73,7 @@ namespace clu::exec
                 CLU_STATIC_CALL_OPERATOR(auto)
                 (F&& func)
                 {
-                    return clu::make_piper(clu::bind_back(*this, static_cast<F&&>(func)));
+                    return clu::make_piper(clu::bind_back(adapt_next_t{}, static_cast<F&&>(func)));
                 }
             };
         } // namespace adpt_nxt
@@ -120,7 +120,7 @@ namespace clu::exec
                 CLU_STATIC_CALL_OPERATOR(auto)
                 (F&& func)
                 {
-                    return clu::make_piper(clu::bind_back(*this, static_cast<F&&>(func)));
+                    return clu::make_piper(clu::bind_back(adapt_cleanup_t{}, static_cast<F&&>(func)));
                 }
             };
         } // namespace adpt_cln
@@ -158,7 +158,7 @@ namespace clu::exec
 
                 adapted_env_t<env_of_t<R>> get_env() const; // Inherit stop token from parent receiver
 
-                template <recvs::completion_cpo Cpo, typename... Ts>
+                template <completion_cpo Cpo, typename... Ts>
                 friend void tag_invoke(Cpo, type&& self, Ts&&... args) noexcept
                 {
                     self.ops_->next_done(Cpo{}, static_cast<Ts&&>(args)...);
@@ -373,7 +373,7 @@ namespace clu::exec
                 CLU_STATIC_CALL_OPERATOR(auto)
                 (T&& initial, F&& func)
                 {
-                    return clu::make_piper(clu::bind_back(*this, //
+                    return clu::make_piper(clu::bind_back(reduce_t{}, //
                         static_cast<T&&>(initial), static_cast<F&&>(func)));
                 }
             };
@@ -638,7 +638,7 @@ namespace clu::exec
                 CLU_STATIC_CALL_OPERATOR(auto)
                 (F&& func)
                 {
-                    return clu::make_piper(clu::bind_back(*this, static_cast<F&&>(func)));
+                    return clu::make_piper(clu::bind_back(filter_t{}, static_cast<F&&>(func)));
                 }
             };
         } // namespace fltr
@@ -662,7 +662,7 @@ namespace clu::exec
                 {
                     (void)strm;
                 }
-                CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(*this); }
+                CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(last_t{}); }
             };
         } // namespace last
 
@@ -705,7 +705,7 @@ namespace clu::exec
 
                 adapted_env_t<env_of_t<R>> get_env() const;
 
-                template <recvs::completion_cpo Cpo, typename... Ts>
+                template <completion_cpo Cpo, typename... Ts>
                 friend void tag_invoke(Cpo, type&& self, Ts&&... args) noexcept
                 {
                     self.set(Cpo{}, static_cast<Ts&&>(args)...);
@@ -718,9 +718,9 @@ namespace clu::exec
             constexpr auto get_vector_type_impl() noexcept
             {
                 using next_type = next_result_t<S>;
-                if constexpr (requires { typename coro_utils::single_sender_value_type<next_type, E>; })
+                if constexpr (requires { typename single_sender_value_type<next_type, E>; })
                 {
-                    using value_type = coro_utils::single_sender_value_type<next_type, E>;
+                    using value_type = single_sender_value_type<next_type, E>;
                     using env_alloc_t = call_result_t<get_allocator_t, E>;
                     using allocator_type =
                         typename std::allocator_traits<env_alloc_t>::template rebind_alloc<value_type>;
@@ -901,7 +901,7 @@ namespace clu::exec
                 {
                     return snd_t<S>(static_cast<S&&>(strm));
                 }
-                CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(*this); }
+                CLU_STATIC_CALL_OPERATOR(auto)() noexcept { return make_piper(into_vector_t{}); }
             };
         } // namespace vec
 

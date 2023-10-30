@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+    <Type Name="clu::basic_buffer&lt;*&gt;">
+        <DisplayString>{{size = {size_}}</DisplayString>
+        <Expand>
+            <Item Name="[size]">size_</Item>
+            <ArrayItems>
+                <Size>size_</Size>
+                <ValuePointer>ptr_</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <Type Name="clu::forest&lt;*,*&gt;">
+        <DisplayString>{root_}</DisplayString>
+        <Expand>
+            <Item Name="[allocator]">alloc_</Item>
+            <Item Name="[trees]">root_,view(children)</Item>
+        </Expand>
+    </Type>
+
+    <Type Name="clu::forest&lt;*,*&gt;::node_base">
+        <DisplayString Condition="!child">{{}}</DisplayString>
+        <DisplayString Condition="child-&gt;next == child">{{{*child}}}</DisplayString>
+        <DisplayString Condition="child-&gt;next-&gt;next == child">{{{*child}, {*child-&gt;next}}}</DisplayString>
+        <DisplayString Condition="child-&gt;next-&gt;next-&gt;next == child">{{{*child}, {*child-&gt;next}, {*child-&gt;next-&gt;next}}}</DisplayString>
+        <DisplayString>{{{*child}, {*child-&gt;next}, {*child-&gt;next-&gt;next}, ...}}</DisplayString>
+        <Expand>
+            <Synthetic Name="[parent]" Condition="!parent">
+                <DisplayString>root</DisplayString>
+            </Synthetic>
+            <Item Name="[parent]" Condition="parent &amp;&amp; !parent-&gt;parent">parent,na</Item>
+            <Item Name="[parent]" Condition="parent &amp;&amp; parent-&gt;parent">(clu::forest&lt;$T1,$T2&gt;::node*)parent,na</Item>
+            <Item Name="[children]">*this,view(children)</Item>
+        </Expand>
+    </Type>
+
+    <Type Name="clu::forest&lt;*,*&gt;::node_base" IncludeView="children">
+        <DisplayString>{*this}</DisplayString>
+        <Expand HideRawView="true">
+            <CustomListItems Condition="child">
+                <Variable Name="ptr" InitialValue="child"/>
+                <Loop>
+                    <Item>ptr,na</Item>
+                    <Exec>ptr = ptr-&gt;next</Exec>
+                    <Break Condition="ptr == child"/>
+                </Loop>
+            </CustomListItems>
+        </Expand>
+    </Type>
+
+    <Type Name="clu::forest&lt;*,*&gt;::node">
+        <DisplayString Condition="!child">{value}</DisplayString>
+        <DisplayString>{value}: {*(clu::forest&lt;$T1,$T2&gt;::node_base*)this}</DisplayString>
+        <Expand>
+            <Item Name="[parent]" Condition="!parent-&gt;parent">parent,na</Item>
+            <Item Name="[next]">next,na</Item>
+            <Item Name="[prev]">prev,na</Item>
+            <Item Name="[children]">*(clu::forest&lt;$T1,$T2&gt;::node_base*)this,view(children)</Item>
+        </Expand>
+    </Type>
+    
+    <Type Name="clu::rational&lt;*&gt;">
+        <DisplayString Condition="den_ == 1">{num_}</DisplayString>
+        <DisplayString>{num_}/{den_}</DisplayString>
+    </Type>
+    
+    <Type Name="clu::semver">
+        <DisplayString Condition="prerelease_.size() == 0 &amp;&amp; build_.size() == 0">
+            {major_}.{minor_}.{patch_}
+        </DisplayString>
+        <DisplayString Condition="prerelease_.size() == 0">
+            {major_}.{minor_}.{patch_}+{&amp;build_[0],s8b}
+        </DisplayString>
+        <DisplayString Condition="build_.size() == 0">
+            {major_}.{minor_}.{patch_}-{&amp;prerelease_[0],s8b}
+        </DisplayString>
+        <DisplayString>{major_}.{minor_}.{patch_}-{&amp;prerelease_[0],s8b}+{&amp;build_[0],s8b}</DisplayString>
+    </Type>
+    
+    <Type Name="clu::static_vector&lt;*,*&gt;">
+        <DisplayString>{{ size={size_} }}</DisplayString>
+        <Expand>
+            <Item Name="[capacity]">$T2</Item>
+            <ArrayItems>
+                <Size>size_</Size>
+                <ValuePointer>($T1*)&amp;storage_[0]</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <Type Name="clu::uuid">
+        <DisplayString>
+            {data_[0],nvoxb}{data_[1],nvoxb}{data_[2],nvoxb}{data_[3],nvoxb}-{data_[4],nvoxb}{data_[5],nvoxb}-{data_[6],nvoxb}{data_[7],nvoxb}-{data_[8],nvoxb}{data_[9],nvoxb}-{data_[10],nvoxb}{data_[11],nvoxb}{data_[12],nvoxb}{data_[13],nvoxb}{data_[14],nvoxb}{data_[15],nvoxb}
+        </DisplayString>
+        <Expand>
+            <Synthetic Name="[variant]" Condition="(data_[8] &amp; 0x80) == 0">
+                <DisplayString>Legacy NCS</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[variant]" Condition="(data_[8] &amp; 0xc0) == 0x80">
+                <DisplayString>RFC 4122</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[variant]" Condition="(data_[8] &amp; 0xe0) == 0xc0">
+                <DisplayString>Microsoft COM / DCOM</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[variant]" Condition="(data_[8] &amp; 0xe0) == 0xe0">
+                <DisplayString>Reserved</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[version]" Condition="(data_[6] &gt;&gt; 4) == 1">
+                <DisplayString>Date-time and MAC address (Version 1)</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[version]" Condition="(data_[6] &gt;&gt; 4) == 2">
+                <DisplayString>Date-time and MAC address, DCE security version (Version 2)</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[version]" Condition="(data_[6] &gt;&gt; 4) == 3">
+                <DisplayString>Name-based with MD5 (Version 4)</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[version]" Condition="(data_[6] &gt;&gt; 4) == 4">
+                <DisplayString>Random (Version 4)</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[version]" Condition="(data_[6] &gt;&gt; 4) == 5">
+                <DisplayString>Name-based with SHA-1 (Version 5)</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[version]" Condition="(data_[6] &gt;&gt; 4) == 0 || (data_[6] &gt;&gt; 4) > 5">
+                <DisplayString>Unknown (Version {data_[6] &gt;&gt; 4}?)</DisplayString>
+            </Synthetic>
+        </Expand>
+    </Type>
+
+    <Type Name="clu::uri">
+        <DisplayString>{uri_,s8}</DisplayString>
+        <Expand>
+            <Synthetic Name="[uri]">
+                <DisplayString>{uri_}</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[scheme]" Condition="scheme_.start + 1 == 0">
+                <DisplayString>[undefined]</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[scheme]" Condition="scheme_.start + 1 != 0">
+                <DisplayString>{&amp;uri_[scheme_.start],[scheme_.stop - scheme_.start]s8}</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[authority]" Condition="authority_.start + 1 == 0">
+                <DisplayString>[undefined]</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[authority]" Condition="authority_.start + 1 != 0">
+                <DisplayString>{&amp;uri_[authority_.start],[authority_.stop - authority_.start]s8}</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[userinfo]" Condition="userinfo_.start + 1 == 0">
+                <DisplayString>[undefined]</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[userinfo]" Condition="userinfo_.start + 1 != 0">
+                <DisplayString>{&amp;uri_[userinfo_.start],[userinfo_.stop - userinfo_.start]s8}</DisplayString>
+            </Synthetic>
+            <Item Name="[port]">port_</Item>
+            <Synthetic Name="[path]" Condition="path_.start + 1 == 0">
+                <DisplayString>[undefined]</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[path]" Condition="path_.start + 1 != 0">
+                <DisplayString>{&amp;uri_[path_.start],[path_.stop - path_.start]s8}</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[query]" Condition="query_.start + 1 == 0">
+                <DisplayString>[undefined]</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[query]" Condition="query_.start + 1 != 0">
+                <DisplayString>{&amp;uri_[query_.start],[query_.stop - query_.start]s8}</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[fragment]" Condition="fragment_.start + 1 == 0">
+                <DisplayString>[undefined]</DisplayString>
+            </Synthetic>
+            <Synthetic Name="[fragment]" Condition="fragment_.start + 1 != 0">
+                <DisplayString>{&amp;uri_[fragment_.start],[fragment_.stop - fragment_.start]s8}</DisplayString>
+            </Synthetic>
+        </Expand>
+    </Type>
+</AutoVisualizer>
