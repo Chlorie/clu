@@ -1,5 +1,8 @@
 option(ENABLE_IPO "Enable interprocedural optimization (link-time optimization)" OFF)
 option(ENABLE_CXX_EXTENSIONS "Enable C++ language extensions" OFF)
+option(ENABLE_ASAN "Enable ASan (Address Sanitizer)" OFF)
+option(ENABLE_TSAN "Enable TSan (Thread Sanitizer)" OFF)
+option(ENABLE_UBSAN "Enable UBSan (Undefined Behavior Sanitizer)" OFF)
 
 if (ENABLE_IPO)
     include(CheckIPOSupported)
@@ -23,17 +26,20 @@ function (target_set_warnings TGT ACCESS)
         /w14242 /w14254 /w14263 /w14265 /w14287
         /we4289 /w14296 /w14311 /w14545 /w14546
         /w14547 /w14549 /w14555 /w14619 /w14640
-        /w14826 /w14905 /w14906 /w14928)
+        /w14826 /w14905 /w14906 /w14928
+    )
 
     set(MSVC_SUPPRESS_EXTERNAL_WARNINGS
         # Ignore warnings from external includes
-        /external:W0 /external:anglebrackets)
+        /external:W0 /external:anglebrackets
+    )
 
     set(CLANG_WARNINGS
         -Wall -Wextra -Wpedantic
         -Wnon-virtual-dtor -Wold-style-cast -Wcast-align
         -Wunused -Woverloaded-virtual -Wconversion
-        -Wnull-dereference -Wdouble-promotion -Wformat=2)
+        -Wnull-dereference -Wdouble-promotion -Wformat=2
+    )
 
     if (WARNINGS_AS_ERRORS)
         set(MSVC_WARINGS ${MSVC_WARNINGS} /WX)
@@ -43,7 +49,8 @@ function (target_set_warnings TGT ACCESS)
     set(GCC_WARNINGS
         ${CLANG_WARNINGS}
         -Wmisleading-indentation -Wduplicated-cond
-        -Wduplicated-branches -Wlogical-op)
+        -Wduplicated-branches -Wlogical-op
+    )
         
     if (MSVC) # MSVC-like
         if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang") # clang-cl
@@ -58,6 +65,25 @@ function (target_set_warnings TGT ACCESS)
         target_compile_options(${TGT} ${ACCESS} ${GCC_WARNINGS})
     else()
         message(AUTHOR_WARNING "No compiler warnings set for '${CMAKE_CXX_COMPILER_ID}' compiler.")
+    endif ()
+
+    if (MSVC)
+        if (ENABLE_ASAN)
+            target_compile_options(${TGT} ${ACCESS} "/fsanitize=address")
+        endif ()
+    else ()
+        if (ENABLE_ASAN)
+            target_compile_options(${TGT} ${ACCESS} "-fsanitize=address")
+            target_link_options(${TGT} ${ACCESS} "-fsanitize=address")
+        endif ()
+        if (ENABLE_TSAN)
+            target_compile_options(${TGT} ${ACCESS} "-fsanitize=thread")
+            target_link_options(${TGT} ${ACCESS} "-fsanitize=thread")
+        endif ()
+        if (ENABLE_UBSAN)
+            target_compile_options(${TGT} ${ACCESS} "-fsanitize=undefined")
+            target_link_options(${TGT} ${ACCESS} "-fsanitize=undefined")
+        endif ()
     endif ()
 endfunction ()
 

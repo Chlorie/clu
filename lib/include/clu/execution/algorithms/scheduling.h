@@ -10,44 +10,20 @@ namespace clu::exec
         namespace on
         {
 #define CLU_EXEC_FWD_ENV(member)                                                                                       \
-    friend decltype(auto) tag_invoke(get_env_t, const type& self)                                                      \
-        CLU_SINGLE_RETURN(clu::adapt_env(get_env(self.member)))
-
-            template <typename Env, typename Schd>
-            using env_t = adapted_env_t<Env, query_value<get_scheduler_t, Schd>>;
-
-            template <typename Schd, typename Env>
-            auto replace_schd(Env&& env, Schd schd) noexcept
-            {
-                return clu::adapt_env(static_cast<Env&&>(env), //
-                    query_value{get_scheduler, static_cast<Schd&&>(schd)});
-            }
+    decltype(auto) tag_invoke(get_env_t) const CLU_SINGLE_RETURN(clu::adapt_env(get_env(member)))
 
             template <typename S, typename R, typename Schd>
-            struct ops_t_
-            {
-                class type;
-            };
+            class ops_t_;
+            template <typename S, typename R, typename Schd>
+            using ops_t = ops_t_<S, std::remove_cvref_t<R>, Schd>;
 
             template <typename S, typename R, typename Schd>
-            using ops_t = typename ops_t_<S, std::decay_t<R>, Schd>::type;
-
-            template <typename S, typename R, typename Schd>
-            struct recv_t_
-            {
-                class type;
-            };
-
-            template <typename S, typename R, typename Schd>
-            using recv_t = typename recv_t_<S, R, Schd>::type;
-
-            template <typename S, typename R, typename Schd>
-            class recv_t_<S, R, Schd>::type : public receiver_adaptor<type>
+            class recv_t : public receiver_adaptor<recv_t<S, R, Schd>>
             {
             public:
                 using is_receiver = void;
 
-                explicit type(ops_t<S, R, Schd>* ops) noexcept: ops_(ops) {}
+                explicit recv_t(ops_t<S, R, Schd>* ops) noexcept: ops_(ops) {}
 
                 const R& base() const& noexcept;
                 R&& base() && noexcept;
@@ -57,25 +33,18 @@ namespace clu::exec
                 ops_t<S, R, Schd>* ops_;
             };
 
-            template <typename S, typename R, typename Schd>
-            struct recv2_t_
-            {
-                class type;
-            };
-
-            template <typename S, typename R, typename Schd>
-            using recv2_t = typename recv2_t_<S, R, Schd>::type;
-
+            template <typename Env, typename Schd>
+            using env_t = adapted_env_t<Env, query_value<get_scheduler_t, Schd>>;
             template <typename S, typename R, typename Schd>
             using recv2_env_t = env_t<env_of_t<R>, Schd>;
 
             template <typename S, typename R, typename Schd>
-            class recv2_t_<S, R, Schd>::type : public receiver_adaptor<type>
+            class recv2_t : public receiver_adaptor<recv2_t<S, R, Schd>>
             {
             public:
                 using is_receiver = void;
 
-                explicit type(ops_t<S, R, Schd>* ops) noexcept: ops_(ops) {}
+                explicit recv2_t(ops_t<S, R, Schd>* ops) noexcept: ops_(ops) {}
 
                 const R& base() const& noexcept;
                 R&& base() && noexcept;
@@ -86,11 +55,11 @@ namespace clu::exec
             };
 
             template <typename S, typename R, typename Schd>
-            class ops_t_<S, R, Schd>::type
+            class ops_t_
             {
             public:
                 template <typename R2>
-                type(S&& snd, R2&& recv, Schd&& schd):
+                ops_t_(S&& snd, R2&& recv, Schd&& schd):
                     snd_(static_cast<S&&>(snd)), recv_(static_cast<R2&&>(recv)), schd_(static_cast<Schd&&>(schd)),
                     inner_ops_(std::in_place_index<0>,
                         copy_elider{[&]
@@ -101,9 +70,11 @@ namespace clu::exec
                 {
                 }
 
+                void tag_invoke(start_t) noexcept { exec::start(get<0>(inner_ops_)); }
+
             private:
-                friend class recv_t_<S, R, Schd>::type;
-                friend class recv2_t_<S, R, Schd>::type;
+                friend recv_t<S, R, Schd>;
+                friend recv2_t<S, R, Schd>;
                 using schd_ops_t = connect_result_t<schedule_result_t<Schd>, recv_t<S, R, Schd>>;
 
                 S snd_;
@@ -113,23 +84,21 @@ namespace clu::exec
                     connect_result_t<schedule_result_t<Schd>, recv_t<S, R, Schd>>,
                     connect_result_t<S, recv2_t<S, R, Schd>>>
                     inner_ops_;
-
-                friend void tag_invoke(start_t, type& self) noexcept { exec::start(get<0>(self.inner_ops_)); }
             };
 
             // clang-format off
             template <typename S, typename R, typename Schd>
-            const R& recv_t_<S, R, Schd>::type::base() const & noexcept { return ops_->recv_; }
+            const R& recv_t<S, R, Schd>::base() const & noexcept { return ops_->recv_; }
             template <typename S, typename R, typename Schd>
-            R&& recv_t_<S, R, Schd>::type::base() && noexcept { return static_cast<R&&>(ops_->recv_); }
+            R&& recv_t<S, R, Schd>::base() && noexcept { return static_cast<R&&>(ops_->recv_); }
             template <typename S, typename R, typename Schd>
-            const R& recv2_t_<S, R, Schd>::type::base() const & noexcept { return ops_->recv_; }
+            const R& recv2_t<S, R, Schd>::base() const & noexcept { return ops_->recv_; }
             template <typename S, typename R, typename Schd>
-            R&& recv2_t_<S, R, Schd>::type::base() && noexcept { return static_cast<R&&>(ops_->recv_); }
+            R&& recv2_t<S, R, Schd>::base() && noexcept { return static_cast<R&&>(ops_->recv_); }
             // clang-format on
 
             template <typename S, typename R, typename Schd>
-            void recv_t_<S, R, Schd>::type::set_value() && noexcept
+            void recv_t<S, R, Schd>::set_value() && noexcept
             {
                 try
                 {
@@ -148,56 +117,50 @@ namespace clu::exec
             }
 
             template <typename S, typename R, typename Schd>
-            recv2_env_t<S, R, Schd> recv2_t_<S, R, Schd>::type::get_env() const noexcept
+            recv2_env_t<S, R, Schd> recv2_t<S, R, Schd>::get_env() const noexcept
             {
-                return on::replace_schd<Schd>(clu::get_env(base()), ops_->schd_);
+                return clu::adapt_env(clu::get_env(base()), query_value{get_scheduler, ops_->schd_});
             }
 
             template <typename Schd, typename Snd>
-            struct snd_t_
-            {
-                class type;
-            };
-
-            template <typename Schd, typename Snd>
-            using snd_t = typename snd_t_<std::decay_t<Schd>, std::decay_t<Snd>>::type;
-
-            template <typename Schd, typename Snd>
-            class snd_t_<Schd, Snd>::type
+            class snd_t_
             {
             public:
                 using is_sender = void;
 
                 // clang-format off
                 template <typename Schd2, typename Snd2>
-                type(Schd2&& schd, Snd2&& snd):
+                snd_t_(Schd2&& schd, Snd2&& snd):
                     schd_(static_cast<Schd2&&>(schd)), snd_(static_cast<Snd2&&>(snd)) {}
                 // clang-format on
 
-            private:
-                CLU_NO_UNIQUE_ADDRESS Schd schd_;
-                Snd snd_;
-
-                template <typename R>
-                friend auto tag_invoke(connect_t, type&& self, R&& recv)
+                template <receiver R>
+                auto tag_invoke(connect_t, R&& recv) &&
                 {
                     return ops_t<Snd, R, Schd>(
-                        static_cast<Snd&&>(self.snd_), static_cast<R&&>(recv), static_cast<Schd&&>(self.schd_));
+                        static_cast<Snd&&>(snd_), static_cast<R&&>(recv), static_cast<Schd&&>(schd_));
                 }
 
                 CLU_EXEC_FWD_ENV(snd_);
 
                 template <typename Env>
-                constexpr friend make_completion_signatures< //
+                constexpr static make_completion_signatures< //
                     Snd, env_t<Env, Schd>, //
                     make_completion_signatures< //
                         schedule_result_t<Schd>, Env, completion_signatures<set_error_t(std::exception_ptr)>,
                         meta::constant_q<completion_signatures<>>::fn>>
-                tag_invoke(get_completion_signatures_t, const type&, Env&&) noexcept
+                tag_invoke(get_completion_signatures_t, Env&&) noexcept
                 {
                     return {};
                 }
+
+            private:
+                CLU_NO_UNIQUE_ADDRESS Schd schd_;
+                Snd snd_;
             };
+
+            template <typename Schd, typename Snd>
+            using snd_t = snd_t_<std::remove_cvref_t<Schd>, std::remove_cvref_t<Snd>>;
 
             struct on_t
             {
@@ -230,39 +193,32 @@ namespace clu::exec
                 meta::quote<nullable_variant>>;
 
             template <typename S, typename R, typename Schd>
-            struct ops_t_
-            {
-                class type;
-            };
+            class ops_t_;
+            template <typename S, typename R, typename Schd>
+            using ops_t = ops_t_<S, std::remove_cvref_t<R>, Schd>;
+            template <typename S, typename R, typename Schd>
+            class recv2_t;
 
             template <typename S, typename R, typename Schd>
-            using ops_t = typename ops_t_<S, std::remove_cvref_t<R>, Schd>::type;
-
-            template <typename S, typename R, typename Schd>
-            struct recv_t_
-            {
-                class type;
-            };
-
-            template <typename S, typename R, typename Schd>
-            using recv_t = typename recv_t_<S, std::remove_cvref_t<R>, Schd>::type;
-
-            template <typename S, typename R, typename Schd>
-            struct recv2_t_
-            {
-                class type;
-            };
-
-            template <typename S, typename R, typename Schd>
-            using recv2_t = typename recv2_t_<S, R, Schd>::type;
-
-            template <typename S, typename R, typename Schd>
-            class recv_t_<S, R, Schd>::type
+            class recv_t
             {
             public:
                 using is_receiver = void;
 
-                explicit type(ops_t<S, R, Schd>* ops) noexcept: ops_(ops) {}
+                explicit recv_t(ops_t<S, R, Schd>* ops) noexcept: ops_(ops) {}
+
+                // Transformed
+                template <typename Cpo, typename... Args>
+                    requires receiver_of<R, completion_signatures<Cpo(Args...)>>
+                void tag_invoke(Cpo, Args&&... args) && noexcept
+                {
+                    // clang-format off
+                    try { this->set_impl(Cpo{}, static_cast<Args&&>(args)...); }
+                    catch (...) { exec::set_error(recv(), std::current_exception()); }
+                    // clang-format on
+                }
+
+                CLU_EXEC_FWD_ENV(recv());
 
             private:
                 ops_t<S, R, Schd>* ops_;
@@ -283,29 +239,16 @@ namespace clu::exec
                             return exec::connect(std::move(schd_snd), recv());
                         }));
                 }
-
-                // Transformed
-                template <typename Cpo, typename... Args>
-                    requires receiver_of<R, completion_signatures<Cpo(Args...)>>
-                friend void tag_invoke(Cpo, type&& self, Args&&... args) noexcept
-                {
-                    // clang-format off
-                    try { self.set_impl(Cpo{}, static_cast<Args&&>(args)...); }
-                    catch (...) { exec::set_error(self.recv(), std::current_exception()); }
-                    // clang-format on
-                }
-
-                CLU_EXEC_FWD_ENV(recv());
             };
 
             template <typename S, typename R, typename Schd>
-            class recv2_t_<S, R, Schd>::type : public receiver_adaptor<type, R>
+            class recv2_t : public receiver_adaptor<recv2_t<S, R, Schd>, R>
             {
             public:
                 // clang-format off
                 template <typename R2>
-                type(R2&& recv, ops_t<S, R, Schd>* ops):
-                    receiver_adaptor<type, R>(static_cast<R2&&>(recv)), ops_(ops) {}
+                recv2_t(R2&& recv, ops_t<S, R, Schd>* ops):
+                    receiver_adaptor<recv2_t, R>(static_cast<R2&&>(recv)), ops_(ops) {}
                 // clang-format on
 
                 // Only translate set_value, other channels are passed-through
@@ -332,16 +275,18 @@ namespace clu::exec
             };
 
             template <typename S, typename R, typename Schd>
-            class ops_t_<S, R, Schd>::type
+            class ops_t_
             {
             public:
                 // clang-format off
                 template <typename R2>
-                type(S&& snd, R2&& recv, Schd schd):
+                ops_t_(S&& snd, R2&& recv, Schd schd):
                     recv_(static_cast<R2&&>(recv), this),
                     schd_(static_cast<Schd&&>(schd)),
                     initial_ops_(exec::connect(static_cast<S&&>(snd), recv_t<S, R, Schd>(this))) {}
                 // clang-format on
+
+                void tag_invoke(start_t) noexcept { exec::start(initial_ops_); }
 
             private:
                 friend recv_t<S, R, Schd>;
@@ -354,12 +299,10 @@ namespace clu::exec
                 connect_result_t<S, recv_t<S, R, Schd>> initial_ops_;
                 storage_variant_t<S, R> args_;
                 ops_optional<final_ops_t> final_ops_;
-
-                friend void tag_invoke(start_t, type& self) noexcept { exec::start(self.initial_ops_); }
             };
 
             template <typename S, typename R, typename Schd>
-            recv2_t<S, R, Schd>&& recv_t_<S, R, Schd>::type::recv() const noexcept
+            recv2_t<S, R, Schd>&& recv_t<S, R, Schd>::recv() const noexcept
             {
                 return static_cast<recv2_t<S, R, Schd>&&>(ops_->recv_);
             }
@@ -369,46 +312,37 @@ namespace clu::exec
                 completion_signatures<set_error_t(std::exception_ptr)>, meta::constant_q<completion_signatures<>>::fn>;
 
             template <typename S, typename Schd>
-            struct snd_t_
-            {
-                class type;
-            };
-
-            template <typename S, typename Schd>
-            using snd_t = typename snd_t_<std::remove_cvref_t<S>, std::remove_cvref_t<Schd>>::type;
-
-            template <typename S, typename Schd>
-            class snd_t_<S, Schd>::type
+            class snd_t_
             {
             public:
                 using is_sender = void;
 
                 // clang-format off
                 template <typename S2, typename Schd2>
-                type(S2&& snd, Schd2&& schd):
+                snd_t_(S2&& snd, Schd2&& schd):
                     snd_(static_cast<S2&&>(snd)), schd_(static_cast<Schd2&&>(schd)) {}
+
+                template <receiver R>
+                auto tag_invoke(connect_t, R&& recv) && CLU_SINGLE_RETURN(
+                    ops_t<S, R, Schd>(static_cast<S&&>(snd_), static_cast<R&&>(recv), schd_));
+
+                template <typename Env>
+                constexpr static make_completion_signatures<S, Env, additional_sigs<Schd, Env>>
+                tag_invoke(get_completion_signatures_t, Env) noexcept { return {}; }
                 // clang-format on
+
+                // Customize completion scheduler
+                auto tag_invoke(get_env_t) const CLU_SINGLE_RETURN(clu::adapt_env(get_env(snd_), //
+                    query_value{get_completion_scheduler<set_value_t>, schd_}, //
+                    query_value{get_completion_scheduler<set_stopped_t>, schd_}));
 
             private:
                 CLU_NO_UNIQUE_ADDRESS S snd_;
                 CLU_NO_UNIQUE_ADDRESS Schd schd_;
-
-                template <typename R>
-                friend auto tag_invoke(connect_t, type&& self, R&& recv) CLU_SINGLE_RETURN(
-                    ops_t<S, R, Schd>(static_cast<S&&>(self.snd_), static_cast<R&&>(recv), self.schd_));
-
-                // clang-format off
-                template <typename Env>
-                constexpr friend make_completion_signatures<S, Env, additional_sigs<Schd, Env>>
-                tag_invoke(get_completion_signatures_t, const type&, Env) noexcept { return {}; }
-                // clang-format on
-
-                // Customize completion scheduler
-                friend auto tag_invoke(get_env_t, const type& self)
-                    CLU_SINGLE_RETURN(clu::adapt_env(get_env(self.snd_), //
-                        query_value{get_completion_scheduler<set_value_t>, self.schd_}, //
-                        query_value{get_completion_scheduler<set_stopped_t>, self.schd_}));
             };
+
+            template <typename S, typename Schd>
+            using snd_t = snd_t_<std::remove_cvref_t<S>, std::remove_cvref_t<Schd>>;
 
             struct schedule_from_t
             {

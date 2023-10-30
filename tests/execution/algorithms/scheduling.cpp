@@ -22,27 +22,26 @@ TEST_CASE("on", "[execution]")
 
     SECTION("receiver env query")
     {
-        tt::sync_wait(ex::on(ctx.get_scheduler(),
+        tt::sync_wait(ex::on( //
+            ctx.get_scheduler(),
             ex::get_scheduler() //
                 | ex::then([&](const ex::scheduler auto schd) //
-                      { REQUIRE(schd == ctx.get_scheduler()); })));
+                      { REQUIRE(schd == ctx.get_scheduler()); }) //
+            ));
     }
 }
 
-TEST_CASE("transfer", "[execution]")
+TEST_CASE("schedule from", "[execution]")
 {
     SECTION("switch thread")
     {
         clu::single_thread_context ctx;
         std::thread::id id1, id2;
         tt::sync_wait( //
-            ex::just_from([&] { id1 = std::this_thread::get_id(); }) //
-            | ex::transfer(ctx.get_scheduler()) //
+            ex::schedule_from(ctx.get_scheduler(), ex::just_from([&] { id1 = std::this_thread::get_id(); })) //
             | ex::then([&] { id2 = std::this_thread::get_id(); }) //
         );
         REQUIRE(id1 == std::this_thread::get_id());
         REQUIRE(id2 == ctx.get_id());
     }
 }
-
-// TODO: more tests!

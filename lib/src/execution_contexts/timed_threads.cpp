@@ -275,31 +275,16 @@ namespace clu
 
     void timer_loop::enqueue(ops_base& ops)
     {
-        enum status
+        std::unique_lock lock(mutex_);
+        if (stopped_)
         {
-            inserted,
-            new_minimum,
-            stopped
-        };
-        const auto insert = [&]
-        {
-            std::unique_lock lock(mutex_);
-            if (stopped_)
-                return stopped;
-            tree_.insert(&ops);
-            return &ops == tree_.minimum() ? new_minimum : inserted;
-        };
-        switch (insert())
-        {
-            case new_minimum: cv_.notify_one(); return;
-            case stopped:
-            {
-                ops.cancelled = true;
-                ops.set();
-                return;
-            }
-            default: return;
+            lock.unlock();
+            ops.cancelled = true;
+            ops.set();
         }
+        tree_.insert(&ops);
+        if (&ops == tree_.minimum())
+            cv_.notify_one(); // notify under lock to avoid racing with destructor
     }
 
     void timer_loop::cancel(ops_base& ops) noexcept

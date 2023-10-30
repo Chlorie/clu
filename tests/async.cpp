@@ -4,7 +4,6 @@
 #include "clu/async.h"
 #include "clu/execution_contexts.h"
 #include "clu/task.h"
-#include "clu/scope.h"
 
 namespace chr = std::chrono;
 namespace ex = clu::exec;
@@ -13,9 +12,7 @@ using namespace std::literals;
 TEST_CASE("async_manual_reset_event", "[async]")
 {
     clu::static_thread_pool tp(3);
-    clu::scope_exit g1{[&] { tp.finish(); }};
     clu::timer_thread_context timer;
-    clu::scope_exit g2{[&] { timer.finish(); }};
     clu::async::manual_reset_event ev;
     int value = 0;
 
@@ -24,7 +21,6 @@ TEST_CASE("async_manual_reset_event", "[async]")
         co_await ex::schedule_after(timer.get_scheduler(), delay);
         value = 42;
         ev.set();
-        co_return;
     };
 
     const auto consumer = [&](const chr::milliseconds delay, int& ref) -> clu::task<void>

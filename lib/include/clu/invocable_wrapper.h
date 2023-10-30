@@ -19,8 +19,8 @@ namespace clu
         using Inv::operator();
 
         template <forwarding<Inv> Inv2 = Inv>
-        constexpr explicit invocable_wrapper(Inv2&& inv) noexcept(std::is_nothrow_constructible_v<Inv, Inv2&&>):
-            Inv(static_cast<Inv2>(inv))
+        constexpr explicit invocable_wrapper(Inv2&& inv) noexcept(std::is_nothrow_constructible_v<Inv, Inv2>):
+            Inv(static_cast<Inv2&&>(inv))
         {
         }
     };
@@ -37,8 +37,8 @@ namespace clu
         constexpr invocable_wrapper& operator=(invocable_wrapper&&) noexcept = default;
 
         template <forwarding<Inv> Inv2 = Inv>
-        constexpr explicit invocable_wrapper(Inv2&& inv) noexcept(std::is_nothrow_constructible_v<Inv, Inv2&&>):
-            invocable_(static_cast<Inv2>(inv))
+        constexpr explicit invocable_wrapper(Inv2&& inv) noexcept(std::is_nothrow_constructible_v<Inv, Inv2>):
+            invocable_(static_cast<Inv2&&>(inv))
         {
         }
 

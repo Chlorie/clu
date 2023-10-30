@@ -21,16 +21,16 @@ namespace clu::async
                 token_(token), alloc_(static_cast<A&&>(alloc)) {}
             // clang-format on
 
+            auto tag_invoke(get_stop_token_t) const noexcept { return token_; }
+            A tag_invoke(get_allocator_t) const noexcept { return alloc_; }
+
         private:
             in_place_stop_token token_;
             CLU_NO_UNIQUE_ADDRESS A alloc_;
-
-            friend auto tag_invoke(get_stop_token_t, const env& self) noexcept { return self.token_; }
-            friend A tag_invoke(get_allocator_t, const env& self) noexcept { return self.alloc_; }
         };
 
         template <typename S, typename A>
-        concept void_sender = exec::sender_of<S, env<A>>;
+        concept void_sender = exec::sender_of<S, exec::set_value_t(), env<A>>;
 
         class recv_base
         {
@@ -81,6 +81,11 @@ namespace clu::async
                 recv_alloc_base<A>(scope, static_cast<A&&>(alloc)), ops_(ops) {}
             // clang-format on
 
+            void tag_invoke(exec::set_value_t) && noexcept { finish(); }
+            static void tag_invoke(exec::set_error_t, auto&&) noexcept { std::terminate(); }
+            void tag_invoke(exec::set_stopped_t) && noexcept { finish(); }
+            auto tag_invoke(get_env_t) const noexcept { return this->get_env(); }
+
         private:
             spawn_ops_wrapper<S, A>* ops_;
 
@@ -96,11 +101,6 @@ namespace clu::async
                 alloc_traits::deallocate(rebound, ops, 1);
                 recv_base::decrease_counter(scope);
             }
-
-            friend auto tag_invoke(exec::set_value_t, type&& self) noexcept { self.finish(); }
-            friend void tag_invoke(exec::set_error_t, type&&, auto&&) noexcept { std::terminate(); }
-            friend auto tag_invoke(exec::set_stopped_t, type&& self) noexcept { self.finish(); }
-            friend auto tag_invoke(get_env_t, const type& self) noexcept { return self.get_env(); }
         };
 
         template <typename S, typename A>

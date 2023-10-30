@@ -805,14 +805,6 @@ namespace clu::exec
                 {
                     return snd_t<S, Q, T>(static_cast<S&&>(snd), static_cast<T&&>(value));
                 }
-
-                template <typename Q, typename T>
-                CLU_STATIC_CALL_OPERATOR(auto)
-                (Q, T&& value)
-                {
-                    return clu::make_piper(clu::bind_back(with_query_value_t{}, //
-                        Q{}, static_cast<T&&>(value)));
-                }
             };
         } // namespace qry_val
 

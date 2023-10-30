@@ -423,6 +423,8 @@ namespace clu
         {
         public:
             explicit schd_t(timer_loop* loop) noexcept: loop_(loop) {}
+            
+            static auto tag_invoke(exec::now_t) noexcept { return clock::now(); }
 
             auto tag_invoke(exec::schedule_at_t, const time_point tp) const noexcept { return at_snd_t(loop_, tp); }
 

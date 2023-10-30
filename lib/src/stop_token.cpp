@@ -43,7 +43,7 @@ namespace clu
             auto* new_head = current->next_;
             if (new_head)
                 new_head->prev_ = nullptr;
-            current->state_.store(true, std::memory_order::release);
+            current->state_.store(started, std::memory_order::release);
             callbacks_.store_and_unlock(new_head);
             // Now that we have released the lock, start executing the callback
             current->execute();
@@ -96,7 +96,7 @@ namespace clu
             if (std::this_thread::get_id() == id) // execute() called detach()
                 cb->removed_during_exec_ = true;
             else // Executing on a different thread
-                cb->state_.wait(started, std::memory_order::acquire); // Wait until the callback completes
+                cb->state_.wait(completed, std::memory_order::acquire); // Wait until the callback completes
         }
     }
 

@@ -1,9 +1,8 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers.hpp>
 
 #include "clu/overload.h"
-#include "clu/execution/algorithms/basic.h"
-#include "clu/execution/algorithms/consumers.h"
-#include "clu/execution/algorithms/composed.h"
+#include "clu/execution/algorithms.h"
 #include "clu/execution_contexts.h"
 #include "clu/task.h"
 
@@ -66,14 +65,14 @@ TEST_CASE("stop if requested", "[execution]")
     SECTION("not stopped")
     {
         clu::in_place_stop_source src;
-        const auto res = tt::sync_wait(ex::stop_if_requested() | ex::with_stop_token(src.get_token()));
+        const auto res = tt::sync_wait(ex::with_stop_token(ex::stop_if_requested(), src.get_token()));
         REQUIRE(res);
     }
     SECTION("stopped")
     {
         clu::in_place_stop_source src;
         src.request_stop();
-        const auto res = tt::sync_wait(ex::stop_if_requested() | ex::with_stop_token(src.get_token()));
+        const auto res = tt::sync_wait(ex::with_stop_token(ex::stop_if_requested(), src.get_token()));
         REQUIRE_FALSE(res);
     }
 }
@@ -258,16 +257,10 @@ TEST_CASE("let", "[execution]")
     }
     SECTION("error propagates")
     {
-        try
-        {
+        REQUIRE_THROWS_WITH( //
             tt::sync_wait(
-                ex::just() | ex::let_value([]() -> decltype(ex::just()) { throw std::runtime_error("oh no"); }));
-            FAIL();
-        }
-        catch (const std::runtime_error& e)
-        {
-            REQUIRE(e.what() == "oh no"sv);
-        }
+                ex::just() | ex::let_value([]() -> decltype(ex::just()) { throw std::runtime_error("oh no"); })),
+            "oh no");
     }
     SECTION("error to value")
     {
@@ -283,8 +276,8 @@ TEST_CASE("with query value", "[execution]")
     SECTION("basic")
     {
         const auto res = tt::sync_wait( //
-            ex::read(clu::get_stop_token) //
-            | ex::with_query_value(clu::get_stop_token, clu::in_place_stop_token{}) //
+            ex::with_query_value(ex::read(clu::get_stop_token), //
+                clu::get_stop_token, clu::in_place_stop_token{}) //
         );
         REQUIRE(res);
         const auto [token] = *res;
@@ -293,38 +286,49 @@ TEST_CASE("with query value", "[execution]")
     }
     SECTION("innermost value is active")
     {
-        tt::sync_wait( //
-            ex::read(clu::get_stop_token) //
-            | ex::then(
-                  [](const auto token)
-                  {
-                      STATIC_REQUIRE(std::same_as<std::decay_t<decltype(token)>, clu::in_place_stop_token>);
-                      REQUIRE(!token.stop_possible());
-                  }) //
-            | ex::with_query_value(clu::get_stop_token, clu::in_place_stop_token{}) //
-            | ex::let_value([] { return ex::read(clu::get_stop_token); }) //
-            | ex::then([](const auto token)
-                  { STATIC_REQUIRE(std::same_as<std::decay_t<decltype(token)>, clu::never_stop_token>); }) //
-            | ex::with_query_value(clu::get_stop_token, clu::never_stop_token{}) //
+        // clang-format off
+        tt::sync_wait(
+            ex::with_query_value(
+                ex::with_query_value(
+                    ex::read(clu::get_stop_token)
+                    | ex::then(
+                          [](const auto token)
+                          {
+                              STATIC_REQUIRE(std::same_as<std::decay_t<decltype(token)>, clu::in_place_stop_token>);
+                              REQUIRE(!token.stop_possible());
+                          }),
+                    clu::get_stop_token, clu::in_place_stop_token{}
+                )
+                | ex::let_value([] { return ex::read(clu::get_stop_token); }) //
+                | ex::then([](const auto token)
+                      { STATIC_REQUIRE(std::same_as<std::decay_t<decltype(token)>, clu::never_stop_token>); }),
+                clu::get_stop_token, clu::never_stop_token{}
+            )
         );
+        // clang-format on
     }
     SECTION("multiple values")
     {
         using alloc_t = std::pmr::polymorphic_allocator<>;
         const alloc_t alloc;
-        tt::sync_wait( //
-            ex::read(clu::get_stop_token) //
-            | ex::then(
-                  [](const auto token)
-                  {
-                      STATIC_REQUIRE(std::same_as<std::decay_t<decltype(token)>, clu::in_place_stop_token>);
-                      REQUIRE(!token.stop_possible());
-                  }) //
-            | ex::let_value([] { return ex::read(clu::get_allocator); }) //
-            | ex::then([=](const auto a) { REQUIRE(a == alloc); }) //
-            | ex::with_query_value(clu::get_stop_token, clu::in_place_stop_token{}) //
-            | ex::with_query_value(clu::get_allocator, alloc) //
+        // clang-format off
+        tt::sync_wait(
+            ex::with_query_value(
+                ex::with_query_value(
+                    ex::read(clu::get_stop_token) 
+                    | ex::then(
+                          [](const auto token)
+                          {
+                              STATIC_REQUIRE(std::same_as<std::decay_t<decltype(token)>, clu::in_place_stop_token>);
+                              REQUIRE(!token.stop_possible());
+                          }) //
+                    | ex::let_value([] { return ex::read(clu::get_allocator); }) 
+                    | ex::then([=](const auto a) { REQUIRE(a == alloc); }),
+                    clu::get_stop_token, clu::in_place_stop_token{}
+                ), clu::get_allocator, alloc
+            ) 
         );
+        // clang-format on
     }
 }
 
@@ -393,18 +397,7 @@ TEST_CASE("into variant", "[execution]")
             },
             std::get<0>(*res));
     }
-    SECTION("err")
-    {
-        try
-        {
-            tt::sync_wait(factory(err));
-            FAIL();
-        }
-        catch (const std::runtime_error& e)
-        {
-            REQUIRE(e.what() == "oh no"sv);
-        }
-    }
+    SECTION("err") { REQUIRE_THROWS_WITH(tt::sync_wait(factory(err)), "oh no"); }
     SECTION("stop")
     {
         const auto res = tt::sync_wait(factory(stop));
