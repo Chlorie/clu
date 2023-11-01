@@ -21,14 +21,12 @@ namespace clu
         };
     } // namespace
 
-    std::mt19937& random_engine() { return thread_rng(); }
-
-    std::mt19937& thread_rng()
+    thread_rng_t& thread_rng()
     {
-        thread_local std::mt19937 engine = []
+        thread_local thread_rng_t engine = []
         {
             seed_generator seed_gen;
-            return std::mt19937(seed_gen);
+            return thread_rng_t(seed_gen);
         }();
         return engine;
     }
@@ -39,5 +37,5 @@ namespace clu
         thread_rng().seed(seed_gen);
     }
 
-    void reseed(const std::mt19937::result_type seed) { thread_rng().seed(seed); }
+    void reseed(const thread_rng_t::result_type seed) { thread_rng().seed(seed); }
 } // namespace clu

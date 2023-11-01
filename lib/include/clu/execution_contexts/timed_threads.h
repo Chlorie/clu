@@ -387,7 +387,7 @@ namespace clu
         };
 
         template <typename R>
-        using at_ops_t = typename at_ops_t_<std::decay_t<R>>::type;
+        using at_ops_t = at_ops_t_<std::decay_t<R>>;
 
         template <typename R, typename Dur>
         class after_ops_t_ final : public ops_recv_base<R>
