@@ -149,6 +149,7 @@ if (MSVC)
         $<INSTALL_INTERFACE:${CLU_NATVIS_FILE}>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${CLU_NATVIS_FILE}>
     )
+    target_link_options(clu PRIVATE "/NATVIS:\"${CLU_NATVIS_FILE}\"")
 endif ()
 
 if (BUILD_SHARED_LIBS)
