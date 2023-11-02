@@ -96,7 +96,7 @@ namespace clu
             if (std::this_thread::get_id() == id) // execute() called detach()
                 cb->removed_during_exec_ = true;
             else // Executing on a different thread
-                cb->state_.wait(completed, std::memory_order::acquire); // Wait until the callback completes
+                cb->state_.wait(started, std::memory_order::acquire); // Wait until the callback completes
         }
     }
 

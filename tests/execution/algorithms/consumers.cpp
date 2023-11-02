@@ -14,9 +14,14 @@ TEST_CASE("start detached", "[execution]")
     std::atomic_flag flag;
     ex::start_detached( //
         ex::schedule_after(thr.get_scheduler(), 25ms) //
-        | ex::then([&] { REQUIRE(!flag.test_and_set(std::memory_order::relaxed)); }) //
+        | ex::then(
+              [&]
+              {
+                  REQUIRE(!flag.test_and_set(std::memory_order::relaxed));
+                  flag.notify_one();
+              }) //
     );
-    flag.wait(true, std::memory_order::relaxed);
+    flag.wait(false, std::memory_order::relaxed);
 }
 
 TEST_CASE("execute", "[execution]")
@@ -29,8 +34,9 @@ TEST_CASE("execute", "[execution]")
         {
             REQUIRE(std::this_thread::get_id() == thr.get_id());
             flag.test_and_set(std::memory_order::relaxed);
+            flag.notify_one();
         });
-    flag.wait(true, std::memory_order::relaxed);
+    flag.wait(false, std::memory_order::relaxed);
 }
 
 // No need to test sync_wait since it's used everywhere in tests for other algorithms
