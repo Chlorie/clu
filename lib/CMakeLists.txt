@@ -74,6 +74,7 @@ add_headers(HEADERS
     "string_utils.h"
     "tag_invoke.h"
     "task.h"
+    "text.h"
     "type_traits.h"
     "unique_coroutine_handle.h"
     "uri.h"
@@ -110,6 +111,9 @@ add_headers(HEADERS
 
     "execution_contexts/threads.h"
     "execution_contexts/timed_threads.h"
+
+    "text/print.h"
+    "text/utf_convert.h"
 )
 add_sources(SOURCES
     # Source files here (relative to ./src/)
@@ -135,6 +139,9 @@ add_sources(SOURCES
     
     "execution_contexts/threads.cpp"
     "execution_contexts/timed_threads.cpp"
+
+    "text/print.cpp"
+    "text/utf_convert.cpp"
 )
 
 target_sources(clu PRIVATE ${HEADERS} ${SOURCES})

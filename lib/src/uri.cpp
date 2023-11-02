@@ -173,12 +173,13 @@ namespace clu
 
             std::string message(const int value) const override
             {
+                using enum uri_errc;
                 switch (static_cast<uri_errc>(value))
                 {
-                    case uri_errc::ok: return "ok";
-                    case uri_errc::bad_port: return "bad port number";
-                    case uri_errc::uri_not_absolute: return "base URI is not absolute";
-                    case uri_errc::bad_percent_encoding: return "bad percent encoding";
+                    case ok: return "ok";
+                    case bad_port: return "bad port number";
+                    case uri_not_absolute: return "base URI is not absolute";
+                    case bad_percent_encoding: return "bad percent encoding";
                     default: return "unknown error";
                 }
             }
