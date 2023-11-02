@@ -33,11 +33,11 @@ namespace clu
             const auto [cp, errc] = decode_one(text);
             if (errc != decoding_errc::ok)
                 throw std::system_error(errc);
+            static_assert(sizeof(wchar_t) == 2 || sizeof(wchar_t) == 4, "Unknown wchar_t type");
             if constexpr (sizeof(wchar_t) == 4)
                 res.push_back(static_cast<wchar_t>(cp));
             else // On Windows wchar_t is UTF-16
             {
-                static_assert(sizeof(wchar_t) == 2, "Unknown wchar_t type");
                 const auto [arr, len] = encode_one_utf16(cp);
                 res.push_back(static_cast<wchar_t>(arr[0]));
                 if (len == 2)
