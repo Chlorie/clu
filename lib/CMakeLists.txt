@@ -110,6 +110,8 @@ add_headers(HEADERS
 
     "execution_contexts/threads.h"
     "execution_contexts/timed_threads.h"
+
+    "text/print.h"
 )
 add_sources(SOURCES
     # Source files here (relative to ./src/)
@@ -135,6 +137,8 @@ add_sources(SOURCES
     
     "execution_contexts/threads.cpp"
     "execution_contexts/timed_threads.cpp"
+
+    "text/print.cpp"
 )
 
 target_sources(clu PRIVATE ${HEADERS} ${SOURCES})
