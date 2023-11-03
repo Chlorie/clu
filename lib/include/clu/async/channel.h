@@ -305,21 +305,12 @@ namespace clu::async
         };
 
         template <typename T, buffer_overflow_policy P, allocator Alloc, typename R>
-        struct snd_ops_t_
-        {
-            class type;
-        };
-
-        template <typename T, buffer_overflow_policy P, allocator Alloc, typename R>
-        using snd_ops_t = typename snd_ops_t_<T, P, Alloc, std::decay_t<R>>::type;
-
-        template <typename T, buffer_overflow_policy P, allocator Alloc, typename R>
-        class snd_ops_t_<T, P, Alloc, R>::type final : public snd_ops_base<T, P, Alloc>
+        class snd_ops_t_ final : public snd_ops_base<T, P, Alloc>
         {
         public:
             // clang-format off
             template <typename R2>
-            type(channel<T, P, Alloc>* chan, T&& val, R2&& recv):
+            snd_ops_t_(channel<T, P, Alloc>* chan, T&& val, R2&& recv):
                 snd_ops_base<T, P, Alloc>(chan, static_cast<T&&>(val)),
                 recv_(static_cast<R2&&>(recv)) {}
             // clang-format on
@@ -328,28 +319,22 @@ namespace clu::async
             void set_error() noexcept override { exec::set_error(static_cast<R&&>(recv_), std::current_exception()); }
             void set_stopped() noexcept override { exec::set_stopped(static_cast<R&&>(recv_)); }
 
+            void tag_invoke(exec::start_t) noexcept { this->enqueue(); }
+
         private:
             CLU_NO_UNIQUE_ADDRESS R recv_;
-
-            friend void tag_invoke(exec::start_t, type& self) noexcept { self.enqueue(); }
         };
 
         template <typename T, buffer_overflow_policy P, allocator Alloc, typename R>
-        struct recv_ops_t_
-        {
-            class type;
-        };
+        using snd_ops_t = snd_ops_t_<T, P, Alloc, std::remove_cvref_t<R>>;
 
         template <typename T, buffer_overflow_policy P, allocator Alloc, typename R>
-        using recv_ops_t = typename recv_ops_t_<T, P, Alloc, std::decay_t<R>>::type;
-
-        template <typename T, buffer_overflow_policy P, allocator Alloc, typename R>
-        class recv_ops_t_<T, P, Alloc, R>::type final : public recv_ops_base<T, P, Alloc>
+        class recv_ops_t_ final : public recv_ops_base<T, P, Alloc>
         {
         public:
             // clang-format off
             template <typename R2>
-            type(channel<T, P, Alloc>* chan, R2&& recv):
+            recv_ops_t_(channel<T, P, Alloc>* chan, R2&& recv):
                 recv_ops_base<T, P, Alloc>(chan),
                 recv_(static_cast<R2&&>(recv)) {}
             // clang-format on
@@ -362,77 +347,68 @@ namespace clu::async
             void set_error() noexcept override { exec::set_error(static_cast<R&&>(recv_), std::current_exception()); }
             void set_stopped() noexcept override { exec::set_stopped(static_cast<R&&>(recv_)); }
 
+            void tag_invoke(exec::start_t) noexcept { this->enqueue(); }
+
         private:
             CLU_NO_UNIQUE_ADDRESS R recv_;
-
-            friend void tag_invoke(exec::start_t, type& self) noexcept { self.enqueue(); }
         };
 
-        template <typename T, buffer_overflow_policy P, allocator Alloc>
-        struct snd_snd_t_
-        {
-            class type;
-        };
+        template <typename T, buffer_overflow_policy P, allocator Alloc, typename R>
+        using recv_ops_t = recv_ops_t_<T, P, Alloc, std::remove_cvref_t<R>>;
 
         template <typename T, buffer_overflow_policy P, allocator Alloc>
-        using snd_snd_t = typename snd_snd_t_<T, P, Alloc>::type;
-
-        template <typename T, buffer_overflow_policy P, allocator Alloc>
-        class snd_snd_t_<T, P, Alloc>::type
+        class snd_snd_t_
         {
         public:
             using is_sender = void;
 
             // clang-format off
             template <forwarding<T> U>
-            explicit type(channel<T, P, Alloc>* chan, U&& value) noexcept:
+            explicit snd_snd_t_(channel<T, P, Alloc>* chan, U&& value) noexcept:
                 chnl_(chan), value_(static_cast<U&&>(value)) {}
             // clang-format on
 
             using completion_signatures = exec::completion_signatures< //
                 exec::set_value_t(), exec::set_error_t(std::exception_ptr), exec::set_stopped_t()>;
 
+            template <exec::receiver R>
+            auto tag_invoke(exec::connect_t, R&& recv) &&
+            {
+                return snd_ops_t<T, P, Alloc, R>( //
+                    chnl_, static_cast<T&&>(value_), static_cast<R&&>(recv));
+            }
+
         private:
             channel<T, P, Alloc>* chnl_;
             T value_;
-
-            template <typename R>
-            friend auto tag_invoke(exec::connect_t, type&& self, R&& recv)
-            {
-                return snd_ops_t<T, P, Alloc, R>( //
-                    self.chnl_, static_cast<T&&>(self.value_), static_cast<R&&>(recv));
-            }
         };
 
         template <typename T, buffer_overflow_policy P, allocator Alloc>
-        struct recv_snd_t_
-        {
-            class type;
-        };
+        using snd_snd_t = snd_snd_t_<T, P, Alloc>;
 
         template <typename T, buffer_overflow_policy P, allocator Alloc>
-        using recv_snd_t = typename recv_snd_t_<T, P, Alloc>::type;
-
-        template <typename T, buffer_overflow_policy P, allocator Alloc>
-        class recv_snd_t_<T, P, Alloc>::type
+        class recv_snd_t_
         {
         public:
             using is_sender = void;
 
-            explicit type(channel<T, P, Alloc>* chan) noexcept: chnl_(chan) {}
+            explicit recv_snd_t_(channel<T, P, Alloc>* chan) noexcept: chnl_(chan) {}
 
             using completion_signatures = exec::completion_signatures< //
                 exec::set_value_t(T), exec::set_error_t(std::exception_ptr), exec::set_stopped_t()>;
 
+            template <exec::receiver R>
+            auto tag_invoke(exec::connect_t, R&& recv) &&
+            {
+                return recv_ops_t<T, P, Alloc, R>(chnl_, static_cast<R&&>(recv));
+            }
+
         private:
             channel<T, P, Alloc>* chnl_;
-
-            template <typename R>
-            friend auto tag_invoke(exec::connect_t, type&& self, R&& recv)
-            {
-                return recv_ops_t<T, P, Alloc, R>(self.chnl_, static_cast<R&&>(recv));
-            }
         };
+
+        template <typename T, buffer_overflow_policy P, allocator Alloc>
+        using recv_snd_t = recv_snd_t_<T, P, Alloc>;
     } // namespace detail::chnl
 
     template <movable_value T, buffer_overflow_policy P, allocator Alloc>

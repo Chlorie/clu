@@ -22,36 +22,30 @@ namespace clu::async
         };
 
         template <typename R>
-        struct ops_t_
-        {
-            class type;
-        };
-
-        template <typename R>
-        using ops_t = typename ops_t_<std::decay_t<R>>::type;
-
-        template <typename R>
-        class ops_t_<R>::type final : public ops_base
+        class ops_t_ final : public ops_base
         {
         public:
             // clang-format off
             template <typename R2>
-            type(mutex* mut, R2&& recv):
+            ops_t_(mutex* mut, R2&& recv):
                 mut_(mut), recv_(static_cast<R2&&>(recv)) {}
             // clang-format on
+
+            void tag_invoke(exec::start_t) noexcept
+            {
+                if (!start_ops(*mut_, *this)) // Acquired the lock synchronously
+                    set();
+            }
 
             void set() noexcept override { exec::set_value(static_cast<R&&>(recv_)); }
 
         private:
             mutex* mut_;
             CLU_NO_UNIQUE_ADDRESS R recv_;
-
-            friend void tag_invoke(exec::start_t, type& self) noexcept
-            {
-                if (!start_ops(*self.mut_, self)) // Acquired the lock synchronously
-                    self.set();
-            }
         };
+
+        template <typename R>
+        using ops_t = ops_t_<std::remove_cvref_t<R>>;
 
         class snd_t
         {
@@ -60,19 +54,19 @@ namespace clu::async
 
             explicit snd_t(mutex* mut) noexcept: mut_(mut) {}
 
-        private:
-            mutex* mut_;
-
             // clang-format off
-            friend exec::completion_signatures<exec::set_value_t()> tag_invoke(
-                exec::get_completion_signatures_t, snd_t, auto&&) noexcept { return {}; }
+            static exec::completion_signatures<exec::set_value_t()> tag_invoke(
+                exec::get_completion_signatures_t, auto&&) noexcept { return {}; }
             // clang-format on
 
-            template <typename R>
-            friend auto tag_invoke(exec::connect_t, const snd_t self, R&& recv)
+            template <exec::receiver R>
+            auto tag_invoke(exec::connect_t, R&& recv) const
             {
-                return ops_t<R>(self.mut_, static_cast<R&&>(recv));
+                return ops_t<R>(mut_, static_cast<R&&>(recv));
             }
+
+        private:
+            mutex* mut_;
         };
     } // namespace detail::mtx
 
