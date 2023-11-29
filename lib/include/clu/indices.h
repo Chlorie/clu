@@ -179,16 +179,16 @@ namespace clu
 
         [[nodiscard]] constexpr value_type back() const noexcept
         {
-            return [&]<std::size_t... i>(std::index_sequence<i...>)->value_type { return {(extents_[i] - 1)...}; }
-            (std::make_index_sequence<N>{});
+            return [&]<std::size_t... i>(std::index_sequence<i...>) -> value_type
+            { return {(extents_[i] - 1)...}; }(std::make_index_sequence<N>{});
         }
 
         [[nodiscard]] constexpr value_type operator[](const size_type i) const noexcept { return begin()[i]; }
 
         [[nodiscard]] constexpr size_type size() const noexcept
         {
-            return [this]<size_t... i>(std::index_sequence<i...>) { return (extents_[i] * ... * 1); }
-            (std::make_index_sequence<N>{});
+            return [this]<size_t... i>(std::index_sequence<i...>)
+            { return (extents_[i] * ... * 1); }(std::make_index_sequence<N>{});
         }
         [[nodiscard]] constexpr size_type empty() const noexcept { return extents_ == value_type{}; }
         [[nodiscard]] constexpr explicit operator bool() const noexcept { return extents_ != value_type{}; }
