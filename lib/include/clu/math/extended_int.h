@@ -7,6 +7,24 @@
 
 namespace clu
 {
+    template <size_t N>
+    class extended_uint;
+
+#define CLU_EXT_UINT_BINARY_OP_FWD_DECL(op)                                                                            \
+    template <size_t L, size_t R>                                                                                      \
+    [[nodiscard]] constexpr auto operator op(const extended_uint<L>& lhs, const extended_uint<R>& rhs) noexcept
+
+    CLU_EXT_UINT_BINARY_OP_FWD_DECL(&);
+    CLU_EXT_UINT_BINARY_OP_FWD_DECL(|);
+    CLU_EXT_UINT_BINARY_OP_FWD_DECL(^);
+    CLU_EXT_UINT_BINARY_OP_FWD_DECL(+);
+    CLU_EXT_UINT_BINARY_OP_FWD_DECL(-);
+    CLU_EXT_UINT_BINARY_OP_FWD_DECL(*);
+    CLU_EXT_UINT_BINARY_OP_FWD_DECL(/);
+    CLU_EXT_UINT_BINARY_OP_FWD_DECL(%);
+
+#undef CLU_EXT_UINT_BINARY_OP_FWD_DECL
+
     namespace detail
     {
         struct sum_carry
@@ -15,16 +33,26 @@ namespace clu
             bool carry;
         };
 
-        constexpr sum_carry half_adder(const u64 lhs, const u64 rhs) noexcept
+        template <bool is_add = true>
+        constexpr sum_carry half_add_sub(const u64 lhs, const u64 rhs) noexcept
         {
-            const u64 sum = lhs + rhs;
-            return {.sum = sum, .carry = sum < lhs};
+            if constexpr (is_add)
+            {
+                const u64 sum = lhs + rhs;
+                return {.sum = sum, .carry = sum < lhs};
+            }
+            else
+            {
+                const u64 sum = lhs - rhs;
+                return {.sum = sum, .carry = sum > lhs};
+            }
         }
 
-        constexpr sum_carry full_adder(const u64 lhs, const u64 rhs, const bool carry) noexcept
+        template <bool is_add = true>
+        constexpr sum_carry full_add_sub(const u64 lhs, const u64 rhs, const bool carry) noexcept
         {
-            const auto [half_sum, carry_half] = half_adder(lhs, rhs);
-            const auto [sum, carry_full] = half_adder(half_sum, carry);
+            const auto [half_sum, carry_half] = detail::half_add_sub<is_add>(lhs, rhs);
+            const auto [sum, carry_full] = detail::half_add_sub<is_add>(half_sum, carry);
             return {.sum = sum, .carry = carry_half || carry_full};
         }
     } // namespace detail
@@ -130,20 +158,168 @@ namespace clu
 #define CLU_EXT_UINT_BITWISE_OP(op)                                                                                    \
     template <size_t M>                                                                                                \
         requires(M <= N)                                                                                               \
-    [[nodiscard]] constexpr extended_uint& operator op##=(const extended_uint<M>& other) const noexcept                \
+    [[nodiscard]] constexpr extended_uint& operator op##=(const extended_uint<M>& other) noexcept                      \
     {                                                                                                                  \
         for (size_t i = 0; i < M; i++)                                                                                 \
             data_[i] op## = other.data_[i];                                                                            \
         return *this;                                                                                                  \
     }                                                                                                                  \
                                                                                                                        \
-    [[nodiscard]] constexpr extended_uint& operator op##=(const u64 other) const noexcept                              \
+    [[nodiscard]] constexpr extended_uint& operator op##=(const u64 other) noexcept                                    \
     {                                                                                                                  \
-        return *this op## = extended_uint<1>(other);                                                                   \
+        data_[0] op## = other;                                                                                         \
+        return *this;                                                                                                  \
     }                                                                                                                  \
                                                                                                                        \
+    [[nodiscard]] constexpr friend extended_uint operator op(extended_uint lhs, const u64 rhs) noexcept                \
+    {                                                                                                                  \
+        lhs.data_[0] op## = rhs;                                                                                       \
+        return lhs;                                                                                                    \
+    }                                                                                                                  \
+                                                                                                                       \
+    [[nodiscard]] constexpr friend extended_uint operator op(const u64 lhs, extended_uint rhs) noexcept                \
+    {                                                                                                                  \
+        rhs.data_[0] op## = lhs;                                                                                       \
+        return rhs;                                                                                                    \
+    }                                                                                                                  \
+    static_assert(true)
+
+        CLU_EXT_UINT_BITWISE_OP(&);
+        CLU_EXT_UINT_BITWISE_OP(|);
+        CLU_EXT_UINT_BITWISE_OP(^);
+
+#undef CLU_EXT_UINT_BITWISE_OP
+
+        // Addition/subtraction
+
+        [[nodiscard]] constexpr extended_uint& operator+=(const u64 other) noexcept
+        {
+            add_sub_u64_at<true>(other, 0);
+            return *this;
+        }
+
+        template <size_t M>
+            requires(M <= N)
+        [[nodiscard]] constexpr extended_uint& operator+=(const extended_uint<M>& other) noexcept
+        {
+            this->template add_sub_assign<true>(other);
+            return *this;
+        }
+
+        constexpr extended_uint& operator++() noexcept { return *this += 1; }
+
+        constexpr extended_uint operator++(int) noexcept
+        {
+            extended_uint res = *this;
+            *this += 1;
+            return res;
+        }
+
+        [[nodiscard]] constexpr friend extended_uint operator+(extended_uint lhs, const u64 rhs) noexcept
+        {
+            lhs += rhs;
+            return lhs;
+        }
+
+        [[nodiscard]] constexpr friend extended_uint operator+(const u64 lhs, extended_uint rhs) noexcept
+        {
+            rhs += lhs;
+            return rhs;
+        }
+
+        [[nodiscard]] constexpr extended_uint operator+() const noexcept { return *this; }
+        [[nodiscard]] constexpr extended_uint operator-() const noexcept { return ++~*this; }
+
+        [[nodiscard]] constexpr extended_uint& operator-=(const u64 other) noexcept
+        {
+            add_sub_u64_at<false>(other, 0);
+            return *this;
+        }
+
+        template <size_t M>
+            requires(M <= N)
+        [[nodiscard]] constexpr extended_uint& operator-=(const extended_uint<M>& other) noexcept
+        {
+            this->template add_sub_assign<false>(other);
+            return *this;
+        }
+
+        constexpr extended_uint& operator--() noexcept { return *this -= 1; }
+
+        constexpr extended_uint operator--(int) noexcept
+        {
+            extended_uint res = *this;
+            *this -= 1;
+            return res;
+        }
+
+        [[nodiscard]] constexpr friend extended_uint operator-(extended_uint lhs, const u64 rhs) noexcept
+        {
+            lhs -= rhs;
+            return lhs;
+        }
+
+        [[nodiscard]] constexpr friend extended_uint operator-(const u64 lhs, const extended_uint& rhs) noexcept
+        {
+            return extended_uint<1>(lhs) - rhs;
+        }
+
+    private:
+        u64 data_[N]{};
+
+        template <bool is_add>
+        constexpr void add_sub_u64_at(u64 carry, size_t i) noexcept
+        {
+            using op = conditional_t<is_add, std::plus<>, std::minus<>>;
+            for (; i < N - 1; i++)
+            {
+                if (!carry)
+                    return;
+                const auto [sum, next_carry] = detail::half_add_sub<is_add>(data_[i], carry);
+                data_[i] = sum;
+                carry = next_carry;
+            }
+            data_[N - 1] = op{}(data_[N - 1], carry);
+        }
+
+        template <bool is_add, size_t M>
+        constexpr void add_sub_assign(const extended_uint<M>& other) noexcept
+        {
+            bool carry = false;
+            for (size_t i = 0; i < M; i++)
+            {
+                const auto [sum, next_carry] = detail::full_add_sub<is_add>(data_[i], other.data_[i], carry);
+                data_[i] = sum;
+                carry = next_carry;
+            }
+            if constexpr (M < N)
+                add_sub_u64_at<is_add>(carry, M);
+        }
+
+        // Friends
+
+        template <size_t>
+        friend class extended_uint;
+
+#define CLU_EXT_UINT_BINARY_OP_FRIEND(op)                                                                              \
     template <size_t L, size_t R>                                                                                      \
-    [[nodiscard]] constexpr friend auto operator op(const extended_uint<L>& lhs, const extended_uint<R>& rhs) noexcept \
+    [[nodiscard]] constexpr friend auto operator op(const extended_uint<L>& lhs, const extended_uint<R>& rhs) noexcept
+
+        CLU_EXT_UINT_BINARY_OP_FRIEND(&);
+        CLU_EXT_UINT_BINARY_OP_FRIEND(|);
+        CLU_EXT_UINT_BINARY_OP_FRIEND(^);
+        CLU_EXT_UINT_BINARY_OP_FRIEND(+);
+        CLU_EXT_UINT_BINARY_OP_FRIEND(-);
+        CLU_EXT_UINT_BINARY_OP_FRIEND(*);
+        CLU_EXT_UINT_BINARY_OP_FRIEND(/);
+        CLU_EXT_UINT_BINARY_OP_FRIEND(%);
+
+#undef CLU_EXT_UINT_BINARY_OP_FRIEND
+    };
+
+#define CLU_EXT_UINT_COMM_BINARY_OP(op)                                                                                \
+    template <size_t L, size_t R>                                                                                      \
+    [[nodiscard]] constexpr auto operator op(const extended_uint<L>& lhs, const extended_uint<R>& rhs) noexcept        \
     {                                                                                                                  \
         if constexpr (L < R)                                                                                           \
             return rhs op lhs;                                                                                         \
@@ -154,32 +330,27 @@ namespace clu
             return res;                                                                                                \
         }                                                                                                              \
     }                                                                                                                  \
-                                                                                                                       \
-    [[nodiscard]] constexpr friend extended_uint operator op(const extended_uint& lhs, const u64 rhs) noexcept         \
-    {                                                                                                                  \
-        return lhs op extended_uint<1>(rhs);                                                                           \
-    }                                                                                                                  \
-                                                                                                                       \
-    [[nodiscard]] constexpr friend extended_uint operator op(const u64 lhs, const extended_uint& rhs) noexcept         \
-    {                                                                                                                  \
-        return rhs op extended_uint<1>(lhs);                                                                           \
-    }                                                                                                                  \
     static_assert(true)
 
-        CLU_EXT_UINT_BITWISE_OP(&);
-        CLU_EXT_UINT_BITWISE_OP(|);
-        CLU_EXT_UINT_BITWISE_OP(^);
+    CLU_EXT_UINT_COMM_BINARY_OP(&);
+    CLU_EXT_UINT_COMM_BINARY_OP(|);
+    CLU_EXT_UINT_COMM_BINARY_OP(^);
+    CLU_EXT_UINT_COMM_BINARY_OP(+);
 
-#undef CLU_EXT_UINT_BITWISE_OP
+#undef CLU_EXT_UINT_COMM_BINARY_OP
 
-        // Arithmetic operators
+    template <size_t L, size_t R>
+    [[nodiscard]] constexpr auto operator-(const extended_uint<L>& lhs, const extended_uint<R>& rhs) noexcept
+    {
+        if constexpr (L < R)
+            return extended_uint<R>(lhs) - rhs;
+        else
+        {
+            auto res = lhs;
+            res -= rhs;
+            return res;
+        }
+    }
 
-        [[nodiscard]] constexpr extended_uint operator+() const noexcept { return *this; }
-
-    private:
-        template <typename>
-        friend class extended_uint;
-
-        u64 data_[N]{};
-    };
+    constexpr auto test = ~extended_uint<2>();
 } // namespace clu
