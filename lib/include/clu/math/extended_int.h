@@ -3,6 +3,10 @@
 #include <span>
 #include <compare>
 
+#ifdef CLU_MSVC
+#include <intrin.h>
+#endif
+
 #include "../integer_literals.h"
 
 namespace clu
@@ -14,11 +18,6 @@ namespace clu
     template <size_t L, size_t R>                                                                                      \
     [[nodiscard]] constexpr auto operator op(const extended_uint<L>& lhs, const extended_uint<R>& rhs) noexcept
 
-    CLU_EXT_UINT_BINARY_OP_FWD_DECL(&);
-    CLU_EXT_UINT_BINARY_OP_FWD_DECL(|);
-    CLU_EXT_UINT_BINARY_OP_FWD_DECL(^);
-    CLU_EXT_UINT_BINARY_OP_FWD_DECL(+);
-    CLU_EXT_UINT_BINARY_OP_FWD_DECL(-);
     CLU_EXT_UINT_BINARY_OP_FWD_DECL(*);
     CLU_EXT_UINT_BINARY_OP_FWD_DECL(/);
     CLU_EXT_UINT_BINARY_OP_FWD_DECL(%);
@@ -55,6 +54,41 @@ namespace clu
             const auto [sum, carry_full] = detail::half_add_sub<is_add>(half_sum, carry);
             return {.sum = sum, .carry = carry_half || carry_full};
         }
+
+        struct wide_product
+        {
+            u64 low;
+            u64 high;
+        };
+
+        constexpr wide_product long_multiply_u64(const u64 lhs, const u64 rhs) noexcept
+        {
+            const u64 ll = static_cast<u32>(lhs), lh = lhs >> 32;
+            const u64 rl = static_cast<u32>(rhs), rh = rhs >> 32;
+            const u64 low = ll * rl, high = lh * rh;
+            const auto [mid, mid_carry] = half_add_sub(ll * rh, lh * rl);
+            const auto [low_sum, low_carry] = half_add_sub(low, mid << 32);
+            return {.low = low_sum, .high = high + (mid >> 32) + (static_cast<u64>(mid_carry) << 32) + low_carry};
+        }
+
+        constexpr wide_product wide_multiply(const u64 lhs, const u64 rhs) noexcept
+        {
+            CLU_IF_CONSTEVAL { return long_multiply_u64(lhs, rhs); }
+            else
+            {
+#if defined(CLU_GCC) || defined(CLU_CLANG)
+                using uint128_t = unsigned __int128;
+                const uint128_t res = static_cast<uint128_t>(lhs) * static_cast<uint128_t>(rhs);
+                return {.low = static_cast<u64>(res), .high = static_cast<u64>(res >> 64)};
+#elif defined(CLU_MSVC)
+                u64 high;
+                const u64 low = _umul128(lhs, rhs, &high);
+                return {.low = low, .high = high};
+#else
+                return long_multiply_u64(lhs, rhs);
+#endif
+            }
+        }
     } // namespace detail
 
     template <size_t N>
@@ -68,6 +102,12 @@ namespace clu
         constexpr extended_uint() noexcept = default;
         constexpr extended_uint(const extended_uint&) noexcept = default;
         constexpr explicit(false) extended_uint(const u64 value) noexcept: data_{value} {}
+
+        template <typename... Ts>
+            requires(std::convertible_to<Ts, u64> && ...) && (sizeof...(Ts) <= N)
+        constexpr explicit(false) extended_uint(const Ts... values) noexcept: data_{static_cast<u64>(values)...}
+        {
+        }
 
         constexpr explicit extended_uint(const std::span<const u64, N> span) noexcept
         {
@@ -158,14 +198,14 @@ namespace clu
 #define CLU_EXT_UINT_BITWISE_OP(op)                                                                                    \
     template <size_t M>                                                                                                \
         requires(M <= N)                                                                                               \
-    [[nodiscard]] constexpr extended_uint& operator op##=(const extended_uint<M>& other) noexcept                      \
+    constexpr extended_uint& operator op##=(const extended_uint<M>& other) noexcept                                    \
     {                                                                                                                  \
         for (size_t i = 0; i < M; i++)                                                                                 \
             data_[i] op## = other.data_[i];                                                                            \
         return *this;                                                                                                  \
     }                                                                                                                  \
                                                                                                                        \
-    [[nodiscard]] constexpr extended_uint& operator op##=(const u64 other) noexcept                                    \
+    constexpr extended_uint& operator op##=(const u64 other) noexcept                                                  \
     {                                                                                                                  \
         data_[0] op## = other;                                                                                         \
         return *this;                                                                                                  \
@@ -192,7 +232,7 @@ namespace clu
 
         // Addition/subtraction
 
-        [[nodiscard]] constexpr extended_uint& operator+=(const u64 other) noexcept
+        constexpr extended_uint& operator+=(const u64 other) noexcept
         {
             add_sub_u64_at<true>(other, 0);
             return *this;
@@ -200,7 +240,7 @@ namespace clu
 
         template <size_t M>
             requires(M <= N)
-        [[nodiscard]] constexpr extended_uint& operator+=(const extended_uint<M>& other) noexcept
+        constexpr extended_uint& operator+=(const extended_uint<M>& other) noexcept
         {
             this->template add_sub_assign<true>(other);
             return *this;
@@ -230,7 +270,7 @@ namespace clu
         [[nodiscard]] constexpr extended_uint operator+() const noexcept { return *this; }
         [[nodiscard]] constexpr extended_uint operator-() const noexcept { return ++~*this; }
 
-        [[nodiscard]] constexpr extended_uint& operator-=(const u64 other) noexcept
+        constexpr extended_uint& operator-=(const u64 other) noexcept
         {
             add_sub_u64_at<false>(other, 0);
             return *this;
@@ -238,7 +278,7 @@ namespace clu
 
         template <size_t M>
             requires(M <= N)
-        [[nodiscard]] constexpr extended_uint& operator-=(const extended_uint<M>& other) noexcept
+        constexpr extended_uint& operator-=(const extended_uint<M>& other) noexcept
         {
             this->template add_sub_assign<false>(other);
             return *this;
@@ -262,6 +302,34 @@ namespace clu
         [[nodiscard]] constexpr friend extended_uint operator-(const u64 lhs, const extended_uint& rhs) noexcept
         {
             return extended_uint<1>(lhs) - rhs;
+        }
+
+        // Multiplication
+
+        constexpr extended_uint& operator*=(const u64 other) noexcept
+        {
+            u64 overflow = 0;
+            for (int i = 0; i < N - 1; i++)
+            {
+                const auto [low, high] = detail::long_multiply_u64(data_[i], other);
+                const auto [low_sum, carry] = detail::half_add_sub(low, overflow);
+                data_[i] = low_sum;
+                overflow = high + carry;
+            }
+            data_[N - 1] = data_[N - 1] * other + overflow;
+            return *this;
+        }
+
+        [[nodiscard]] constexpr friend extended_uint operator*(extended_uint lhs, const u64 rhs) noexcept
+        {
+            lhs *= rhs;
+            return lhs;
+        }
+
+        [[nodiscard]] constexpr friend extended_uint operator*(const u64 lhs, extended_uint rhs) noexcept
+        {
+            rhs *= lhs;
+            return rhs;
         }
 
     private:
@@ -305,11 +373,6 @@ namespace clu
     template <size_t L, size_t R>                                                                                      \
     [[nodiscard]] constexpr friend auto operator op(const extended_uint<L>& lhs, const extended_uint<R>& rhs) noexcept
 
-        CLU_EXT_UINT_BINARY_OP_FRIEND(&);
-        CLU_EXT_UINT_BINARY_OP_FRIEND(|);
-        CLU_EXT_UINT_BINARY_OP_FRIEND(^);
-        CLU_EXT_UINT_BINARY_OP_FRIEND(+);
-        CLU_EXT_UINT_BINARY_OP_FRIEND(-);
         CLU_EXT_UINT_BINARY_OP_FRIEND(*);
         CLU_EXT_UINT_BINARY_OP_FRIEND(/);
         CLU_EXT_UINT_BINARY_OP_FRIEND(%);
@@ -352,5 +415,5 @@ namespace clu
         }
     }
 
-    constexpr auto test = ~extended_uint<2>();
+    constexpr auto test = extended_uint<2>(~u64{}, 1) * 2;
 } // namespace clu
