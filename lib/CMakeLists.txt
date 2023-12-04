@@ -8,17 +8,22 @@ set_target_properties(clu PROPERTIES
 target_set_output_dirs(clu)
 
 function (add_headers TGT)
-    set(headers ${ARGN})
-    list(TRANSFORM headers PREPEND "include/clu/")
-    set(${TGT} ${headers} PARENT_SCOPE)
+    set(srcs ${ARGN})
+    list(TRANSFORM srcs PREPEND "include/clu/")
+    target_sources(${TGT} PRIVATE ${srcs})
 endfunction ()
 function (add_sources TGT)
-    set(sources ${ARGN})
-    list(TRANSFORM sources PREPEND "src/")
-    set(${TGT} ${sources} PARENT_SCOPE)
+    set(srcs ${ARGN})
+    list(TRANSFORM srcs PREPEND "src/")
+    target_sources(${TGT} PRIVATE ${srcs})
+endfunction ()
+function (add_module_interfaces TGT)
+    set(srcs ${ARGN})
+    list(TRANSFORM srcs PREPEND "include/clu/")
+    target_sources(${TGT} PUBLIC FILE_SET CXX_MODULES FILES ${srcs})
 endfunction ()
 
-add_headers(HEADERS
+add_headers(clu
     # Header files here (relative to ./include/clu/)
     "any_unique.h"
     "assertion.h"
@@ -115,7 +120,7 @@ add_headers(HEADERS
     "text/print.h"
     "text/utf_convert.h"
 )
-add_sources(SOURCES
+add_sources(clu
     # Source files here (relative to ./src/)
     "assertion.cpp"
     "file.cpp"
@@ -143,8 +148,11 @@ add_sources(SOURCES
     "text/print.cpp"
     "text/utf_convert.cpp"
 )
+add_module_interfaces(clu
+    "clu.ixx"
+    "text/text.ixx"
+)
 
-target_sources(clu PRIVATE ${HEADERS} ${SOURCES})
 target_set_options(clu PRIVATE)
 target_set_warnings(clu PRIVATE)
 target_set_cxx_std(clu)
@@ -191,6 +199,7 @@ install(TARGETS clu
     ARCHIVE DESTINATION lib
     RUNTIME DESTINATION bin
     PUBLIC_HEADER DESTINATION include
+    FILE_SET CXX_MODULES DESTINATION include
 )
 
 include(CMakePackageConfigHelpers)
