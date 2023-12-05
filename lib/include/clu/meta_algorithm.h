@@ -40,9 +40,6 @@ namespace clu::meta
         };
     } // namespace detail
 
-    template <typename T>
-    inline constexpr auto _v = T::value;
-
     template <template <typename...> typename Fn, typename... Ts>
     using invoke_unquoted = typename detail::indirection<dependent_false<Ts...>>::template type<Fn, Ts...>;
     template <template <typename...> typename Fn, typename... Ts>
@@ -69,6 +66,9 @@ namespace clu::meta
     template <typename T> using _t = typename T::type;
     using _t_q = quote<_t>;
     // clang-format on
+
+    template <typename T>
+    inline constexpr auto _v = T::value;
 
     template <typename Pred, typename TrueTrans, typename FalseTrans = id_q>
     struct if_q
@@ -226,6 +226,9 @@ namespace clu::meta
 
         template <std::size_t I, typename T>
         type_tag_t<T> nth_type_fn(indexed_type<I, T>);
+
+        template <typename First, typename...>
+        using first_impl = First;
     } // namespace detail
 
     template <std::size_t I>
@@ -237,6 +240,10 @@ namespace clu::meta
     };
     template <typename List, std::size_t I>
     using nth_type_l = unpack_invoke<List, nth_type_q<I>>;
+
+    using first_q = quote<detail::first_impl>;
+    template <typename List>
+    using first_l = unpack_invoke<List, first_q>;
 
     template <typename T>
     struct push_back_q
@@ -314,6 +321,26 @@ namespace clu::meta
     using none_of_l = unpack_invoke<List, none_of_q<Pred>>;
     template <typename List, typename Pred = id_q>
     inline constexpr bool none_of_lv = unpack_invoke_v<List, none_of_q<Pred>>;
+
+    // clang-format off
+    template <typename Pred = id_q>
+    struct find_if_q
+    {
+        template <typename... Ts>
+        struct fn : value_tag_t<npos> {};
+    };
+    template <typename Pred>
+    template <typename First, typename... Rest>
+        requires (invoke_v<Pred, First>)
+    struct find_if_q<Pred>::fn<First, Rest...> : std::integral_constant<size_t, 0> {};
+    template <typename Pred>
+    template <typename First, typename... Rest>
+    struct find_if_q<Pred>::fn<First, Rest...> : detail::add_one_t<fn<Rest...>> {};
+    // clang-format on
+    template <typename List, typename Pred = id_q>
+    using find_if_l = unpack_invoke<List, find_if_q<Pred>>;
+    template <typename List, typename Pred = id_q>
+    inline constexpr auto find_if_lv = unpack_invoke_v<List, find_if_q<Pred>>;
 
     // clang-format off
     template <typename Target>
