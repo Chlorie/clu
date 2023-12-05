@@ -12,7 +12,7 @@ namespace clu
     }
 
     template <typename Enum>
-    concept flag_enum = enumeration<Enum> &&(to_underlying(Enum::flags_bit_size) > 0);
+    concept flag_enum = enumeration<Enum> && (to_underlying(Enum::flags_bit_size) > 0);
 
     template <typename Enum>
     class flags

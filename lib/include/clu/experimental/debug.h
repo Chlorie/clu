@@ -25,4 +25,4 @@ namespace clu
             return *this;
         }
     };
-}
+} // namespace clu

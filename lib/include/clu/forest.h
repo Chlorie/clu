@@ -90,7 +90,9 @@ namespace clu
 
             template <typename... Ts>
                 requires std::constructible_from<T, Ts&&...>
-            constexpr explicit node(Ts&&... args): value(std::forward<Ts>(args)...) {}
+            constexpr explicit node(Ts&&... args): value(std::forward<Ts>(args)...)
+            {
+            }
 
             constexpr bool is_last_sibling() const noexcept { return this->parent->child == next; }
             constexpr bool is_first_sibling() const noexcept { return this->parent->child == this; }

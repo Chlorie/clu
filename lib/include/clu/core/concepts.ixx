@@ -1,44 +1,46 @@
-#pragma once
-
+module;
 #include <concepts>
 #include <ranges>
 
-#include "type_traits.h"
+export module clu.core:concepts;
+import :type_traits;
 
 namespace clu
 {
-    template <typename T, typename U>
-    concept similar_to = std::same_as<std::remove_cvref_t<T>, std::remove_cvref_t<U>>;
+    export
+    {
+        template <typename T, typename U>
+        concept similar_to = std::same_as<std::remove_cvref_t<T>, std::remove_cvref_t<U>>;
 
-    // clang-format off
-    template <typename Inv, typename Res, typename... Ts>
-    concept invocable_of = std::invocable<Inv, Ts...> && std::convertible_to<std::invoke_result_t<Inv, Ts...>, Res>;
-    template <typename F, typename... Args>
-    concept nothrow_invocable =
-        std::invocable<F, Args...> &&
-        std::is_nothrow_invocable_v<F, Args...>;
+        // clang-format off
+        template <typename Inv, typename Res, typename... Ts>
+        concept invocable_of = std::invocable<Inv, Ts...> && std::convertible_to<std::invoke_result_t<Inv, Ts...>, Res>;
+        template <typename F, typename... Args>
+        concept nothrow_invocable =
+            std::invocable<F, Args...> &&
+            std::is_nothrow_invocable_v<F, Args...>;
 
-    template <typename F, typename... Args>
-    concept callable =
-        requires(F func, Args... args) { static_cast<F&&>(func)(static_cast<Args&&>(args)...); };
-    template <typename F, typename... Args>
-    concept nothrow_callable =
-        requires(F func, Args... args) { { static_cast<F&&>(func)(static_cast<Args&&>(args)...) } noexcept; };
+        template <typename F, typename... Args>
+        concept callable =
+            requires(F func, Args... args) { static_cast<F&&>(func)(static_cast<Args&&>(args)...); };
+        template <typename F, typename... Args>
+        concept nothrow_callable =
+            requires(F func, Args... args) { { static_cast<F&&>(func)(static_cast<Args&&>(args)...) } noexcept; };
 
-    template <typename F, typename... Args>
-    using call_result_t = decltype(std::declval<F>()(std::declval<Args>()...));
-    template <typename F, typename... Args>
-    struct call_result : std::type_identity<call_result_t<F, Args...>> {};
+        template <typename F, typename... Args>
+        using call_result_t = decltype(std::declval<F>()(std::declval<Args>()...));
+        template <typename F, typename... Args>
+        struct call_result : std::type_identity<call_result_t<F, Args...>> {};
 
-    // Some exposition-only concepts in the standard, good to have them here
-    template <typename B>
-    concept boolean_testable =
-        std::convertible_to<B, bool> &&
-        requires(B&& b) { { !static_cast<B&&>(b) } -> std::convertible_to<bool>; };
+        // Some exposition-only concepts in the standard, good to have them here
+        template <typename B>
+        concept boolean_testable =
+            std::convertible_to<B, bool> &&
+            requires(B&& b) { { !static_cast<B&&>(b) } -> std::convertible_to<bool>; };
 
-    template <typename T, typename U>
-    concept weakly_equality_comparable_with =
-        requires(const std::remove_reference_t<T>& t, const std::remove_reference_t<U>& u)
+        template <typename T, typename U>
+        concept weakly_equality_comparable_with =
+            requires(const std::remove_reference_t<T>& t, const std::remove_reference_t<U>& u)
         {
             { t == u } -> boolean_testable;
             { t != u } -> boolean_testable;
@@ -46,9 +48,9 @@ namespace clu
             { u != t } -> boolean_testable;
         };
 
-    template <typename T, typename U>
-    concept partial_ordered_with =
-        requires(const std::remove_reference_t<T>& t, const std::remove_reference_t<U>& u)
+        template <typename T, typename U>
+        concept partial_ordered_with =
+            requires(const std::remove_reference_t<T>& t, const std::remove_reference_t<U>& u)
         {
             { t <  u } -> boolean_testable;
             { t >  u } -> boolean_testable;
@@ -60,72 +62,73 @@ namespace clu
             { u <= t } -> boolean_testable;
         };
 
-    template <typename T>
-    concept movable_value = 
-        std::move_constructible<std::decay_t<T>> &&
-        std::constructible_from<std::decay_t<T>, T>;
+        template <typename T>
+        concept movable_value = 
+            std::move_constructible<std::decay_t<T>> &&
+            std::constructible_from<std::decay_t<T>, T>;
 
-    template <typename From, typename To>
-    concept decays_to = std::same_as<std::decay_t<From>, To>;
+        template <typename From, typename To>
+        concept decays_to = std::same_as<std::decay_t<From>, To>;
 
-    template <typename Derived, typename Base>
-    concept proper_subclass_of =
-        std::derived_from<Derived, Base> &&
-        (!std::same_as<Derived, Base>);
+        template <typename Derived, typename Base>
+        concept proper_subclass_of =
+            std::derived_from<Derived, Base> &&
+            (!std::same_as<Derived, Base>);
 
-    template <typename T>
-    concept class_type = decays_to<T, T> && std::is_class_v<T>;
+        template <typename T>
+        concept class_type = decays_to<T, T> && std::is_class_v<T>;
 
-    template <typename T>
-    concept nullable_pointer =
-        std::default_initializable<T> &&
-        std::copy_constructible<T> &&
-        std::is_copy_assignable_v<T> &&
-        std::equality_comparable<T> &&
-        weakly_equality_comparable_with<T, std::nullptr_t>;
+        template <typename T>
+        concept nullable_pointer =
+            std::default_initializable<T> &&
+            std::copy_constructible<T> &&
+            std::is_copy_assignable_v<T> &&
+            std::equality_comparable<T> &&
+            weakly_equality_comparable_with<T, std::nullptr_t>;
 
-    template <typename Type, template <typename...> typename Templ>
-    struct is_template_of : std::false_type {};
-    template <template <typename...> typename Templ, typename... Types>
-    struct is_template_of<Templ<Types...>, Templ> : std::true_type {};
-    template <typename Type, template <typename...> typename Templ>
-    constexpr bool is_template_of_v = is_template_of<Type, Templ>::value;
-    template <typename Type, template <typename...> typename Templ>
-    concept template_of = is_template_of<Type, Templ>::value;
-    // clang-format on
+        template <typename Type, template <typename...> typename Templ>
+        struct is_template_of : std::false_type {};
+        template <template <typename...> typename Templ, typename... Types>
+        struct is_template_of<Templ<Types...>, Templ> : std::true_type {};
+        template <typename Type, template <typename...> typename Templ>
+        constexpr bool is_template_of_v = is_template_of<Type, Templ>::value;
+        template <typename Type, template <typename...> typename Templ>
+        concept template_of = is_template_of<Type, Templ>::value;
+        // clang-format on
 
-    template <typename T, typename... Us>
-    concept same_as_any_of = (std::same_as<T, Us> || ...);
-    template <typename T, typename... Us>
-    concept same_as_none_of = (!std::same_as<T, Us> && ...);
+        template <typename T, typename... Us>
+        concept same_as_any_of = (std::same_as<T, Us> || ...);
+        template <typename T, typename... Us>
+        concept same_as_none_of = (!std::same_as<T, Us> && ...);
 
-    // clang-format off
-    template <typename T, typename U>
-    concept forwarding = 
-        (!std::is_rvalue_reference_v<T>) &&
-        std::same_as<std::remove_cvref_t<U>, U> &&
-        std::same_as<std::remove_cvref_t<T>, U>;
-    // clang-format on
+        // clang-format off
+        template <typename T, typename U>
+        concept forwarding = 
+            (!std::is_rvalue_reference_v<T>) &&
+            std::same_as<std::remove_cvref_t<U>, U> &&
+            std::same_as<std::remove_cvref_t<T>, U>;
+        // clang-format on
 
-    template <typename T>
-    concept enumeration = std::is_enum_v<T>;
+        template <typename T>
+        concept enumeration = std::is_enum_v<T>;
 
-    template <typename T>
-    concept arithmetic = std::integral<T> || std::floating_point<T>;
+        template <typename T>
+        concept arithmetic = std::integral<T> || std::floating_point<T>;
 
-    template <typename T>
-    concept trivially_copyable = std::copyable<T> && std::is_trivially_copyable_v<T>;
+        template <typename T>
+        concept trivially_copyable = std::copyable<T> && std::is_trivially_copyable_v<T>;
 
-    template <typename T, typename... Us>
-    concept implicitly_constructible_from =
-        std::constructible_from<T, Us...> && is_implicitly_constructible_from_v<T, Us...>;
+        template <typename T, typename... Us>
+        concept implicitly_constructible_from =
+            std::constructible_from<T, Us...> && is_implicitly_constructible_from_v<T, Us...>;
+
+        template <typename Ptr>
+        concept allocator_ptr = nullable_pointer<Ptr> && std::contiguous_iterator<Ptr>;
+    }
 
     namespace detail
     {
         // clang-format off
-        template <typename Ptr>
-        concept allocator_ptr = nullable_pointer<Ptr> && std::contiguous_iterator<Ptr>;
-
         template <typename T> struct pointer_of : std::type_identity<typename T::value_type*> {};
         template <typename T> requires requires { typename T::pointer; }
         struct pointer_of<T> : std::type_identity<typename T::pointer> {};
@@ -262,52 +265,55 @@ namespace clu
         // clang-format on
     } // namespace detail
 
-    template <typename T>
-    concept allocator = //
-        detail::allocator_base<T> && //
-        detail::has_valid_allocator_types<T> && //
-        detail::has_valid_allocator_ptr_operations<T> && //
-        detail::has_valid_soccc<T> && //
-        detail::has_valid_allocator_boolean_aliases<T>;
-
-    template <typename A, typename T>
-    concept allocator_for = allocator<A> && std::same_as<typename std::allocator_traits<A>::value_type, T>;
-
-    // clang-format off
-    template <typename L>
-    concept basic_lockable = requires(L m)
+    export
     {
-        m.lock();
-        { m.unlock() } noexcept;
-    };
+        template <typename T>
+        concept allocator = //
+            detail::allocator_base<T> && //
+            detail::has_valid_allocator_types<T> && //
+            detail::has_valid_allocator_ptr_operations<T> && //
+            detail::has_valid_soccc<T> && //
+            detail::has_valid_allocator_boolean_aliases<T>;
 
-    template <typename L>
-    concept lockable =
-        basic_lockable<L> &&
-        requires(L m)
+        template <typename A, typename T>
+        concept allocator_for = allocator<A> && std::same_as<typename std::allocator_traits<A>::value_type, T>;
+
+        // clang-format off
+        template <typename L>
+        concept basic_lockable = requires(L m)
         {
-            { m.try_lock() } -> boolean_testable;
+            m.lock();
+            { m.unlock() } noexcept;
         };
 
-    template <typename L>
-    concept shared_lockable = requires(L m)
-    {
-        m.lock_shared();
-        { m.try_lock_shared() } -> boolean_testable;
-        { m.unlock_shared() } noexcept;
-    };
+        template <typename L>
+        concept lockable =
+            basic_lockable<L> &&
+            requires(L m)
+            {
+                { m.try_lock() } -> boolean_testable;
+            };
 
-    template <typename M>
-    concept mutex_like =
-        std::default_initializable<M> &&
-        std::destructible<M> &&
-        (!std::copyable<M>) &&
-        (!std::movable<M>) &&
-        lockable<M>;
+        template <typename L>
+        concept shared_lockable = requires(L m)
+        {
+            m.lock_shared();
+            { m.try_lock_shared() } -> boolean_testable;
+            { m.unlock_shared() } noexcept;
+        };
 
-    template <typename M>
-    concept shared_mutex_like =
-        mutex_like<M> &&
-        shared_lockable<M>;
-    // clang-format on
+        template <typename M>
+        concept mutex_like =
+            std::default_initializable<M> &&
+            std::destructible<M> &&
+            (!std::copyable<M>) &&
+            (!std::movable<M>) &&
+            lockable<M>;
+
+        template <typename M>
+        concept shared_mutex_like =
+            mutex_like<M> &&
+            shared_lockable<M>;
+        // clang-format on
+    }
 } // namespace clu

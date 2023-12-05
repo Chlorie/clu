@@ -4,7 +4,7 @@
 #include <compare>
 
 #ifdef CLU_MSVC
-#include <intrin.h>
+    #include <intrin.h>
 #endif
 
 #include "../integer_literals.h"

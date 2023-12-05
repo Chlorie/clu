@@ -15,4 +15,4 @@ namespace clu
         static constexpr int spin_count = 20;
         std::atomic_flag locked_;
     };
-}
+} // namespace clu

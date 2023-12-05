@@ -23,15 +23,43 @@ namespace clu::testing
     class LifetimeNotifier final
     {
         friend class LifetimeCountingScope;
+
     private:
         inline static LifetimeCounter* counter_ = nullptr;
+
     public:
-        LifetimeNotifier() { if (counter_) counter_->def_ctor++; }
-        LifetimeNotifier(const LifetimeNotifier&) { if (counter_) counter_->copy_ctor++; }
-        LifetimeNotifier(LifetimeNotifier&&) noexcept { if (counter_) counter_->move_ctor++; }
-        LifetimeNotifier& operator=(const LifetimeNotifier&) { if (counter_) counter_->copy_assign++; return *this; }
-        LifetimeNotifier& operator=(LifetimeNotifier&&) noexcept { if (counter_) counter_->move_assign++; return *this; }
-        ~LifetimeNotifier() noexcept { if (counter_) counter_->dtor++; }
+        LifetimeNotifier()
+        {
+            if (counter_)
+                counter_->def_ctor++;
+        }
+        LifetimeNotifier(const LifetimeNotifier&)
+        {
+            if (counter_)
+                counter_->copy_ctor++;
+        }
+        LifetimeNotifier(LifetimeNotifier&&) noexcept
+        {
+            if (counter_)
+                counter_->move_ctor++;
+        }
+        LifetimeNotifier& operator=(const LifetimeNotifier&)
+        {
+            if (counter_)
+                counter_->copy_assign++;
+            return *this;
+        }
+        LifetimeNotifier& operator=(LifetimeNotifier&&) noexcept
+        {
+            if (counter_)
+                counter_->move_assign++;
+            return *this;
+        }
+        ~LifetimeNotifier() noexcept
+        {
+            if (counter_)
+                counter_->dtor++;
+        }
     };
 
     class LifetimeCountingScope final
@@ -53,4 +81,4 @@ namespace clu::testing
         LifetimeCountingScope& operator=(const LifetimeCountingScope&) = delete;
         LifetimeCountingScope& operator=(LifetimeCountingScope&&) = delete;
     };
-}
+} // namespace clu::testing

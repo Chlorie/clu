@@ -2,10 +2,10 @@
 
 #include <variant>
 
+import clu.core;
 #include "awaitable_traits.h"
 #include "../assertion.h"
 #include "../stop_token.h"
-#include "../tag_invoke.h"
 #include "../meta_list.h"
 #include "../meta_algorithm.h"
 #include "../unique_coroutine_handle.h"

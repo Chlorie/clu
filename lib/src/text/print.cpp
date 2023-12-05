@@ -2,8 +2,8 @@
 #include "clu/text/utf_convert.h"
 
 #ifdef _WIN32
-#include <Windows.h>
-#include <io.h>
+    #include <Windows.h>
+    #include <io.h>
 #endif
 
 namespace clu

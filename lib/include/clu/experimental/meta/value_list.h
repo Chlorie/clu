@@ -11,4 +11,4 @@ namespace clu::meta
         using type = type_list<decltype(Vs)...>;
     };
     using empty_value_list = value_list<>;
-}
+} // namespace clu::meta

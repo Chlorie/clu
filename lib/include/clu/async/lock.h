@@ -157,7 +157,11 @@ namespace clu::async
             this->check_lockable();
             return this->ptr_->lock_async() | exec::then([this] { this->locked_ = true; });
         }
-        bool try_lock() requires lockable<L> { return (this->locked_ = this->ptr_->try_lock()); }
+        bool try_lock()
+            requires lockable<L>
+        {
+            return (this->locked_ = this->ptr_->try_lock());
+        }
     };
 
     template <shared_lockable L>

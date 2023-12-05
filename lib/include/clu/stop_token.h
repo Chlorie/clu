@@ -2,7 +2,7 @@
 
 #include <thread>
 
-#include "concepts.h"
+import clu.core;
 #include "concurrency.h"
 
 namespace clu

@@ -1,16 +1,16 @@
 // Rough implementation of P1895R0:
 // tag_invoke: A general pattern for supporting customisable functions
 
-#pragma once
-
+module;
 #include <type_traits>
+#include "../macros.h"
 
-#include "concepts.h"
-#include "macros.h"
+export module clu.core:tag_invoke;
+import :concepts;
 
 namespace clu
 {
-    namespace detail::taginv
+    namespace taginv
     {
         void tag_invoke();
 
@@ -57,18 +57,21 @@ namespace clu
         {
             using type = call_result_t<tag_invoke_t, Tag, Args...>;
         };
-    } // namespace detail::taginv
+    } // namespace taginv
 
-    inline namespace inl
+    export
     {
-        inline constexpr detail::taginv::tag_invoke_t tag_invoke{};
+        inline namespace inl
+        {
+            inline constexpr taginv::tag_invoke_t tag_invoke{};
+        }
+
+        using taginv::tag_invocable;
+        using taginv::nothrow_tag_invocable;
+        using taginv::tag_invoke_result;
+        using taginv::tag_invoke_result_t;
+
+        template <auto& Tag>
+        using tag_t = std::decay_t<decltype(Tag)>;
     }
-
-    using detail::taginv::tag_invocable;
-    using detail::taginv::nothrow_tag_invocable;
-    using detail::taginv::tag_invoke_result;
-    using detail::taginv::tag_invoke_result_t;
-
-    template <auto& Tag>
-    using tag_t = std::decay_t<decltype(Tag)>;
 } // namespace clu

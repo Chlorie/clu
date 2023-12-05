@@ -45,7 +45,10 @@ namespace clu
 
         template <typename = int>
             requires(!std::is_void_v<Pms>)
-        auto& promise() const noexcept { return handle_.promise(); }
+        auto& promise() const noexcept
+        {
+            return handle_.promise();
+        }
 
         bool done() const noexcept { return handle_.done(); }
 

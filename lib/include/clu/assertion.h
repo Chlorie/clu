@@ -6,7 +6,7 @@
 
 #ifdef NDEBUG
 
-#define CLU_ASSERT(expr, msg) ((void)0)
+    #define CLU_ASSERT(expr, msg) ((void)0)
 
 namespace clu
 {
@@ -14,14 +14,14 @@ namespace clu
 
     [[noreturn]] inline void unreachable()
     {
-#if defined(CLU_GCC_COMPILERS)
+    #if defined(CLU_GCC_COMPILERS)
         __builtin_unreachable();
-#elif defined(CLU_MSVC_COMPILERS)
+    #elif defined(CLU_MSVC_COMPILERS)
         __assume(false);
-#else
+    #else
         // No known unreachable builtin is available, just abort
         std::abort();
-#endif
+    #endif
     }
 } // namespace clu
 
@@ -39,6 +39,7 @@ namespace clu
     [[noreturn]] void unreachable();
 } // namespace clu
 
-#define CLU_ASSERT(expr, msg) (void)(!!(expr) || (::clu::detail::assertion_failure(#expr, msg, __FILE__, __LINE__), 0))
+    #define CLU_ASSERT(expr, msg)                                                                                      \
+        (void)(!!(expr) || (::clu::detail::assertion_failure(#expr, msg, __FILE__, __LINE__), 0))
 
 #endif

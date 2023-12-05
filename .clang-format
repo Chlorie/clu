@@ -13,6 +13,7 @@ Cpp11BracedListStyle: true
 EmptyLineBeforeAccessModifier: Always
 FixNamespaceComments: true
 IndentCaseLabels: true
+IndentPPDirectives: BeforeHash
 IndentRequires: true
 NamespaceIndentation: All
 SortIncludes: false

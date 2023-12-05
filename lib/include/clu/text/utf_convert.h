@@ -4,7 +4,7 @@
 #include <utility>
 #include <system_error>
 
-#include "../integer_literals.h"
+import clu.core;
 
 namespace clu
 {

@@ -32,7 +32,6 @@ add_headers(clu
     "buffer.h"
     "c_str_view.h"
     "chrono_utils.h"
-    "concepts.h"
     "concurrency.h"
     "copy_elider.h"
     "coroutine.h"
@@ -50,7 +49,6 @@ add_headers(clu
     "generator.h"
     "hash.h"
     "indices.h"
-    "integer_literals.h"
     "intrusive_list.h"
     "invocable_wrapper.h"
     "iterator.h"
@@ -77,10 +75,8 @@ add_headers(clu
     "static_vector.h"
     "stop_token.h"
     "string_utils.h"
-    "tag_invoke.h"
     "task.h"
     "text.h"
-    "type_traits.h"
     "unique_coroutine_handle.h"
     "uri.h"
     "uuid.h"
@@ -150,6 +146,13 @@ add_sources(clu
 )
 add_module_interfaces(clu
     "clu.ixx"
+
+    "core/core.ixx"
+    "core/concepts.ixx"
+    "core/integer_literals.ixx"
+    "core/tag_invoke.ixx"
+    "core/type_traits.ixx"
+
     "text/text.ixx"
 )
 
@@ -168,12 +171,6 @@ if (MSVC)
         $<INSTALL_INTERFACE:/NATVIS:${CLU_NATVIS_FILE}>
         $<BUILD_INTERFACE:/NATVIS:${CMAKE_CURRENT_SOURCE_DIR}/${CLU_NATVIS_FILE}>
     )
-endif ()
-
-if (BUILD_SHARED_LIBS)
-    target_compile_definitions(clu
-        PRIVATE CLU_EXPORT_SHARED
-        PUBLIC CLU_BUILD_SHARED)
 endif ()
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)

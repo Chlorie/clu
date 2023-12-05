@@ -4,8 +4,8 @@
 #include <bit>
 #include <cstring>
 
+import clu.core;
 #include "assertion.h"
-#include "concepts.h"
 
 namespace clu
 {
@@ -53,8 +53,7 @@ namespace clu
                 }
             std::copy(src, src + size, dst);
         }
-        else
-            std::memmove(dst, src, size);
+        else std::memmove(dst, src, size);
     }
 
     /**
@@ -139,8 +138,7 @@ namespace clu
                     arr[i] = ptr_[i];
                 return std::bit_cast<U>(arr);
             }
-            else
-                return std::bit_cast<U>(*reinterpret_cast<const T(*)[sizeof(U)]>(ptr_));
+            else return std::bit_cast<U>(*reinterpret_cast<const T(*)[sizeof(U)]>(ptr_));
         }
 
         template <trivially_copyable U>

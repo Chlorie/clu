@@ -3,9 +3,9 @@
 #include <array>
 #include <format>
 
+import clu.core;
 #include "hash.h"
 #include "random.h"
-#include "integer_literals.h"
 
 namespace clu
 {
@@ -14,7 +14,7 @@ namespace clu
     public:
         using value_type = std::array<std::byte, 16>;
 
-        enum class variant_type : uint8_t
+        enum class variant_type : u8
         {
             ncs = 0,
             rfc4122 = 1,
@@ -22,7 +22,7 @@ namespace clu
             reserved = 3
         };
 
-        enum class version_type : uint8_t
+        enum class version_type : u8
         {
             nil = 0,
             time_based = 1,
@@ -58,7 +58,7 @@ namespace clu
         [[nodiscard]] constexpr variant_type variant() const noexcept
         {
             using enum variant_type;
-            const auto octet = static_cast<uint8_t>(data_[8]);
+            const auto octet = static_cast<u8>(data_[8]);
             // clang-format off
             if (!(octet & 0x80)) return ncs;
             if (!(octet & 0x40)) return rfc4122;
@@ -69,7 +69,7 @@ namespace clu
 
         [[nodiscard]] constexpr version_type version() const noexcept
         {
-            return static_cast<version_type>(static_cast<uint8_t>(data_[6] >> 4) & 15u);
+            return static_cast<version_type>(static_cast<u8>(data_[6] >> 4) & 15u);
         }
 
         [[nodiscard]] constexpr static uuid nil() noexcept { return {}; }
@@ -113,7 +113,7 @@ namespace clu
     {
         inline namespace uuid_literal
         {
-            [[nodiscard]] inline uuid operator""_uuid(const char* ptr, const std::size_t size)
+            [[nodiscard]] inline uuid operator""_uuid(const char* ptr, const size_t size)
             {
                 return uuid::from_string({ptr, size});
             }
@@ -128,7 +128,7 @@ struct std::hash<clu::uuid>
     {
         std::size_t hash = 0;
         for (const auto byte : id.data())
-            clu::hash_combine(hash, static_cast<uint8_t>(byte));
+            clu::hash_combine(hash, static_cast<clu::u8>(byte));
         return hash;
     }
 };

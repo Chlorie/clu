@@ -3,7 +3,7 @@
 #include <tuple>
 #include <memory>
 
-#include "concepts.h"
+import clu.core;
 #include "meta_algorithm.h"
 #include "scope.h"
 
@@ -175,7 +175,7 @@ namespace clu
         return pointer;
     }
 
-    template <detail::allocator_ptr Ptr, allocator Alloc>
+    template <allocator_ptr Ptr, allocator Alloc>
     void delete_object_using_allocator(const Alloc& alloc, Ptr pointer) noexcept
     {
         using T = std::iter_value_t<Ptr>;

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "concepts.h"
+import clu.core;
 #include "invocable_wrapper.h"
 
 namespace clu
@@ -38,7 +38,7 @@ namespace clu
 #define CLU_COMPOUND_PIPER_CALL_IMPL(cnst, ref)                                                                        \
     template <typename Arg>                                                                                            \
         requires std::invocable<cnst First ref, Arg&&> &&                                                              \
-            std::invocable<cnst Second ref, std::invoke_result_t<cnst First ref, Arg&&>>                               \
+        std::invocable<cnst Second ref, std::invoke_result_t<cnst First ref, Arg&&>>                                   \
     constexpr decltype(auto) operator()(Arg&& arg)                                                                     \
         cnst ref noexcept(std::is_nothrow_invocable_v<cnst First ref, Arg&&> &&                                        \
             std::is_nothrow_invocable_v<cnst Second ref, std::invoke_result_t<cnst First ref, Arg&&>>)                 \

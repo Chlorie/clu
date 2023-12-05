@@ -2,9 +2,8 @@
 
 #include <compare>
 
-#include "concepts.h"
+import clu.core;
 #include "meta_list.h"
-#include "integer_literals.h"
 
 namespace clu::meta
 {

@@ -5,7 +5,7 @@
 namespace clu
 {
     template <typename T, typename... Ts>
-        requires(std::constructible_from<T, Ts&&>&&...)
+        requires(std::constructible_from<T, Ts &&> && ...)
     [[nodiscard]] std::vector<T> make_vector(Ts&&... list)
     {
         std::vector<T> vec;

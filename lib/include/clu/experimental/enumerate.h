@@ -38,7 +38,7 @@ namespace clu
                 constexpr iterator() = default;
                 explicit constexpr iterator(const Iter iter): it_(iter) {}
 
-                [[nodiscard]] constexpr reference operator*() { return { index_, *it_ }; }
+                [[nodiscard]] constexpr reference operator*() { return {index_, *it_}; }
 
                 constexpr iterator& operator++()
                 {
@@ -54,8 +54,14 @@ namespace clu
                     return res;
                 }
 
-                [[nodiscard]] friend constexpr bool operator==(const iterator& lhs, const iterator& rhs) { return lhs.it_ == rhs.it_; }
-                [[nodiscard]] friend constexpr bool operator==(const iterator& it, const sentinel& sent) { return it.it_ == sent.sent; }
+                [[nodiscard]] friend constexpr bool operator==(const iterator& lhs, const iterator& rhs)
+                {
+                    return lhs.it_ == rhs.it_;
+                }
+                [[nodiscard]] friend constexpr bool operator==(const iterator& it, const sentinel& sent)
+                {
+                    return it.it_ == sent.sent;
+                }
             };
 
             using const_iterator = iterator;
@@ -67,14 +73,17 @@ namespace clu
             explicit constexpr enumerate_t(Rng&& range): range_(static_cast<Rng&&>(range)) {}
 
             [[nodiscard]] constexpr auto begin() { return iterator(std::begin(range_)); }
-            [[nodiscard]] constexpr auto end() { return sentinel{ std::end(range_) }; }
+            [[nodiscard]] constexpr auto end() { return sentinel{std::end(range_)}; }
             [[nodiscard]] constexpr auto cbegin() const { return iterator(std::cbegin(range_)); }
-            [[nodiscard]] constexpr auto cend() const { return sentinel{ std::cend(range_) }; }
+            [[nodiscard]] constexpr auto cend() const { return sentinel{std::cend(range_)}; }
             [[nodiscard]] constexpr auto begin() const { return cbegin(); }
             [[nodiscard]] constexpr auto end() const { return cend(); }
         };
-    }
+    } // namespace detail
 
     template <std::ranges::input_range Rng>
-    [[nodiscard]] constexpr auto enumerate(Rng&& range) { return detail::enumerate_t<Rng>(std::forward<Rng>(range)); }
-}
+    [[nodiscard]] constexpr auto enumerate(Rng&& range)
+    {
+        return detail::enumerate_t<Rng>(std::forward<Rng>(range));
+    }
+} // namespace clu

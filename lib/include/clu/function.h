@@ -465,10 +465,7 @@ namespace clu
     {                                                                                                                  \
     public:                                                                                                            \
         using detail::function_base<R(Ts...) cnst ref noexc, Policy, Alloc, basic_function>::function_base;            \
-        R operator()(Ts... args) cnst ref noexc                                                                        \
-        {                                                                                                              \
-            return this->fptr_(this->obj_.get(), static_cast<Ts&&>(args)...);                                          \
-        }                                                                                                              \
+        R operator()(Ts... args) cnst ref noexc { return this->fptr_(this->obj_.get(), static_cast<Ts&&>(args)...); }  \
     }
 
     CLU_BASIC_FUNC_DEF(, , );

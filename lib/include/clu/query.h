@@ -2,7 +2,7 @@
 
 #include <tuple>
 
-#include "tag_invoke.h"
+import clu.core;
 #include "meta_algorithm.h"
 #include "macros.h"
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "type_traits.h"
+import clu.core;
 #include "meta_list.h"
 
 namespace clu

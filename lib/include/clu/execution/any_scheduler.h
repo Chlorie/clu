@@ -158,8 +158,8 @@ namespace clu::exec
 
         template <typename T>
         concept non_in_place_stoppable_token = //
-            (!std::same_as<T, in_place_stop_token>) && //
-            (!unstoppable_token<T>) && //
+            (!std::same_as<T, in_place_stop_token>)&& //
+            (!unstoppable_token<T>)&& //
             stoppable_token<T>;
 
         template <typename R>

@@ -11,8 +11,7 @@
 namespace clu
 {
     template <typename T>
-    concept hasher = requires(T& h, const const_buffer bytes)
-    {
+    concept hasher = requires(T& h, const const_buffer bytes) {
         h.update(bytes);
         h.finalize();
     };
@@ -398,8 +397,7 @@ namespace clu
                     byte_array[j] = static_cast<std::byte>(sv[j]);
                 h.update({byte_array.data(), leftover_size});
             }
-            else
-                h.update(sv);
+            else h.update(sv);
         }
 
         template <hasher H>

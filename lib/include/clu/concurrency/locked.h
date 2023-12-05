@@ -4,8 +4,8 @@
 #include <shared_mutex>
 #include <functional>
 
+import clu.core;
 #include "../meta_algorithm.h"
-#include "../concepts.h"
 
 namespace clu
 {
@@ -17,7 +17,8 @@ namespace clu
         using shared_lock = meta::invoke<
             conditional_t<shared_lockable<L>, meta::quote<std::shared_lock>, meta::quote<std::unique_lock>>, L>;
 
-        locked() noexcept(std::is_nothrow_default_constructible_v<T>) requires std::default_initializable<T>
+        locked() noexcept(std::is_nothrow_default_constructible_v<T>)
+            requires std::default_initializable<T>
         {
             value_.construct();
         }
@@ -156,4 +157,4 @@ namespace clu
 
     template <typename T>
     locked(T) -> locked<T>;
-}
+} // namespace clu

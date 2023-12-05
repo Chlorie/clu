@@ -23,11 +23,11 @@ export namespace clu
 
 // WORKAROUND: If this is not exported, anything related to std::format breaks
 #if defined(CLU_MSVC) && _MSC_FULL_VER <= 193833130
-#pragma warning(push)
-#pragma warning(disable : 4455)
+    #pragma warning(push)
+    #pragma warning(disable : 4455)
 export namespace std
 {
     using std::operator""sv;
 } // namespace std
-#pragma warning(pop)
+    #pragma warning(pop)
 #endif

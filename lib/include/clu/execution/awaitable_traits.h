@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../concepts.h"
+import clu.core;
 #include "../coroutine.h"
 #include "../macros.h"
 

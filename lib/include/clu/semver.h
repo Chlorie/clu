@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <format>
 
-#include "integer_literals.h"
+import clu.core;
 
 namespace clu
 {

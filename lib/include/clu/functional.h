@@ -60,28 +60,28 @@ namespace clu
 
 #else // ^^^ has deducing this / no deducing this vvv
 
-#define CLU_COMPOSE_OP(Const, Ref)                                                                                     \
-    template <typename... Args>                                                                                        \
-        requires composed_invocable<Const F Ref, Const G Ref, Args...>                                                 \
-    constexpr decltype(auto) operator()(Args&&... args)                                                                \
-        Const Ref noexcept(nothrow_composed_invocable<Const F Ref, Const G Ref, Args...>)                              \
-    {                                                                                                                  \
-        if constexpr (std::is_void_v<std::invoke_result_t<Const F Ref, Args...>>)                                      \
+    #define CLU_COMPOSE_OP(Const, Ref)                                                                                 \
+        template <typename... Args>                                                                                    \
+            requires composed_invocable<Const F Ref, Const G Ref, Args...>                                             \
+        constexpr decltype(auto) operator()(Args&&... args)                                                            \
+            Const Ref noexcept(nothrow_composed_invocable<Const F Ref, Const G Ref, Args...>)                          \
         {                                                                                                              \
-            std::invoke(static_cast<Const F Ref>(f_), static_cast<Args&&>(args)...);                                   \
-            return std::invoke(static_cast<Const G Ref>(g_));                                                          \
+            if constexpr (std::is_void_v<std::invoke_result_t<Const F Ref, Args...>>)                                  \
+            {                                                                                                          \
+                std::invoke(static_cast<Const F Ref>(f_), static_cast<Args&&>(args)...);                               \
+                return std::invoke(static_cast<Const G Ref>(g_));                                                      \
+            }                                                                                                          \
+            else                                                                                                       \
+                return std::invoke(static_cast<Const G Ref>(g_),                                                       \
+                    std::invoke(static_cast<Const F Ref>(f_), static_cast<Args&&>(args)...));                          \
         }                                                                                                              \
-        else                                                                                                           \
-            return std::invoke(static_cast<Const G Ref>(g_),                                                           \
-                std::invoke(static_cast<Const F Ref>(f_), static_cast<Args&&>(args)...));                              \
-    }                                                                                                                  \
-    static_assert(true)
+        static_assert(true)
 
             CLU_COMPOSE_OP(, &);
             CLU_COMPOSE_OP(const, &);
             CLU_COMPOSE_OP(, &&);
             CLU_COMPOSE_OP(const, &&);
-#undef CLU_COMPOSE_OP
+    #undef CLU_COMPOSE_OP
 
 #endif
 

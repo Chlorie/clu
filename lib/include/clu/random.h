@@ -7,7 +7,7 @@
 #include <numeric>
 #include <bit>
 
-#include "concepts.h"
+import clu.core;
 #include "assertion.h"
 #include "memory.h"
 

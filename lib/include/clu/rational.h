@@ -126,4 +126,4 @@ namespace clu
     {
         return value.numerator() > 0 ? value : -value;
     }
-}
+} // namespace clu
