@@ -2,6 +2,7 @@
 
 #include <concepts>
 #include <ranges>
+#include <memory>
 
 #include "type_traits.h"
 
