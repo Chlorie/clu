@@ -18,7 +18,7 @@ namespace clu
     template <typename... Args>
     void print(std::FILE* file, const std::format_string<Args...> fmt, Args&&... args)
     {
-        clu::vprint(file, fmt.get(), std::make_format_args(static_cast<Args&&>(args)...));
+        clu::vprint(file, fmt.get(), std::make_format_args(args...));
     }
 
     template <typename... Args>
@@ -30,7 +30,7 @@ namespace clu
     template <typename... Args>
     void println(std::FILE* file, std::format_string<Args...> fmt, Args&&... args)
     {
-        std::string text = std::vformat(fmt.get(), std::make_format_args(static_cast<Args&&>(args)...));
+        std::string text = std::vformat(fmt.get(), std::make_format_args(args...));
         text.push_back('\n');
         print_nonformatted(file, text);
     }
