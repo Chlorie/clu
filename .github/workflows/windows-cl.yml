@@ -26,13 +26,13 @@ jobs:
             cpp_compiler: cl
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - uses: lukka/get-cmake@latest
 
     - uses: lukka/run-vcpkg@v11
       with:
-        vcpkgGitCommitId: 662dbb50e63af15baa2909b7eac5b1b87e86a0aa
+        vcpkgGitCommitId: 89f00b3b8611028566a5264afce725cdfdfddbb4
 
     - uses: lukka/run-cmake@v10
       with: 
